@@ -1,0 +1,1 @@
+ALTER TABLE "Note" ADD COLUMN "quote" TEXT;

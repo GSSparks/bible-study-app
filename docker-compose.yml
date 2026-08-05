@@ -1,0 +1,41 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8088:8088"
+    environment:
+      PORT: 8088
+      DATABASE_URL: postgresql://bible:${POSTGRES_PASSWORD:-bible}@db:5432/bible_study
+      SWORD_MODULES_PATH: /data/sword-modules
+      PDF_STORAGE_PATH: /data/pdfs
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+    volumes:
+      - sword_modules:/data/sword-modules
+      - pdf_storage:/data/pdfs
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bible
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bible}
+      POSTGRES_DB: bible_study
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bible -d bible_study"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  sword_modules:
+  pdf_storage:
+  pg_data:

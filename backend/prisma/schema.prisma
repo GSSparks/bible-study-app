@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// A note can be anchored to a passage (reference + module set) or
+// freestanding (a personal study note, journal entry, etc. — reference
+// and module left null). It can also carry a `quote`: the exact text the
+// person selected when creating it, distinct from `body` (their own
+// commentary on that quote). Both kinds are searchable and both can be
+// pulled into the study assistant's context.
+model Note {
+  id         String   @id @default(cuid())
+  title      String?
+  reference  String?
+  module     String? // which SWORD module the note is anchored to, e.g. "KJV"
+  quote      String? // the exact selected text this note is annotating, if any
+  body       String
+  tags       String[] @default([])
+  fromAssistant Boolean @default(false) // saved from a study assistant reply
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([reference])
+}
+
+model Highlight {
+  id        String   @id @default(cuid())
+  reference String
+  module    String
+  color     String   @default("yellow")
+  createdAt DateTime @default(now())
+
+  @@index([reference])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  reference String
+  module    String
+  label     String?
+  createdAt DateTime @default(now())
+
+  @@index([reference])
+}
+
+// Metadata for uploaded PDFs (commentaries, study guides, etc.)
+// The actual file lives on disk under the pdf storage volume.
+model Document {
+  id          String   @id @default(cuid())
+  title       String
+  author      String?
+  filename    String   @unique
+  pageCount   Int?
+  extractedText String? // used for full-text search alongside SWORD content
+  createdAt   DateTime @default(now())
+}
+
+// A saved LLM study conversation. Historically scoped to one
+// reference/module; now a conversation's context can span several open
+// windows at once, so those are optional and the full source list lives
+// in contextSnapshot.
+model StudySession {
+  id            String   @id @default(cuid())
+  reference     String?
+  module        String?
+  messages      Json // [{ role, content, ts }]
+  contextSnapshot Json? // the assembled context sent to the LLM at session start
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
