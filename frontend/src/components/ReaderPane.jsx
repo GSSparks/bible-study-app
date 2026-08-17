@@ -4,6 +4,7 @@ import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
 import ContextZoomMenu from './ContextZoomMenu.jsx';
+import BookChapterPicker from './BookChapterPicker.jsx';
 
 function groupVerses(verses) {
   const segments = [];
@@ -71,6 +72,7 @@ export default function ReaderPane({
   const [error, setError] = useState(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
+  const [bookPicker, setBookPicker] = useState(null);
   const [selectedRange, setSelectedRange] = useState(null);
   const [focusedVerseKey, setFocusedVerseKey] = useState(null);
   const verseRefs = useRef(new Map());
@@ -228,36 +230,50 @@ export default function ReaderPane({
       <header className="mb-4 flex items-baseline gap-3">
         <h1 className="font-display text-2xl text-pageText">{reference || 'Select a passage'}</h1>
         {module && <span className="font-mono text-xs uppercase tracking-wide text-pageMuted">{module}</span>}
-        {first && (
-          <div className="ml-auto flex gap-2">
-            {!focusMode && (
+        <div className="ml-auto flex gap-2">
+          {onNavigate && (
+            <button
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setBookPicker({ x: rect.left, y: rect.bottom + 4 });
+              }}
+              className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
+              title="Browse by book and chapter"
+            >
+              Browse ▾
+            </button>
+          )}
+          {first && (
+            <>
+              {!focusMode && (
+                <button
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setContextMenu({ x: rect.left, y: rect.bottom + 4 });
+                  }}
+                  className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
+                  title="Zoom out to see more context"
+                >
+                  context ▾
+                </button>
+              )}
               <button
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setContextMenu({ x: rect.left, y: rect.bottom + 4 });
-                }}
+                onClick={() => goToChapter(-1)}
                 className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
-                title="Zoom out to see more context"
+                title="Previous chapter"
               >
-                context ▾
+                ‹
               </button>
-            )}
-            <button
-              onClick={() => goToChapter(-1)}
-              className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
-              title="Previous chapter"
-            >
-              ‹
-            </button>
-            <button
-              onClick={() => goToChapter(1)}
-              className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
-              title="Next chapter"
-            >
-              ›
-            </button>
-          </div>
-        )}
+              <button
+                onClick={() => goToChapter(1)}
+                className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
+                title="Next chapter"
+              >
+                ›
+              </button>
+            </>
+          )}
+        </div>
       </header>
 
       {loading && <p className="text-pageMuted">Loading passage…</p>}
@@ -358,6 +374,15 @@ export default function ReaderPane({
           </>,
           document.body
         )}
+
+      {bookPicker && (
+        <BookChapterPicker
+          x={bookPicker.x}
+          y={bookPicker.y}
+          onSelectChapter={(chapterRef) => onNavigate?.(focusMode ? `${chapterRef}:1` : chapterRef)}
+          onClose={() => setBookPicker(null)}
+        />
+      )}
 
       {contextMenu && (
         <ContextZoomMenu

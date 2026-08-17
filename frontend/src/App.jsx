@@ -16,6 +16,7 @@ const DOCK_TABS = ['notes', 'library', 'assistant'];
 
 export default function App() {
   const [focusedReference, setFocusedReference] = useState('John 3:16');
+  const [navHistory, setNavHistory] = useState({ entries: ['John 3:16'], index: 0 });
   const bible = useTabbedWindow([{ id: 'bible-0', module: '', title: 'Bible' }]);
   const commentary = useTabbedWindow([]);
   const dictionary = useTabbedWindow([]);
@@ -74,8 +75,34 @@ export default function App() {
     ...commentary.tabs.map((t) => ({ module: t.module, reference: focusedReference, kind: 'commentary', title: t.title })),
   ];
 
+  /** All navigation goes through here, giving it the one shared history
+   * used for back/forward — classic browser semantics: navigating to a
+   * new reference truncates any "forward" entries past the current
+   * point and appends the new one; goBack/goForward just move the index
+   * without touching the list itself. Skips pushing a duplicate entry
+   * if the reference didn't actually change (clicking the same verse
+   * number twice, say), so history doesn't fill up with no-ops. */
   function navigateFocus(reference) {
+    if (reference === focusedReference) return;
     setFocusedReference(reference);
+    setNavHistory((prev) => {
+      const truncated = prev.entries.slice(0, prev.index + 1);
+      return { entries: [...truncated, reference], index: truncated.length };
+    });
+  }
+
+  function goBack() {
+    if (navHistory.index <= 0) return;
+    const newIndex = navHistory.index - 1;
+    setFocusedReference(navHistory.entries[newIndex]);
+    setNavHistory({ ...navHistory, index: newIndex });
+  }
+
+  function goForward() {
+    if (navHistory.index >= navHistory.entries.length - 1) return;
+    const newIndex = navHistory.index + 1;
+    setFocusedReference(navHistory.entries[newIndex]);
+    setNavHistory({ ...navHistory, index: newIndex });
   }
 
   function openModule({ kind, module, title }) {
@@ -158,6 +185,24 @@ export default function App() {
     <div className="flex h-screen min-h-0 flex-col bg-ink text-parchment">
       <header className="flex items-center gap-4 border-b border-rule px-6 py-3">
         <span className="font-display text-xl tracking-wide">Scriptorium</span>
+        <div className="flex gap-1">
+          <button
+            onClick={goBack}
+            disabled={navHistory.index <= 0}
+            className="rounded border border-rule px-2 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment disabled:opacity-30 disabled:hover:border-rule disabled:hover:text-muted"
+            title="Back"
+          >
+            ‹
+          </button>
+          <button
+            onClick={goForward}
+            disabled={navHistory.index >= navHistory.entries.length - 1}
+            className="rounded border border-rule px-2 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment disabled:opacity-30 disabled:hover:border-rule disabled:hover:text-muted"
+            title="Forward"
+          >
+            ›
+          </button>
+        </div>
         <SearchBar activeModule={bible.activeTab?.module} onJump={handleSearchJump} />
         <div className="ml-auto flex items-center gap-3">
           <button

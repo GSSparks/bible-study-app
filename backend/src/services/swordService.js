@@ -327,8 +327,20 @@ class SwordService {
     return verses.map((v) => `${v.verseNr} ${this.stripHtml(v.content)}`).join(' ');
   }
 
+  /** Search results come back as raw VerseObjects — same shape as
+   *  getChapterText — with `.content` carrying unprocessed SWORD markup,
+   *  never run through processVerseContent/stripHtml the way every other
+   *  content path in this app is. Confirmed as a real bug from a
+   *  screenshot: search result snippets were showing literal `<div
+   *  class="sword-markup sword-note"...>` tags as visible text instead
+   *  of the actual verse content. A search snippet doesn't need
+   *  clickable Strong's/cross-ref markup the way a reading pane does —
+   *  it's a short preview, not something meant for deep interaction —
+   *  so stripHtml (plain text) rather than the full processVerseContent
+   *  pipeline is the right level of processing here. */
   async search(moduleCode, term, { searchType = 'multiWord', searchScope = 'BIBLE' } = {}) {
-    return this.sword.getModuleSearchResults(moduleCode, term, () => {}, searchType, searchScope);
+    const results = await this.sword.getModuleSearchResults(moduleCode, term, () => {}, searchType, searchScope);
+    return results.map((r) => ({ ...r, content: this.stripHtml(r.content) }));
   }
 
   getStrongsEntry(strongsKey) {
