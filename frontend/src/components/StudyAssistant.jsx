@@ -1,27 +1,113 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { api } from '../api/client.js';
 
-/** `sources`: flattened list of open Bible/commentary tabs across all
- * windows — [{ module, reference, kind, title }] — gathered by App from
- * current window state. Context is rebuilt from this fresh on every
- * send, so navigating around while chatting keeps the assistant current
- * without any manual "load context" step. */
-export default function StudyAssistant({ sources }) {
+/** `wordStudyRequest`: `{ module, strongsKey, nonce }` — set when the
+ * person clicks "Word study across the whole Bible →" on a Strong's
+ * popup. Same "start fresh" behavior as overviewRequest, and the same
+ * reasoning applies to why: a word study is a new, deliberate inquiry,
+ * not a continuation of whatever chat was already happening.
+ *
+ * Genuinely slower than the passage overview, and worth surfacing that
+ * rather than leaving a bare spinner: the FIRST word study for a given
+ * translation triggers a real full-Bible scan on the backend (cached
+ * after that — every word study after the first, for any word in that
+ * same translation, is fast). loadingLabel exists specifically to make
+ * that distinction visible instead of using the same generic "…" for
+ * every kind of request. */
+export default function StudyAssistant({ sources, overviewRequest, wordStudyRequest }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadingLabel, setLoadingLabel] = useState('Thinking…');
   const [error, setError] = useState(null);
   const [savedIndex, setSavedIndex] = useState(null);
 
   const [noteQuery, setNoteQuery] = useState('');
   const [noteResults, setNoteResults] = useState([]);
-  const [attachedNotes, setAttachedNotes] = useState([]); // [{id, title, body}]
+  const [attachedNotes, setAttachedNotes] = useState([]);
   const [showNotePicker, setShowNotePicker] = useState(false);
 
   const validSources = sources.filter((s) => s.module && s.reference);
+
+  useEffect(() => {
+    if (!overviewRequest) return;
+    void runOverview(overviewRequest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overviewRequest]);
+
+  useEffect(() => {
+    if (!wordStudyRequest) return;
+    void runWordStudy(wordStudyRequest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wordStudyRequest]);
+
+  async function runOverview({ module, reference }) {
+    setMessages([]);
+    setSessionId(null);
+    setLoading(true);
+    setLoadingLabel('Thinking…');
+    setError(null);
+    try {
+      const context = await api.buildContext({
+        sources: [{ module, reference, kind: 'bible', title: module }],
+        includeAllCommentaries: true,
+        includeWordStudies: true,
+      });
+      const userMessage = {
+        role: 'user',
+        content: `Give a thorough overview of ${reference} — draw on the commentary and word study entries included in the context, not just the bare verse text.`,
+      };
+      const res = await api.askAssistant({ context, messages: [userMessage] });
+      setMessages([userMessage, { role: 'assistant', content: res.reply }]);
+      setSessionId(res.sessionId);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /** Word studies don't chain into a session the way regular chat/
+   * overview replies do — askWordStudy is a dedicated, single-shot
+   * endpoint (see contextBuilder.js) rather than something that
+   * continues via the normal sessionId mechanism. A follow-up question
+   * typed afterward goes through the regular send() flow below, which
+   * rebuilds context from validSources and won't carry the occurrence
+   * list forward. That's a real, known limitation of this first
+   * version, not an oversight. */
+  async function runWordStudy({ module, strongsKey }) {
+    setMessages([]);
+    setSessionId(null);
+    setError(null);
+    setLoading(true);
+    setLoadingLabel('Scanning the whole Bible for every occurrence — can take up to a minute the first time for a translation, instant after that…');
+    try {
+      const context = await api.buildWordStudyContext({ module, strongsKey });
+      const wordLabel = context.dictionaryEntry?.transcription
+        ? `${strongsKey} (${context.dictionaryEntry.transcription})`
+        : strongsKey;
+      const occurrenceNote = context.truncated
+        ? `${context.occurrenceCount} of ${context.totalOccurrenceCount} occurrences (truncated)`
+        : `${context.occurrenceCount} occurrence${context.occurrenceCount === 1 ? '' : 's'}`;
+      const userMessage = {
+        role: 'user',
+        content: `Give a word study for Strong's ${wordLabel} in ${module} — synthesizing patterns across ${occurrenceNote}.`,
+      };
+      // Show the question (and that the scan finished) right away —
+      // the LLM call itself is a second, separate wait.
+      setMessages([userMessage]);
+      setLoadingLabel('Thinking…');
+      const res = await api.askWordStudy({ context });
+      setMessages([userMessage, { role: 'assistant', content: res.reply }]);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function searchNotes(q) {
     setNoteQuery(q);
@@ -30,7 +116,7 @@ export default function StudyAssistant({ sources }) {
       const results = await api.listNotes({ q });
       setNoteResults(results);
     } catch {
-      // non-critical — leave results as-is
+      // non-critical
     }
   }
 
@@ -46,6 +132,7 @@ export default function StudyAssistant({ sources }) {
     setMessages(nextMessages);
     setInput('');
     setLoading(true);
+    setLoadingLabel('Thinking…');
     setError(null);
     try {
       const context = await api.buildContext({
@@ -160,6 +247,7 @@ export default function StudyAssistant({ sources }) {
             )}
           </div>
         ))}
+        {loading && <p className="px-1 text-xs italic text-muted">{loadingLabel}</p>}
       </div>
 
       <div className="flex gap-2">

@@ -13,6 +13,7 @@ import { contextRouter } from './routes/context.js';
 import { strongsRouter } from './routes/strongs.js';
 import { dictionaryRouter } from './routes/dictionary.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { wordStudyRouter } from './routes/wordStudy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND_DIST = path.join(__dirname, '..', 'public');
@@ -33,6 +34,7 @@ app.use('/api/notes', notesRouter);
 app.use('/api/context', contextRouter);
 app.use('/api/strongs', strongsRouter);
 app.use('/api/dictionary', dictionaryRouter);
+app.use('/api/word-study', wordStudyRouter);
 
 // Serve the built React app for everything else (SPA fallback)
 app.use(express.static(FRONTEND_DIST));

@@ -1,15 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
+import ContextZoomMenu from './ContextZoomMenu.jsx';
 
-/** Groups a flat verse list into readable segments: a new header whenever
- * the book or chapter changes, a plain divider (no header repeat) when
- * the same chapter has a non-contiguous jump — e.g. "John 3:16,18" or
- * the boundary between "John 3:16-18" and "Romans 8:28" in a
- * comma-separated selection — and also a new segment (no divider this
- * time, a real section-title heading instead) whenever a verse carries
- * extracted chapter/section titles, even mid-chapter. */
 function groupVerses(verses) {
   const segments = [];
   let prev = null;
@@ -36,61 +31,175 @@ function groupVerses(verses) {
   return segments;
 }
 
-/** Extracts a Strong's key from a click inside rendered verse content.
- * The backend normalizes every Strong's-tagged word (confirmed against
- * real KJV+Strong's+morphology output — see
- * swordService.normalizeStrongsMarkup) into a consistent `data-strong`
- * attribute, so the first check below is the one that fires for
- * essentially every tagged word. The rest are kept as a fallback for
- * anything unusual. */
-function extractStrongsKey(target) {
+function extractStrongsData(target) {
   let el = target;
   for (let depth = 0; el && depth < 4; depth++, el = el.parentElement) {
-    if (el.dataset?.strong) return el.dataset.strong;
+    if (el.dataset?.strong) {
+      return { key: el.dataset.strong, morph: el.dataset.morph || null, word: el.textContent?.trim() || null };
+    }
 
     const href = el.getAttribute?.('href') || '';
-    if (href.startsWith('strong:')) return href.slice(7);
+    if (href.startsWith('strong:')) return { key: href.slice(7), morph: null, word: el.textContent?.trim() || null };
 
     const title = el.getAttribute?.('title') || '';
     const titleMatch = title.match(/\b([GH]\d{1,5})\b/);
-    if (titleMatch) return titleMatch[1];
+    if (titleMatch) return { key: titleMatch[1], morph: null, word: el.textContent?.trim() || null };
 
     if (el.classList?.contains('strongs')) {
       const text = el.textContent.trim();
-      if (/^[GH]\d{1,5}$/.test(text)) return text;
+      if (/^[GH]\d{1,5}$/.test(text)) return { key: text, morph: null, word: null };
     }
 
     const ownText = el.textContent?.trim();
-    if (ownText && /^[GH]\d{1,5}$/.test(ownText)) return ownText;
+    if (ownText && /^[GH]\d{1,5}$/.test(ownText)) return { key: ownText, morph: null, word: null };
   }
   return null;
 }
 
-export default function ReaderPane({ module, reference, onNavigate, onStrongsClick, onVerseRefClick, onAnnotate }) {
+export default function ReaderPane({
+  module,
+  reference,
+  focusMode = false,
+  onNavigate,
+  onStrongsClick,
+  onVerseRefClick,
+  onAnnotate,
+  onAskAboutPassage,
+}) {
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [footnotePopup, setFootnotePopup] = useState(null); // { text, x, y } — purely local, no fetch needed
+  const [footnotePopup, setFootnotePopup] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [selectedRange, setSelectedRange] = useState(null);
+  const [focusedVerseKey, setFocusedVerseKey] = useState(null);
+  const verseRefs = useRef(new Map());
 
   useEffect(() => {
     if (!module || !reference) return;
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    api
-      .getPassage(module, reference)
-      .then((res) => setVerses(res.verses || []))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [module, reference]);
+    setSelectedRange(null);
 
-  const segments = useMemo(() => groupVerses(verses), [verses]);
+    async function load() {
+      if (!focusMode) {
+        const res = await api.getPassage(module, reference);
+        if (!cancelled) setVerses(res.verses || []);
+        return;
+      }
+      const anchorRes = await api.getPassage(module, reference);
+      const anchor = anchorRes.verses?.[0];
+      if (!anchor) {
+        if (!cancelled) setVerses(anchorRes.verses || []);
+        return;
+      }
+      const chapterRes = await api.getPassage(module, `${anchor.bibleBookShortTitle} ${anchor.chapter}`);
+      if (!cancelled) {
+        setVerses(chapterRes.verses || []);
+        setFocusedVerseKey(`${anchor.chapter}-${anchor.verseNr}`);
+      }
+    }
+
+    load()
+      .catch((err) => !cancelled && setError(err.message))
+      .finally(() => !cancelled && setLoading(false));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [module, reference, focusMode]);
+
+  useEffect(() => {
+    if (!focusMode || !focusedVerseKey) return;
+    const el = verseRefs.current.get(focusedVerseKey);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [focusMode, focusedVerseKey, verses]);
+
+  const indexedVerses = useMemo(() => verses.map((v, i) => ({ ...v, __index: i })), [verses]);
+  const segments = useMemo(() => groupVerses(indexedVerses), [indexedVerses]);
   const first = verses[0];
 
   function goToChapter(delta) {
     if (!first) return;
     const nextChapter = Number(first.chapter) + delta;
     if (nextChapter < 1) return;
-    onNavigate?.(`${first.bibleBookShortTitle} ${nextChapter}`);
+    onNavigate?.(focusMode ? `${first.bibleBookShortTitle} ${nextChapter}:1` : `${first.bibleBookShortTitle} ${nextChapter}`);
+  }
+
+  async function zoomToSection() {
+    setContextMenu(null);
+    if (!first) return;
+    const chapterRef = `${first.bibleBookShortTitle} ${first.chapter}`;
+    try {
+      const res = await api.getPassage(module, chapterRef);
+      const chapterVerses = res.verses || [];
+      const targetVerseNr = Number(first.verseNr);
+      const titledVerseNumbers = chapterVerses
+        .filter((v) => v.titles && v.titles.length > 0)
+        .map((v) => Number(v.verseNr))
+        .sort((a, b) => a - b);
+
+      let sectionStart = 1;
+      let sectionEnd = Math.max(...chapterVerses.map((v) => Number(v.verseNr)));
+      for (const vn of titledVerseNumbers) {
+        if (vn <= targetVerseNr) sectionStart = vn;
+        else {
+          sectionEnd = vn - 1;
+          break;
+        }
+      }
+      onNavigate?.(`${chapterRef}:${sectionStart}-${sectionEnd}`);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function zoomToChapter() {
+    setContextMenu(null);
+    if (!first) return;
+    onNavigate?.(`${first.bibleBookShortTitle} ${first.chapter}`);
+  }
+
+  function handleVerseNumberClick(e, v) {
+    e.stopPropagation();
+    if (e.shiftKey && selectedRange) {
+      setSelectedRange((prev) => ({ ...prev, focus: v.__index, x: e.clientX, y: e.clientY + 16 }));
+      return;
+    }
+    if (focusMode) {
+      onNavigate?.(`${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`);
+    }
+    setSelectedRange({ anchor: v.__index, focus: v.__index, x: e.clientX, y: e.clientY + 16 });
+  }
+
+  function isIndexSelected(index) {
+    if (!selectedRange) return false;
+    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
+    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
+    return index >= lo && index <= hi;
+  }
+
+  function getSelectedReference() {
+    if (!selectedRange) return null;
+    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
+    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
+    const startV = verses[lo];
+    const endV = verses[hi];
+    if (!startV || !endV) return null;
+    if (startV.bibleBookShortTitle === endV.bibleBookShortTitle && startV.chapter === endV.chapter) {
+      return lo === hi
+        ? `${startV.bibleBookShortTitle} ${startV.chapter}:${startV.verseNr}`
+        : `${startV.bibleBookShortTitle} ${startV.chapter}:${startV.verseNr}-${endV.verseNr}`;
+    }
+    return `${startV.bibleBookShortTitle} ${startV.chapter}:${startV.verseNr}-${endV.chapter}:${endV.verseNr}`;
+  }
+
+  function handleAskAboutSelection() {
+    const selectedRef = getSelectedReference();
+    if (!selectedRef) return;
+    onAskAboutPassage?.(module, selectedRef);
+    setSelectedRange(null);
   }
 
   function handleContentClick(e) {
@@ -110,27 +219,39 @@ export default function ReaderPane({ module, reference, onNavigate, onStrongsCli
       return;
     }
     if (!onStrongsClick) return;
-    const key = extractStrongsKey(e.target);
-    if (key) onStrongsClick(key, e);
+    const result = extractStrongsData(e.target);
+    if (result) onStrongsClick(result.key, e, result.morph, result.word, module);
   }
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6">
+    <div className="h-full overflow-y-auto bg-page px-6 py-6 text-pageText">
       <header className="mb-4 flex items-baseline gap-3">
-        <h1 className="font-display text-2xl text-parchment">{reference || 'Select a passage'}</h1>
-        {module && <span className="font-mono text-xs uppercase tracking-wide text-muted">{module}</span>}
+        <h1 className="font-display text-2xl text-pageText">{reference || 'Select a passage'}</h1>
+        {module && <span className="font-mono text-xs uppercase tracking-wide text-pageMuted">{module}</span>}
         {first && (
           <div className="ml-auto flex gap-2">
+            {!focusMode && (
+              <button
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setContextMenu({ x: rect.left, y: rect.bottom + 4 });
+                }}
+                className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
+                title="Zoom out to see more context"
+              >
+                context ▾
+              </button>
+            )}
             <button
               onClick={() => goToChapter(-1)}
-              className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
+              className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
               title="Previous chapter"
             >
               ‹
             </button>
             <button
               onClick={() => goToChapter(1)}
-              className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
+              className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
               title="Next chapter"
             >
               ›
@@ -139,8 +260,8 @@ export default function ReaderPane({ module, reference, onNavigate, onStrongsCli
         )}
       </header>
 
-      {loading && <p className="text-muted">Loading passage…</p>}
-      {error && <p className="text-red-400">{error}</p>}
+      {loading && <p className="text-pageMuted">Loading passage…</p>}
+      {error && <p className="text-red-600">{error}</p>}
 
       {!loading && !error && verses.length > 0 && (
         <div className="flex gap-3">
@@ -153,29 +274,53 @@ export default function ReaderPane({ module, reference, onNavigate, onStrongsCli
           <SelectableNoteRegion
             reference={reference}
             module={module}
-            className="verse-content max-w-2xl flex-1 space-y-4 font-display text-base leading-relaxed text-parchment/90"
+            className="verse-content max-w-2xl flex-1 space-y-4 font-display text-base leading-relaxed text-pageText"
             onClick={handleContentClick}
+            onContextMenu={(e) => {
+              if (focusMode) return;
+              e.preventDefault();
+              setContextMenu({ x: e.clientX, y: e.clientY });
+            }}
           >
             {segments.map((seg, i) => (
               <div key={seg.key}>
                 {seg.showHeader ? (
                   <h2 className="mb-1 font-sans text-xs uppercase tracking-wide text-verdigris">{seg.header}</h2>
                 ) : (
-                  i > 0 && seg.sectionTitles.length === 0 && <div className="mb-1 text-xs text-muted">⋯</div>
+                  i > 0 && seg.sectionTitles.length === 0 && <div className="mb-1 text-xs text-pageMuted">⋯</div>
                 )}
                 {seg.sectionTitles.length > 0 && (
-                  <h3 className="mb-2 mt-1 font-display text-lg italic text-brass">{seg.sectionTitles.join(' — ')}</h3>
+                  <h3 className="mb-2 mt-1 font-display text-lg italic text-pageAccent">{seg.sectionTitles.join(' — ')}</h3>
                 )}
                 <p>
-                  {seg.verses.map((v) => (
-                    <span key={`${v.chapter}-${v.verseNr}`}>
-                      <sup className="mr-1 text-xs text-brass">{v.verseNr}</sup>
-                      {/* v.content includes SWORD's markup (Strong's, morphology, etc.)
-                          when the module supports it — rendered as HTML rather than
-                          escaped text so those tags actually work. */}
-                      <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
-                    </span>
-                  ))}
+                  {seg.verses.map((v) => {
+                    const verseKey = `${v.chapter}-${v.verseNr}`;
+                    const isFocused = focusMode && verseKey === focusedVerseKey;
+                    return (
+                      <span
+                        key={verseKey}
+                        ref={(el) => {
+                          if (el) verseRefs.current.set(verseKey, el);
+                          else verseRefs.current.delete(verseKey);
+                        }}
+                        className={[
+                          isIndexSelected(v.__index) ? 'rounded bg-pageAccent/20' : '',
+                          isFocused ? 'border-l-2 border-pageAccent bg-pageAccent/10 pl-1' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
+                        <sup
+                          className="mr-1 cursor-pointer text-xs text-pageAccent hover:text-brass"
+                          title={focusMode ? 'Click to focus this verse, shift-click to select a range' : 'Click to select, shift-click to select a range'}
+                          onClick={(e) => handleVerseNumberClick(e, v)}
+                        >
+                          {v.verseNr}
+                        </sup>
+                        <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
+                      </span>
+                    );
+                  })}
                 </p>
               </div>
             ))}
@@ -184,7 +329,44 @@ export default function ReaderPane({ module, reference, onNavigate, onStrongsCli
       )}
 
       {!loading && !error && verses.length === 0 && reference && (
-        <p className="text-muted">No text returned for this reference in {module}.</p>
+        <p className="text-pageMuted">No text returned for this reference in {module}.</p>
+      )}
+
+      {selectedRange &&
+        onAskAboutPassage &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-30" onClick={() => setSelectedRange(null)} />
+            <div
+              className="fixed z-40 flex items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
+              style={{ left: selectedRange.x, top: selectedRange.y }}
+            >
+              <span className="px-1 font-mono text-xs text-muted">{getSelectedReference()}</span>
+              <button
+                onClick={handleAskAboutSelection}
+                className="rounded bg-brass px-2 py-1 text-xs font-medium text-ink hover:bg-brass/90"
+              >
+                Ask about this →
+              </button>
+              <button
+                onClick={() => setSelectedRange(null)}
+                className="rounded px-1.5 py-1 text-xs text-muted hover:text-parchment"
+              >
+                ✕
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
+
+      {contextMenu && (
+        <ContextZoomMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onSelectSection={zoomToSection}
+          onSelectChapter={zoomToChapter}
+          onClose={() => setContextMenu(null)}
+        />
       )}
 
       {footnotePopup && (

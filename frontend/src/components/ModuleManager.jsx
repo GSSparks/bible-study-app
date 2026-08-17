@@ -16,6 +16,8 @@ export default function ModuleManager({ onClose, onOpenModule, onModulesChanged,
   const [installing, setInstalling] = useState(null);
   const [removing, setRemoving] = useState(null);
   const [error, setError] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadNote, setUploadNote] = useState(null);
 
   const activeType = MODULE_TYPES.find((t) => t.value === moduleType);
 
@@ -76,6 +78,29 @@ export default function ModuleManager({ onClose, onOpenModule, onModulesChanged,
     onOpenModule?.({ kind: activeType.kind, module: m.name, title: m.description || m.name });
   }
 
+  async function handleUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    setUploadNote(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/modules/upload', { method: 'POST', body: form });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Upload failed');
+      setUploadNote(body.note || 'Installed.');
+      refreshInstalled();
+      onModulesChanged?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/60 p-6">
       <div className="flex max-h-[80vh] w-full max-w-3xl flex-col rounded-lg border border-rule bg-panel">
@@ -84,6 +109,14 @@ export default function ModuleManager({ onClose, onOpenModule, onModulesChanged,
           <button onClick={onClose} className="text-muted hover:text-parchment">
             close
           </button>
+        </div>
+
+        <div className="flex items-center gap-3 border-b border-rule px-6 py-2">
+          <label className="cursor-pointer rounded border border-dashed border-rule px-3 py-1.5 text-xs text-verdigris hover:border-verdigris hover:text-brass">
+            {uploading ? 'uploading…' : '⇪ Upload a module .zip manually'}
+            <input type="file" accept=".zip" className="hidden" onChange={handleUpload} disabled={uploading} />
+          </label>
+          {uploadNote && <p className="text-xs text-muted">{uploadNote}</p>}
         </div>
 
         <div className="flex border-b border-rule px-6">

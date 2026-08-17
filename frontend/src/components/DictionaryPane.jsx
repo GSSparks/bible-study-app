@@ -3,12 +3,21 @@ import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
 
-/** Browses a dictionary/lexicon (or general help book) module: a
- * filterable list of its keys on the left, the raw entry text on the
- * right. Used for modules that aren't verse-keyed (Strong's dictionaries,
- * encyclopedias, topical works), as opposed to commentaries which reuse
- * ReaderPane since they're keyed the same way Bible text is. */
-export default function DictionaryPane({ module, onVerseRefClick }) {
+function extractStrongsData(target) {
+  let el = target;
+  for (let depth = 0; el && depth < 4; depth++, el = el.parentElement) {
+    if (el.dataset?.strong) return { key: el.dataset.strong, morph: el.dataset.morph || null, word: el.textContent?.trim() || null };
+    if (el.classList?.contains('strongs')) {
+      const text = el.textContent.trim();
+      if (/^[GH]\d{1,5}$/.test(text)) return { key: text, morph: null, word: null };
+    }
+  }
+  return null;
+}
+
+export default function DictionaryPane({ module, focusedReference, onVerseRefClick, onStrongsClick, onOpenInDictionary, initialKey, initialFilter }) {
+  const [mode, setMode] = useState('probing');
+  const [refVerses, setRefVerses] = useState([]);
   const [keys, setKeys] = useState([]);
   const [filter, setFilter] = useState('');
   const [selectedKey, setSelectedKey] = useState(null);
@@ -20,32 +29,89 @@ export default function DictionaryPane({ module, onVerseRefClick }) {
 
   useEffect(() => {
     if (!module) return;
-    setLoadingKeys(true);
+    let cancelled = false;
     setError(null);
+    setMode('probing');
+
+    if (!focusedReference) {
+      setMode('keys');
+      return;
+    }
+    api
+      .getPassage(module, focusedReference)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.verses?.length > 0) {
+          setRefVerses(res.verses);
+          setMode('reference');
+        } else {
+          setMode('keys');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMode('keys');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [module, focusedReference]);
+
+  useEffect(() => {
+    setSelectedKey(null);
+    setEntryHtml('');
+    setError(null);
+    setFilter('');
+  }, [module]);
+
+  useEffect(() => {
+    if (mode !== 'keys' || !module) return;
+    setLoadingKeys(true);
     api
       .listDictionaryKeys(module)
       .then(setKeys)
       .catch((e) => setError(e.message))
       .finally(() => setLoadingKeys(false));
-  }, [module]);
+  }, [mode, module]);
 
   useEffect(() => {
-    if (!selectedKey) return;
+    if (initialKey) {
+      setMode('keys');
+      setSelectedKey(initialKey);
+    }
+  }, [initialKey]);
+
+  useEffect(() => {
+    if (initialFilter) {
+      setMode('keys');
+      setSelectedKey(null);
+      setFilter(initialFilter);
+    }
+  }, [initialFilter]);
+
+  useEffect(() => {
+    if (!selectedKey || mode !== 'keys') return;
     setLoadingEntry(true);
+    setError(null);
+    setEntryHtml('');
     api
       .getDictionaryEntry(module, selectedKey)
       .then((res) => setEntryHtml(res.html))
       .catch((e) => setError(e.message))
       .finally(() => setLoadingEntry(false));
-  }, [module, selectedKey]);
+  }, [module, selectedKey, mode]);
 
   const filteredKeys = useMemo(() => {
-    if (!filter.trim()) return keys.slice(0, 500); // avoid rendering thousands of rows unfiltered
+    if (!filter.trim()) return keys.slice(0, 500);
     const f = filter.toLowerCase();
     return keys.filter((k) => k.toLowerCase().includes(f)).slice(0, 500);
   }, [keys, filter]);
 
-  function handleEntryClick(e) {
+  function handleContentClick(e) {
+    const dictXrefEl = e.target.closest('.dict-xref');
+    if (dictXrefEl) {
+      onOpenInDictionary?.(dictXrefEl.dataset.strongKey);
+      return;
+    }
     const footnoteEl = e.target.closest('.footnote-marker');
     if (footnoteEl) {
       setFootnotePopup({ text: footnoteEl.dataset.note, x: e.clientX, y: e.clientY });
@@ -57,7 +123,46 @@ export default function DictionaryPane({ module, onVerseRefClick }) {
       return;
     }
     const verseRefEl = e.target.closest('.verse-ref');
-    if (verseRefEl) onVerseRefClick?.(verseRefEl.dataset.ref, e);
+    if (verseRefEl) {
+      onVerseRefClick?.(verseRefEl.dataset.ref, e);
+      return;
+    }
+    if (!onStrongsClick) return;
+    const result = extractStrongsData(e.target);
+    if (result) onStrongsClick(result.key, e, result.morph, result.word, module);
+  }
+
+  if (mode === 'probing') {
+    return <div className="flex h-full items-center justify-center bg-page text-pageMuted">Loading…</div>;
+  }
+
+  if (mode === 'reference') {
+    return (
+      <div className="h-full overflow-y-auto bg-page px-6 py-6 text-pageText">
+        {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
+        <SelectableNoteRegion
+          module={module}
+          className="max-w-2xl font-display text-base leading-relaxed text-pageText"
+          onClick={handleContentClick}
+        >
+          {refVerses.map((v) => (
+            <p key={`${v.chapter}-${v.verseNr}`} className="mb-2">
+              <sup className="mr-1 text-xs text-pageAccent">{v.verseNr}</sup>
+              <span dangerouslySetInnerHTML={{ __html: v.content }} />
+            </p>
+          ))}
+        </SelectableNoteRegion>
+
+        {footnotePopup && (
+          <FootnotePopup
+            text={footnotePopup.text}
+            x={footnotePopup.x}
+            y={footnotePopup.y}
+            onClose={() => setFootnotePopup(null)}
+          />
+        )}
+      </div>
+    );
   }
 
   return (
@@ -88,15 +193,15 @@ export default function DictionaryPane({ module, onVerseRefClick }) {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        {!selectedKey && <p className="text-muted">Pick an entry on the left.</p>}
-        {loadingEntry && <p className="text-muted">Loading…</p>}
+      <div className="min-h-0 flex-1 overflow-y-auto bg-page px-6 py-6 text-pageText">
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {!selectedKey && <p className="text-pageMuted">Pick an entry on the left.</p>}
+        {loadingEntry && <p className="text-pageMuted">Loading…</p>}
         {selectedKey && !loadingEntry && (
           <SelectableNoteRegion
             module={module}
-            className="max-w-2xl font-display text-base leading-relaxed text-parchment/90"
-            onClick={handleEntryClick}
+            className="max-w-2xl font-display text-base leading-relaxed text-pageText"
+            onClick={handleContentClick}
           >
             <h2 className="mb-3 font-sans text-xs uppercase tracking-wide text-verdigris">{selectedKey}</h2>
             <div dangerouslySetInnerHTML={{ __html: entryHtml }} />

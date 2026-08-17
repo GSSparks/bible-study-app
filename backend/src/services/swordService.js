@@ -1,33 +1,49 @@
 import NodeSwordInterface from 'node-sword-interface';
+import AdmZip from 'adm-zip';
+import path from 'node:path';
+import fs from 'node:fs';
 import { config } from '../config.js';
 import { toOsis, splitOsisSequence, isRange, findReferencesInText } from './referenceParser.js';
 
-/**
- * Thin wrapper around node-sword-interface, matching its real API as
- * documented at:
- *   https://github.com/ezra-bible-app/node-sword-interface/blob/master/API.md
- *
- * A couple of things worth knowing about that library's shape, since
- * they're easy to get wrong:
- *   - ModuleObject's identifier field is `.name`, NOT `.code`.
- *   - There is no "give me a passage by human-readable string" method.
- *     You resolve the string to an OSIS key yourself (see
- *     referenceParser.js).
- *   - The API docs only explicitly say enableMarkup() affects
- *     getChapterText / getBookText / getBibleText — NOT
- *     getVersesFromReferences. So getPassage below is built on
- *     getChapterText (sliced to the requested verses) rather than
- *     getVersesFromReferences, specifically so Strong's/markup tags are
- *     reliably present for the word-click feature.
- */
+// Standard 66-book Protestant canon, OSIS short codes + King James
+// versification chapter counts. This is stable canonical data (not
+// something that varies by SWORD build the way markup rendering did
+// elsewhere in this file) — but a handful of modules use different
+// versification and could have a different chapter count for some
+// book. That's handled defensively rather than assumed away: each
+// chapter fetch below is wrapped in try/catch and simply skipped on
+// failure, so a module missing a book (NT-only modules) or using a
+// slightly different chapter count degrades gracefully instead of
+// throwing.
+const BIBLE_BOOKS = [
+  ['Gen', 50], ['Exod', 40], ['Lev', 27], ['Num', 36], ['Deut', 34],
+  ['Josh', 24], ['Judg', 21], ['Ruth', 4], ['1Sam', 31], ['2Sam', 24],
+  ['1Kgs', 22], ['2Kgs', 25], ['1Chr', 29], ['2Chr', 36], ['Ezra', 10],
+  ['Neh', 13], ['Esth', 10], ['Job', 42], ['Ps', 150], ['Prov', 31],
+  ['Eccl', 12], ['Song', 8], ['Isa', 66], ['Jer', 52], ['Lam', 5],
+  ['Ezek', 48], ['Dan', 12], ['Hos', 14], ['Joel', 3], ['Amos', 9],
+  ['Obad', 1], ['Jonah', 4], ['Mic', 7], ['Nah', 3], ['Hab', 3],
+  ['Zeph', 3], ['Hag', 2], ['Zech', 14], ['Mal', 4],
+  ['Matt', 28], ['Mark', 16], ['Luke', 24], ['John', 21], ['Acts', 28],
+  ['Rom', 16], ['1Cor', 16], ['2Cor', 13], ['Gal', 6], ['Eph', 6],
+  ['Phil', 4], ['Col', 4], ['1Thess', 5], ['2Thess', 3], ['1Tim', 6],
+  ['2Tim', 4], ['Titus', 3], ['Phlm', 1], ['Heb', 13], ['Jas', 5],
+  ['1Pet', 5], ['2Pet', 3], ['1John', 5], ['2John', 1], ['3John', 1],
+  ['Jude', 1], ['Rev', 22],
+];
+
 class SwordService {
   constructor() {
-    // First constructor arg is the custom home directory for SWORD data.
     this.sword = new NodeSwordInterface(config.swordModulesPath);
     this._repoConfigLoaded = false;
-    // Renders Strong's numbers, morphology, footnotes, etc. as inline
-    // HTML markup instead of stripping them. This is what makes the
-    // word-click Strong's lookup possible.
+    // moduleCode -> Map(strongsKey -> [{book, chapter, verse, text}]),
+    // built lazily on first word-study request for that module (see
+    // buildStrongsIndexForModule) and kept for the life of the process.
+    this._strongsIndexCache = new Map();
+    // moduleCode -> in-flight build Promise, so two concurrent word-
+    // study requests for the same not-yet-indexed module share one scan
+    // instead of each starting their own full pass.
+    this._strongsIndexBuilding = new Map();
     try {
       this.sword.enableMarkup();
     } catch (err) {
@@ -69,8 +85,33 @@ class SwordService {
     return this.sword.uninstallModule(moduleCode);
   }
 
-  /** Splits a verse-precise OSIS point ("John.3.16") into parts. Book
-   *  codes never contain a dot, so this is always exactly 3 segments. */
+  installModuleFromZip(buffer) {
+    const zip = new AdmZip(buffer);
+    const entries = zip.getEntries();
+
+    const looksLikeModule = entries.some((e) => /^(mods\.d|modules)\//i.test(e.entryName));
+    if (!looksLikeModule) {
+      const err = new Error("This doesn't look like a SWORD module package (expected mods.d/ and modules/ folders in the zip).");
+      err.status = 400;
+      throw err;
+    }
+
+    const destDir = config.swordModulesPath;
+    const resolvedDest = path.resolve(destDir);
+    for (const entry of entries) {
+      const resolvedPath = path.resolve(destDir, entry.entryName);
+      if (resolvedPath !== resolvedDest && !resolvedPath.startsWith(resolvedDest + path.sep)) {
+        const err = new Error(`Refusing to extract an entry outside the modules directory: ${entry.entryName}`);
+        err.status = 400;
+        throw err;
+      }
+    }
+
+    fs.mkdirSync(destDir, { recursive: true });
+    zip.extractAllTo(destDir, true);
+    this._repoConfigLoaded = false;
+  }
+
   _parseOsisPoint(point) {
     const parts = point.split('.');
     const verse = Number(parts.pop());
@@ -79,13 +120,6 @@ class SwordService {
     return { book, chapter, verse };
   }
 
-  /**
-   * Fetch a passage from a human-typed reference. Handles single verses
-   * ("John 3:16"), ranges ("Romans 8:28-30"), whole chapters ("John 3"),
-   * whole books ("Jude"), and comma-separated sequences of any of the
-   * above ("John 3:16, Romans 8:28-30, Jude"). Returns a flat array of
-   * VerseObjects, with markup/Strong's tags included in `.content`.
-   */
   getPassage(moduleCode, humanReference) {
     const osis = toOsis(humanReference);
     if (!osis) {
@@ -96,8 +130,6 @@ class SwordService {
 
     const items = splitOsisSequence(osis);
     const verses = [];
-    // Avoid re-fetching the same chapter twice within one call (e.g.
-    // "John 3:16,18" hits John 3 twice).
     const chapterCache = new Map();
     const getChapter = (book, chapter) => {
       const key = `${book}.${chapter}`;
@@ -114,10 +146,6 @@ class SwordService {
         const end = this._parseOsisPoint(endStr);
 
         if (start.book !== end.book) {
-          // Cross-book ranges ("John-Acts") are rare and don't fit the
-          // per-chapter slicing approach; fall back to the library's own
-          // range expansion for this one item (won't carry markup as
-          // reliably, but keeps it working rather than failing outright).
           const refs = this.sword.getReferencesFromReferenceRange(item);
           verses.push(...this.sword.getVersesFromReferences(moduleCode, refs));
           continue;
@@ -138,37 +166,37 @@ class SwordService {
     }
 
     return verses.map((v) => {
-      const withoutMilestones = this.stripMilestones(v.content);
-      const { titles, html: withoutTitles } = this.extractTitles(withoutMilestones);
-      return { ...v, content: this.processHtml(withoutTitles), titles };
+      const { content, titles } = this.processVerseContent(v.content);
+      return { ...v, content, titles };
     });
   }
 
-  /** OSIS marks chapter/verse boundaries with milestone tags — either
-   *  genuinely self-closing (`<chapter osisID="John.3" sID="..."/>`) or,
-   *  confirmed from real output, rendered as an empty `<span
-   *  class="sword-x-milestone" .../></span>`. Either way it's pure
-   *  structural metadata with no display content, so both forms get
-   *  stripped entirely. */
+  processVerseContent(html) {
+    if (!html) return { content: '', titles: [] };
+    const flattened = this.flattenBlockTags(html);
+    const withoutMilestones = this.stripMilestones(flattened);
+    const { titles, html: withoutTitles } = this.extractTitles(withoutMilestones);
+    const crossRefsCollapsed = this.normalizeCrossReferenceNotes(withoutTitles);
+    const footnotesCollapsed = this.normalizeFootnoteMarkup(crossRefsCollapsed);
+    const dictLinked = this.linkStrongsCrossReferences(footnotesCollapsed);
+    const strongsNormalized = this.normalizeStrongsMarkup(dictLinked);
+    const content = this.wrapVerseReferences(strongsNormalized);
+    return { content, titles };
+  }
+
+  linkStrongsCrossReferences(html) {
+    return html.replace(/\bsee\s+(HEBREW|GREEK)\s+for\s+0*(\d+)/gi, (match, lang, num) => {
+      const key = `${lang.toUpperCase() === 'HEBREW' ? 'H' : 'G'}${num}`;
+      return `<span class="dict-xref" data-strong-key="${key}">${match}</span>`;
+    });
+  }
+
   stripMilestones(html) {
     return html
       .replace(/<(?:chapter|verse)\b[^>]*\/>/gi, '')
       .replace(/<span\b[^>]*\bclass="[^"]*\bsword-x-milestone\b[^"]*"[^>]*><\/span>/gi, '');
   }
 
-  /**
-   * Finds `<span ...class="... {classToken} ...">...</span>` elements,
-   * correctly balancing nested `<span>` tags to locate each one's TRUE
-   * matching close. This matters because SWORD reuses `<span>` for
-   * everything — Strong's words, verse-ref links, section titles, cross-
-   * reference notes — so a naive non-greedy match to the *next*
-   * `</span>` would stop at a nested span's closing tag instead of the
-   * outer element's own (confirmed as a real failure mode: a
-   * cross-reference note can end up containing an already-wrapped
-   * verse-ref span from an earlier pipeline step). Calls
-   * `replacer(attrs, innerHtml)` for each match; a `null` return leaves
-   * that element untouched.
-   */
   replaceBalancedSpans(html, classToken, replacer) {
     const openTagRe = new RegExp(`<span\\b([^>]*\\bclass="[^"]*\\b${classToken}\\b[^"]*"[^>]*)>`, 'gi');
     const spans = [];
@@ -193,7 +221,7 @@ class SwordService {
           depth++;
         }
       }
-      if (contentEnd === -1) continue; // unbalanced/malformed — skip rather than corrupt
+      if (contentEnd === -1) continue;
       spans.push({ start: match.index, end: matchEnd, attrs: match[1], inner: html.slice(contentStart, contentEnd) });
       openTagRe.lastIndex = matchEnd;
     }
@@ -211,25 +239,6 @@ class SwordService {
     return out;
   }
 
-  /**
-   * Extracts chapter/section headings ("CHAPTER 3", "The New Birth") out
-   * of the inline verse text and returns them separately, rather than
-   * leaving them jammed together with the reading text ("CHAPTER 3The
-   * New Birth Now there was a man..."). The frontend renders these as
-   * actual headings above the verse instead.
-   *
-   * Targets `<span class="sword-section-title">` — confirmed from real
-   * output, and notably *not* an OSIS `<title>` tag, which is what an
-   * earlier version of this function assumed and which real output
-   * never contains at all: node-sword-interface pre-converts OSIS
-   * `<title>` into this span/class form before handing content back
-   * (unlike `<w>` and `<reference>`, which do pass through with their
-   * original OSIS tag names — an inconsistency in SWORD's own rendering,
-   * not a guess on this end). A chapter-level heading carries both
-   * `sword-chapter-title` and `sword-section-title`; a plain section
-   * heading just the latter, so matching on `sword-section-title` alone
-   * catches both.
-   */
   extractTitles(html) {
     const titles = [];
     const cleaned = this.replaceBalancedSpans(html, 'sword-section-title', (attrs, inner) => {
@@ -240,30 +249,6 @@ class SwordService {
     return { titles, html: cleaned };
   }
 
-  /**
-   * Normalizes Strong's-tagged words into one guaranteed-consistent
-   * format: `<span class="strongs" data-strong="G2316">word</span>`.
-   *
-   * This is now based on real output from a KJV+Strong's+morphology
-   * module (not spec speculation): SWORD renders each tagged word as
-   * `<w class="strong:G3588 strong:G2316 lemma.TR:ο lemma.TR:θεος"
-   * morph="robinson:T-NSM robinson:N-NSM" src="4 5">God</w>` — the
-   * Strong's number(s) live in the `class` attribute as `strong:G1234`
-   * tokens (not a `lemma`/`savlm` attribute at all, and the "lemma.TR:"
-   * tokens in that same class attribute are the underlying Greek/Hebrew
-   * text, unrelated to the OSIS `lemma` *attribute* convention this
-   * function originally — wrongly — assumed).
-   *
-   * This targets `<w>` elements directly rather than "any tag carrying
-   * class/lemma/savlm", which matters: an earlier version matched any
-   * class-bearing tag, including the wrapping <div> around the whole
-   * verse — and since that div's own class ("sword-markup...") has no
-   * Strong's data, the whole match (including every nested <w> inside
-   * it) was returned unprocessed. <w> elements are leaf-level (they
-   * don't nest), so matching them directly sidesteps that entirely.
-   * lemma/savlm are still checked as a fallback for modules that might
-   * render differently.
-   */
   normalizeStrongsMarkup(html) {
     return html.replace(/<w\b([^>]*)>([\s\S]*?)<\/w>/gi, (match, attrs, inner) => {
       const classMatch = attrs.match(/\bclass="([^"]*)"/i);
@@ -273,17 +258,12 @@ class SwordService {
       const strongMatches = [...source.matchAll(/(?:strong:)?\b([GH]\d{1,5})\b/gi)].map((m) => m[1]);
       if (strongMatches.length === 0) return match;
       const unique = [...new Set(strongMatches)];
-      return `<span class="strongs" data-strong="${unique.join(',')}">${inner}</span>`;
+      const morphMatch = attrs.match(/\bmorph="([^"]*)"/i);
+      const morphAttr = morphMatch ? ` data-morph="${morphMatch[1].replace(/"/g, '&quot;')}"` : '';
+      return `<span class="strongs" data-strong="${unique.join(',')}"${morphAttr}>${inner}</span>`;
     });
   }
 
-  /** Real verse content comes wrapped in a block-level `<div class="
-   *  sword-markup ...">` (confirmed from actual output) — rendering
-   *  that inside the inline <span> the frontend uses for verse text is
-   *  invalid nesting. Renaming to <span> keeps whatever classes SWORD
-   *  attached (e.g. "sword-quote-jesus" for red-letter text, which the
-   *  frontend now has CSS for) while staying inline-safe. Also handles
-   *  <p>, just in case some module/filter combination uses that instead. */
   flattenBlockTags(html) {
     return html
       .replace(/<div(\s|>)/gi, '<span$1')
@@ -292,52 +272,9 @@ class SwordService {
       .replace(/<\/p>/gi, '</span>');
   }
 
-  /** The full markup pipeline applied to any HTML the frontend will
-   *  render (after milestone-stripping and title-extraction have
-   *  already run): flatten block tags to inline-safe ones, collapse
-   *  cross-reference notes to their marker *first* — so there's no
-   *  osisRef-bearing attribute left for the prose-scanner to trip over
-   *  — then normalize Strong's words, then prose-scan for any remaining
-   *  embedded references (e.g. in commentary text, which never had
-   *  <note>/<reference> tags to begin with). */
-  processHtml(html) {
-    const flattened = this.flattenBlockTags(html);
-    const crossRefsCollapsed = this.normalizeCrossReferenceNotes(flattened);
-    const footnotesCollapsed = this.normalizeFootnoteMarkup(crossRefsCollapsed);
-    const strongsNormalized = this.normalizeStrongsMarkup(footnotesCollapsed);
-    return this.wrapVerseReferences(strongsNormalized);
-  }
-
-  /**
-   * Collapses each cross-reference note — one or more `<reference
-   * osisRef="...">` children — into a single small `<sup
-   * class="xref-marker" data-refs="...">` carrying every referenced OSIS
-   * key, comma-separated (reusing the same multi-entry popup pattern
-   * already built for words with more than one Strong's number). This is
-   * what keeps cross-references from breaking up reading flow: instead
-   * of the full citation text sitting inline ("...named John 7:50;
-   * 19:39Nicodemus..."), only a tiny marker does.
-   *
-   * Targets `<span class="sword-markup sword-note" type="crossReference"
-   * n="A" osisID="John.3.1.xref.A">` — confirmed from real output, and
-   * *not* an OSIS `<note>` tag, which an earlier version of this
-   * function assumed (same underlying reason as extractTitles: SWORD
-   * pre-converts `<note>` into this span/class form). The `<reference
-   * osisRef="...">` children inside it do keep their original OSIS tag
-   * name, unconverted — SWORD is just inconsistent about which elements
-   * get the span treatment.
-   *
-   * The visible label isn't invented — it's pulled from the module's own
-   * `n="A"` attribute first (confirmed present directly), falling back
-   * to the trailing letter in `osisID` (e.g. "John.3.1.xref.A") if `n`
-   * is missing, which is exactly how printed study Bibles label their
-   * own cross-reference notes in the margin — reusing it keeps the
-   * in-app marker consistent with the source text's own apparatus.
-   * Falls back to a dagger (†) if neither is present.
-   */
   normalizeCrossReferenceNotes(html) {
     return this.replaceBalancedSpans(html, 'sword-note', (attrs, inner) => {
-      if (!/\btype="crossReference"/i.test(attrs)) return null; // leave other note types (explanatory footnotes) alone for now
+      if (!/\btype="crossReference"/i.test(attrs)) return null;
       const refs = [...inner.matchAll(/\bosisRef="([^"]*)"/gi)].map((m) => m[1]);
       if (refs.length === 0) return null;
       const unique = [...new Set(refs)];
@@ -348,33 +285,9 @@ class SwordService {
     });
   }
 
-  /**
-   * Collapses explanatory/translator footnotes ("Lit Him", "Or from
-   * above") the same way cross-references get collapsed — a small
-   * superscript marker instead of the note text sitting inline breaking
-   * up the sentence. Runs *after* `normalizeCrossReferenceNotes`, so by
-   * the time this executes, any `sword-note` span still present is by
-   * definition not a cross-reference (those were already consumed); the
-   * `type="crossReference"` check is kept anyway as a defensive
-   * safety net rather than relying on that ordering alone.
-   *
-   * Unlike a cross-reference marker, this one doesn't link anywhere —
-   * there's nothing to look up, the note's own text *is* the content —
-   * so it carries that text directly in a `data-note` attribute
-   * (HTML-escaped) and the frontend just shows it in a lightweight
-   * popup on click, no fetch involved.
-   *
-   * The label reuses the module's own numbering the same way
-   * cross-references reuse its lettering: explanatory notes carry
-   * `n="1"`, `n="2"` (numeric) where cross-reference notes carry `n="A"`,
-   * `n="B"` (alphabetic) — a real, confirmed distinction the module
-   * itself makes — so footnotes and cross-references end up visually
-   * distinguishable (numbers vs. letters) without inventing a separate
-   * scheme.
-   */
   normalizeFootnoteMarkup(html) {
     return this.replaceBalancedSpans(html, 'sword-note', (attrs, inner) => {
-      if (/\btype="crossReference"/i.test(attrs)) return null; // already handled by normalizeCrossReferenceNotes
+      if (/\btype="crossReference"/i.test(attrs)) return null;
       const text = this.stripHtml(inner).trim();
       if (!text) return null;
       const nMatch = attrs.match(/\bn="([A-Za-z0-9]+)"/);
@@ -384,23 +297,6 @@ class SwordService {
     });
   }
 
-  /**
-   * Wraps any Bible references found in a piece of text (e.g. "cf. John
-   * 3:16" inside a commentary entry) in a clickable span, so the
-   * frontend can pop up a preview or open it as a tab.
-   *
-   * This has to be careful about one thing that bit it in practice: a
-   * module with cross-references renders them as OSIS `<reference
-   * osisRef="John.7.50">John 7:50</reference>` (inside a `<note
-   * type="crossReference">`), and `osisRef="John.7.50"` is exactly the
-   * kind of text the reference detector matches — it has no idea it's
-   * looking at an HTML attribute value rather than running prose. Left
-   * unfiltered, that meant a <span> was getting injected in the middle
-   * of another tag's attribute, corrupting the surrounding markup badly
-   * enough to produce visibly broken output (fragments of attribute
-   * syntax showing up as literal text). So: any match whose position
-   * falls inside an existing `<...>` span is dropped before wrapping.
-   */
   wrapVerseReferences(html) {
     const tagSpans = [];
     const tagRe = /<[^>]*>/g;
@@ -423,13 +319,10 @@ class SwordService {
     return out;
   }
 
-  /** Strips HTML tags for contexts that want plain text (e.g. the LLM
-   *  prompt) rather than the markup used for on-screen rendering. */
   stripHtml(html) {
     return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
-  /** Flattens verse objects into plain text, e.g. for handing to an LLM. */
   versesToText(verses) {
     return verses.map((v) => `${v.verseNr} ${this.stripHtml(v.content)}`).join(' ');
   }
@@ -438,22 +331,108 @@ class SwordService {
     return this.sword.getModuleSearchResults(moduleCode, term, () => {}, searchType, searchScope);
   }
 
-  /** Strong's lookups aren't module-scoped in this API — the engine uses
-   *  whichever Strong's dictionary module is installed. */
   getStrongsEntry(strongsKey) {
     return this.sword.getStrongsEntry(strongsKey);
   }
 
-  /** Lists the browsable keys of a dictionary/lexicon module (e.g. every
-   *  Strong's number, or every headword in a general dictionary). */
   getDictionaryKeys(moduleCode) {
     return this.sword.getDictModuleKeys(moduleCode);
   }
 
-  /** Raw (markup-included) text of a single dictionary/lexicon/commentary
-   *  entry for a given key. */
+  stripRedundantWritingTransliteration(html) {
+    return html.replace(/<orth\b[^>]*\btype="writing"[^>]*>[\s\S]*?<\/orth>/gi, '');
+  }
+
   getRawEntry(moduleCode, key) {
-    return this.processHtml(this.sword.getRawModuleEntry(moduleCode, key));
+    const raw = this.sword.getRawModuleEntry(moduleCode, key);
+    if (!raw) {
+      const err = new Error(`No entry found for "${key}" in ${moduleCode}`);
+      err.status = 404;
+      throw err;
+    }
+    return this.processVerseContent(this.stripRedundantWritingTransliteration(raw)).content;
+  }
+
+  extractStrongsKeysFrom(html) {
+    const keys = new Set();
+    for (const m of html.matchAll(/data-strong="([^"]*)"/g)) {
+      for (const k of m[1].split(',')) {
+        if (k.trim()) keys.add(k.trim());
+      }
+    }
+    return [...keys];
+  }
+
+  /**
+   * Builds (and caches) an index of every verse where each Strong's key
+   * appears, for one specific module — a full Bible scan, done once per
+   * module and kept in memory thereafter. This is deliberately built on
+   * getChapterText + extractStrongsKeysFrom (already proven correct
+   * elsewhere in this file) rather than SWORD's own search engine — I
+   * don't have confirmed documentation that node-sword-interface's
+   * search supports Strong's-number-aware queries, and getting that
+   * wrong silently (wrong or empty results instead of a clear error)
+   * felt like a worse failure mode than a slower but verified approach.
+   *
+   * This runs synchronously per chapter (getChapterText/
+   * processVerseContent have no async boundaries of their own) and a
+   * full Bible is ~1,189 chapters, so without yielding this would block
+   * the Node event loop — including other people's requests, or the
+   * same person's other UI actions — for however long the scan takes.
+   * Yielding to the event loop every 20 chapters keeps the server
+   * responsive during the (one-time, per-module) build.
+   */
+  async buildStrongsIndexForModule(moduleCode) {
+    if (this._strongsIndexCache.has(moduleCode)) return this._strongsIndexCache.get(moduleCode);
+    if (this._strongsIndexBuilding.has(moduleCode)) return this._strongsIndexBuilding.get(moduleCode);
+
+    const buildPromise = (async () => {
+      const index = new Map();
+      let chaptersProcessed = 0;
+
+      for (const [book, chapterCount] of BIBLE_BOOKS) {
+        for (let chapter = 1; chapter <= chapterCount; chapter++) {
+          let rawVerses;
+          try {
+            rawVerses = this.sword.getChapterText(moduleCode, book, chapter);
+          } catch {
+            continue; // book/chapter not present in this module's versification — skip
+          }
+
+          for (const v of rawVerses) {
+            const { content } = this.processVerseContent(v.content);
+            const keys = this.extractStrongsKeysFrom(content);
+            if (keys.length === 0) continue;
+            const plainText = this.stripHtml(content);
+            for (const key of keys) {
+              if (!index.has(key)) index.set(key, []);
+              index.get(key).push({ book, chapter, verse: Number(v.verseNr), text: plainText });
+            }
+          }
+
+          chaptersProcessed++;
+          if (chaptersProcessed % 20 === 0) {
+            await new Promise((resolve) => setImmediate(resolve));
+          }
+        }
+      }
+
+      this._strongsIndexCache.set(moduleCode, index);
+      this._strongsIndexBuilding.delete(moduleCode);
+      return index;
+    })();
+
+    this._strongsIndexBuilding.set(moduleCode, buildPromise);
+    return buildPromise;
+  }
+
+  /** Every occurrence of a Strong's key across the whole Bible in one
+   *  module — the data behind cross-Bible word studies. First call for
+   *  a given module is slow (a real full-Bible scan); every call after
+   *  that, for any key in that same module, is an instant Map lookup. */
+  async getStrongsOccurrences(moduleCode, strongsKey) {
+    const index = await this.buildStrongsIndexForModule(moduleCode);
+    return index.get(strongsKey) || [];
   }
 }
 

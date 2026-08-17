@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 
 /** `osisRef` is usually a single OSIS key but can be a comma-separated
@@ -33,37 +34,43 @@ export default function VersePopup({ osisRef, module, x, y, onClose, onOpenInTab
     top: Math.min(y, window.innerHeight - 260),
   };
 
-  return (
-    <div className="fixed z-30 w-96 max-h-[70vh] overflow-y-auto rounded-lg border border-rule bg-panel p-4 shadow-2xl" style={style}>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="font-mono text-xs uppercase tracking-wide text-verdigris">{refs.join(' + ')}</span>
-        <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
-          close
-        </button>
-      </div>
-
-      {loading && <p className="text-sm text-muted">Loading…</p>}
-      {error && <p className="text-sm text-red-400">{error}</p>}
-
-      {entries?.map(({ ref, verses }, i) => (
-        <div key={ref} className={i > 0 ? 'mt-3 border-t border-rule pt-3' : ''}>
-          {entries.length > 1 && <p className="mb-1 font-mono text-xs text-muted">{ref}</p>}
-          <p className="mb-2 font-display text-sm leading-relaxed text-parchment/90">
-            {verses.map((v) => (
-              <span key={`${v.chapter}-${v.verseNr}`}>
-                <sup className="mr-1 text-xs text-brass">{v.verseNr}</sup>
-                {v.content.replace(/<[^>]*>/g, '')}{' '}
-              </span>
-            ))}
-          </p>
-          <button
-            onClick={() => onOpenInTab(module, ref)}
-            className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
-          >
-            Open in tab
+  return createPortal(
+    <>
+      {/* Invisible full-screen catcher so clicking anywhere outside the
+          popup closes it — same pattern as ContextZoomMenu/ModulePicker. */}
+      <div className="fixed inset-0 z-20" onClick={onClose} />
+      <div className="fixed z-30 w-96 max-h-[70vh] overflow-y-auto rounded-lg border border-rule bg-panel p-4 shadow-2xl" style={style}>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="font-mono text-xs uppercase tracking-wide text-verdigris">{refs.join(' + ')}</span>
+          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
+            close
           </button>
         </div>
-      ))}
-    </div>
+
+        {loading && <p className="text-sm text-muted">Loading…</p>}
+        {error && <p className="text-sm text-red-400">{error}</p>}
+
+        {entries?.map(({ ref, verses }, i) => (
+          <div key={ref} className={i > 0 ? 'mt-3 border-t border-rule pt-3' : ''}>
+            {entries.length > 1 && <p className="mb-1 font-mono text-xs text-muted">{ref}</p>}
+            <p className="mb-2 font-display text-sm leading-relaxed text-parchment/90">
+              {verses.map((v) => (
+                <span key={`${v.chapter}-${v.verseNr}`}>
+                  <sup className="mr-1 text-xs text-brass">{v.verseNr}</sup>
+                  {v.content.replace(/<[^>]*>/g, '')}{' '}
+                </span>
+              ))}
+            </p>
+            <button
+              onClick={() => onOpenInTab(module, ref)}
+              className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
+            >
+              Open in tab
+            </button>
+          </div>
+        ))}
+      </div>
+    </>,
+    document.body
   );
 }

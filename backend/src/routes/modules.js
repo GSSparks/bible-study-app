@@ -1,7 +1,18 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { swordService } from '../services/swordService.js';
 
 export const modulesRouter = Router();
+
+const upload = multer({
+  limits: { fileSize: 300 * 1024 * 1024 }, // some modules (esp. commentaries) run large
+  fileFilter: (req, file, cb) => {
+    if (!file.originalname.toLowerCase().endsWith('.zip')) {
+      return cb(new Error('Only .zip files are accepted'));
+    }
+    cb(null, true);
+  },
+});
 
 // GET /api/modules/repositories
 modulesRouter.get('/repositories', async (req, res, next) => {
@@ -43,6 +54,20 @@ modulesRouter.post('/install', async (req, res, next) => {
     // synchronous for simplicity. Consider SSE/WebSocket progress later.
     await swordService.installModule(repo, moduleCode);
     res.json({ status: 'installed', moduleCode });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/modules/upload  (multipart form, field name "file", a SWORD module .zip)
+modulesRouter.post('/upload', upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'file is required' });
+    swordService.installModuleFromZip(req.file.buffer);
+    res.json({
+      status: 'installed',
+      note: "If it doesn't show up in the installed list right away, restart the backend — local module scanning may only happen at startup.",
+    });
   } catch (err) {
     next(err);
   }

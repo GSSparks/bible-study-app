@@ -5,14 +5,19 @@ import { prisma } from '../db/prisma.js';
 export const contextRouter = Router();
 
 // POST /api/context/build
-// { sources: [{ module, reference, kind, title }], noteIds?: [] }
+// { sources: [{ module, reference, kind, title }], noteIds?: [], includeAllCommentaries?: bool, includeWordStudies?: bool }
 contextRouter.post('/build', async (req, res, next) => {
   try {
-    const { sources, noteIds } = req.body;
+    const { sources, noteIds, includeAllCommentaries, includeWordStudies } = req.body;
     if (!Array.isArray(sources) || sources.length === 0) {
       return res.status(400).json({ error: 'sources[] is required (nothing open to build context from)' });
     }
-    const context = await buildPassageContext({ sources, noteIds: noteIds || [] });
+    const context = await buildPassageContext({
+      sources,
+      noteIds: noteIds || [],
+      includeAllCommentaries: Boolean(includeAllCommentaries),
+      includeWordStudies: Boolean(includeWordStudies),
+    });
     res.json(context);
   } catch (err) {
     next(err);

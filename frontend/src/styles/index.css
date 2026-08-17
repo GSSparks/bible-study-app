@@ -33,47 +33,44 @@
   opacity: 0.85;
 }
 .marginalia-tick:hover::before {
-  border-color: theme('colors.brass');
+  border-color: theme('colors.pageAccent');
   opacity: 1;
 }
 
 /* SWORD renders Strong's/morphology markup as inline elements once
-   enableMarkup() is on. The exact tag/class SWORD emits varies by
-   platform convention (this targets both the common `.strongs` class
-   and a `data-strong` attribute, whichever the compiled engine uses —
-   see ReaderPane.jsx's extractStrongsKey for the full detection logic).
-   Only actually-tagged words get this affordance. */
+   enableMarkup() is on — normalized server-side into `.strongs` +
+   `data-strong` (see ReaderPane.jsx's extractStrongsKey for the click
+   detection). No underline — color plus cursor is the affordance;
+   dotted-underlining nearly every word in the reading pane read as
+   visual noise rather than a useful signal. */
 .verse-content .strongs,
 .verse-content [data-strong] {
   cursor: pointer;
-  text-decoration: underline dotted;
-  text-decoration-color: theme('colors.verdigris');
-  text-underline-offset: 3px;
 }
 .verse-content .strongs:hover,
 .verse-content [data-strong]:hover {
-  color: theme('colors.brass');
+  color: theme('colors.pageAccent');
 }
 
 /* Bible references detected inside commentary/dictionary prose (e.g.
-   "cf. John 3:16") and wrapped server-side — distinct styling from
-   Strong's words so the two affordances don't look identical. */
+   "cf. John 3:16") and wrapped server-side — distinct color from
+   Strong's words so the two affordances don't look identical, same
+   no-underline treatment. */
 .verse-ref {
   cursor: pointer;
   color: theme('colors.verdigris');
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 .verse-ref:hover {
-  color: theme('colors.brass');
+  color: theme('colors.pageAccent');
 }
 
 /* SWORD marks words of Christ with this class (confirmed from real
    module output) — now that verse content's wrapping <div> is flattened
    to an inline <span> instead of being dropped raw into the DOM, this
-   is renderable. */
+   is renderable. Reads naturally now that reading surfaces use a light
+   page background instead of the dark app chrome. */
 .sword-quote-jesus {
-  color: #b0433d;
+  color: #a3382f;
 }
 
 /* Cross-reference markers — collapsed from the module's own <note
@@ -89,7 +86,7 @@
   padding: 0 1px;
 }
 .xref-marker:hover {
-  color: theme('colors.brass');
+  color: theme('colors.pageAccent');
 }
 
 /* Explanatory/translator footnotes — same collapsing treatment as
@@ -97,14 +94,27 @@
    numeric numbering (vs. cross-references' alphabetic lettering). */
 .footnote-marker {
   cursor: pointer;
-  color: theme('colors.muted');
+  color: theme('colors.pageMuted');
   font-weight: 700;
   font-size: 0.75em;
   margin: 0 1px;
   padding: 0 1px;
 }
 .footnote-marker:hover {
-  color: theme('colors.brass');
+  color: theme('colors.pageAccent');
+}
+
+/* "see HEBREW for 0543"-style cross-references inside dictionary
+   entries — a different click target from word-level Strong's spans:
+   clicking one navigates straight to that dictionary entry rather than
+   popping up a preview (you're already reading a dictionary entry, so a
+   popup-on-popup would be redundant). */
+.dict-xref {
+  cursor: pointer;
+  color: theme('colors.verdigris');
+}
+.dict-xref:hover {
+  color: theme('colors.pageAccent');
 }
 
 /* Basic markdown styling for the study assistant's replies — no
