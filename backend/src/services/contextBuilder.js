@@ -208,7 +208,7 @@ export async function askWordStudy({ context }) {
 
   const response = await anthropic.messages.create({
     model: config.anthropicModel,
-    max_tokens: 1500,
+    max_tokens: 4096,
     system,
     messages: [
       {
