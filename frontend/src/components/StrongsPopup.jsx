@@ -54,11 +54,6 @@ export default function StrongsPopup({
           </button>
         </div>
 
-        {/* TEMPORARY DIAGNOSTIC — remove once the word-study button issue is resolved */}
-        <p className="mb-2 rounded border border-red-500 bg-red-500/10 p-1 text-xs text-red-400">
-          [DEBUG] module={JSON.stringify(module)} · onWordStudy={typeof onWordStudy}
-        </p>
-
         {onSearchTopical && wordText && (
           <button
             onClick={() => onSearchTopical(wordText)}
