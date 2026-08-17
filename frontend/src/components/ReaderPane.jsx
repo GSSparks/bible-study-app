@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
-import ContextZoomMenu from './ContextZoomMenu.jsx';
 import BookChapterPicker from './BookChapterPicker.jsx';
 
 function groupVerses(verses) {
@@ -71,7 +70,6 @@ export default function ReaderPane({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
-  const [contextMenu, setContextMenu] = useState(null);
   const [bookPicker, setBookPicker] = useState(null);
   const [selectedRange, setSelectedRange] = useState(null);
   const [focusedVerseKey, setFocusedVerseKey] = useState(null);
@@ -127,40 +125,6 @@ export default function ReaderPane({
     const nextChapter = Number(first.chapter) + delta;
     if (nextChapter < 1) return;
     onNavigate?.(focusMode ? `${first.bibleBookShortTitle} ${nextChapter}:1` : `${first.bibleBookShortTitle} ${nextChapter}`);
-  }
-
-  async function zoomToSection() {
-    setContextMenu(null);
-    if (!first) return;
-    const chapterRef = `${first.bibleBookShortTitle} ${first.chapter}`;
-    try {
-      const res = await api.getPassage(module, chapterRef);
-      const chapterVerses = res.verses || [];
-      const targetVerseNr = Number(first.verseNr);
-      const titledVerseNumbers = chapterVerses
-        .filter((v) => v.titles && v.titles.length > 0)
-        .map((v) => Number(v.verseNr))
-        .sort((a, b) => a - b);
-
-      let sectionStart = 1;
-      let sectionEnd = Math.max(...chapterVerses.map((v) => Number(v.verseNr)));
-      for (const vn of titledVerseNumbers) {
-        if (vn <= targetVerseNr) sectionStart = vn;
-        else {
-          sectionEnd = vn - 1;
-          break;
-        }
-      }
-      onNavigate?.(`${chapterRef}:${sectionStart}-${sectionEnd}`);
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  function zoomToChapter() {
-    setContextMenu(null);
-    if (!first) return;
-    onNavigate?.(`${first.bibleBookShortTitle} ${first.chapter}`);
   }
 
   function handleVerseNumberClick(e, v) {
@@ -245,18 +209,6 @@ export default function ReaderPane({
           )}
           {first && (
             <>
-              {!focusMode && (
-                <button
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setContextMenu({ x: rect.left, y: rect.bottom + 4 });
-                  }}
-                  className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
-                  title="Zoom out to see more context"
-                >
-                  context ▾
-                </button>
-              )}
               <button
                 onClick={() => goToChapter(-1)}
                 className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
@@ -292,11 +244,6 @@ export default function ReaderPane({
             module={module}
             className="verse-content max-w-2xl flex-1 space-y-4 font-display text-base leading-relaxed text-pageText"
             onClick={handleContentClick}
-            onContextMenu={(e) => {
-              if (focusMode) return;
-              e.preventDefault();
-              setContextMenu({ x: e.clientX, y: e.clientY });
-            }}
           >
             {segments.map((seg, i) => (
               <div key={seg.key}>
@@ -381,16 +328,6 @@ export default function ReaderPane({
           y={bookPicker.y}
           onSelectChapter={(chapterRef) => onNavigate?.(focusMode ? `${chapterRef}:1` : chapterRef)}
           onClose={() => setBookPicker(null)}
-        />
-      )}
-
-      {contextMenu && (
-        <ContextZoomMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onSelectSection={zoomToSection}
-          onSelectChapter={zoomToChapter}
-          onClose={() => setContextMenu(null)}
         />
       )}
 

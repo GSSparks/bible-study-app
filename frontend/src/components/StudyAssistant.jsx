@@ -3,35 +3,82 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { api } from '../api/client.js';
 
-/** `wordStudyRequest`: `{ module, strongsKey, nonce }` — set when the
- * person clicks "Word study across the whole Bible →" on a Strong's
- * popup. Same "start fresh" behavior as overviewRequest, and the same
- * reasoning applies to why: a word study is a new, deliberate inquiry,
- * not a continuation of whatever chat was already happening.
+let nextConvId = 1;
+const uid = () => `conv-${nextConvId++}`;
+
+function makeConversation(kind, title, meta = {}) {
+  return {
+    id: uid(),
+    kind, // 'chat' | 'overview' | 'wordStudy'
+    title,
+    meta, // { module, reference } or { module, strongsKey } — used by saveAsNote to anchor correctly
+    messages: [],
+    sessionId: null,
+    attachedNotes: [],
+    loading: false,
+    loadingLabel: 'Thinking…',
+    error: null,
+  };
+}
+
+/**
+ * Each "Ask about this passage" or "Word study" used to blow away
+ * whatever conversation was already in progress — asking about a second
+ * word meant losing the first study entirely. Conversations are now
+ * genuinely independent, tab-switchable objects; triggering a new
+ * overview/word-study opens a *new* tab rather than overwriting the
+ * current one, and everything that was per-component state before
+ * (messages, sessionId, attached notes, loading/error) now lives on the
+ * individual conversation object instead.
  *
- * Genuinely slower than the passage overview, and worth surfacing that
- * rather than leaving a bare spinner: the FIRST word study for a given
- * translation triggers a real full-Bible scan on the backend (cached
- * after that — every word study after the first, for any word in that
- * same translation, is fast). loadingLabel exists specifically to make
- * that distinction visible instead of using the same generic "…" for
- * every kind of request. */
+ * `input` and the note-picker UI state (query/results/open) stay as
+ * plain component state rather than per-conversation — they're
+ * transient UI, not conversation data, and there's no strong case for
+ * preserving an in-progress draft across a tab switch in this version.
+ */
 export default function StudyAssistant({ sources, overviewRequest, wordStudyRequest }) {
-  const [messages, setMessages] = useState([]);
+  const [conversations, setConversations] = useState(() => [makeConversation('chat', 'Chat')]);
+  const [activeConversationId, setActiveConversationId] = useState(() => conversations[0].id);
   const [input, setInput] = useState('');
-  const [sessionId, setSessionId] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [loadingLabel, setLoadingLabel] = useState('Thinking…');
-  const [error, setError] = useState(null);
   const [savedIndex, setSavedIndex] = useState(null);
 
   const [noteQuery, setNoteQuery] = useState('');
   const [noteResults, setNoteResults] = useState([]);
-  const [attachedNotes, setAttachedNotes] = useState([]);
   const [showNotePicker, setShowNotePicker] = useState(false);
 
   const validSources = sources.filter((s) => s.module && s.reference);
+  const activeConversation = conversations.find((c) => c.id === activeConversationId) || conversations[0];
 
+  function updateConversation(id, patch) {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...(typeof patch === 'function' ? patch(c) : patch) } : c))
+    );
+  }
+
+  function addConversation(kind, title, meta) {
+    const conv = makeConversation(kind, title, meta);
+    setConversations((prev) => [...prev, conv]);
+    setActiveConversationId(conv.id);
+    return conv.id;
+  }
+
+  function closeConversation(id) {
+    setConversations((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      if (next.length === 0) {
+        const fresh = makeConversation('chat', 'Chat');
+        setActiveConversationId(fresh.id);
+        return [fresh];
+      }
+      if (activeConversationId === id) setActiveConversationId(next[next.length - 1].id);
+      return next;
+    });
+  }
+
+  // React to overviewRequest/wordStudyRequest — each is handed a fresh
+  // object (with a nonce) by the corresponding action elsewhere in the
+  // app, so a straightforward effect on the prop itself is enough to
+  // pick up even repeated requests for the exact same passage/word.
   useEffect(() => {
     if (!overviewRequest) return;
     void runOverview(overviewRequest);
@@ -45,11 +92,8 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
   }, [wordStudyRequest]);
 
   async function runOverview({ module, reference }) {
-    setMessages([]);
-    setSessionId(null);
-    setLoading(true);
-    setLoadingLabel('Thinking…');
-    setError(null);
+    const id = addConversation('overview', `${reference} overview`, { module, reference });
+    updateConversation(id, { loading: true, loadingLabel: 'Thinking…' });
     try {
       const context = await api.buildContext({
         sources: [{ module, reference, kind: 'bible', title: module }],
@@ -60,30 +104,33 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
         role: 'user',
         content: `Give a thorough overview of ${reference} — draw on the commentary and word study entries included in the context, not just the bare verse text.`,
       };
+      updateConversation(id, { messages: [userMessage] });
       const res = await api.askAssistant({ context, messages: [userMessage] });
-      setMessages([userMessage, { role: 'assistant', content: res.reply }]);
-      setSessionId(res.sessionId);
+      updateConversation(id, {
+        messages: [userMessage, { role: 'assistant', content: res.reply }],
+        sessionId: res.sessionId,
+        loading: false,
+      });
     } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
+      updateConversation(id, { error: e.message, loading: false });
     }
   }
 
   /** Word studies don't chain into a session the way regular chat/
    * overview replies do — askWordStudy is a dedicated, single-shot
-   * endpoint (see contextBuilder.js) rather than something that
-   * continues via the normal sessionId mechanism. A follow-up question
-   * typed afterward goes through the regular send() flow below, which
+   * endpoint rather than something that continues via the normal
+   * sessionId mechanism. A follow-up question typed in this tab
+   * afterward goes through the regular send() flow below, which
    * rebuilds context from validSources and won't carry the occurrence
-   * list forward. That's a real, known limitation of this first
-   * version, not an oversight. */
+   * list forward. That's a real, known limitation of this version, not
+   * an oversight. */
   async function runWordStudy({ module, strongsKey }) {
-    setMessages([]);
-    setSessionId(null);
-    setError(null);
-    setLoading(true);
-    setLoadingLabel('Scanning the whole Bible for every occurrence — can take up to a minute the first time for a translation, instant after that…');
+    const id = addConversation('wordStudy', `${strongsKey} word study`, { module, strongsKey });
+    updateConversation(id, {
+      loading: true,
+      loadingLabel:
+        'Scanning the whole Bible for every occurrence — can take up to a minute the first time for a translation, instant after that…',
+    });
     try {
       const context = await api.buildWordStudyContext({ module, strongsKey });
       const wordLabel = context.dictionaryEntry?.transcription
@@ -96,18 +143,26 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
         role: 'user',
         content: `Give a word study for Strong's ${wordLabel} in ${module} — synthesizing patterns across ${occurrenceNote}.`,
       };
-      // Show the question (and that the scan finished) right away —
-      // the LLM call itself is a second, separate wait.
-      setMessages([userMessage]);
-      setLoadingLabel('Thinking…');
+      // Show the question (and rename the tab to include the
+      // transcription) right away — the LLM call itself is a second,
+      // separate wait.
+      updateConversation(id, { title: `${wordLabel} word study`, messages: [userMessage], loadingLabel: 'Thinking…' });
       const res = await api.askWordStudy({ context });
-      setMessages([userMessage, { role: 'assistant', content: res.reply }]);
+      updateConversation(id, {
+        messages: [userMessage, { role: 'assistant', content: res.reply }],
+        loading: false,
+      });
     } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
+      updateConversation(id, { error: e.message, loading: false });
     }
   }
+
+  // overviewRequest/wordStudyRequest are handed a fresh object (with a
+  // nonce) each time the corresponding action fires elsewhere in the
+  // app; picking that up here needs an effect since it's a prop change,
+  // not a local event.
+  useEffectOnPropChange(overviewRequest, runOverview);
+  useEffectOnPropChange(wordStudyRequest, runWordStudy);
 
   async function searchNotes(q) {
     setNoteQuery(q);
@@ -121,55 +176,92 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
   }
 
   function toggleAttachNote(note) {
-    setAttachedNotes((prev) =>
-      prev.some((n) => n.id === note.id) ? prev.filter((n) => n.id !== note.id) : [...prev, note]
-    );
+    updateConversation(activeConversationId, (c) => ({
+      attachedNotes: c.attachedNotes.some((n) => n.id === note.id)
+        ? c.attachedNotes.filter((n) => n.id !== note.id)
+        : [...c.attachedNotes, note],
+    }));
   }
 
   async function send() {
     if (!input.trim() || validSources.length === 0) return;
-    const nextMessages = [...messages, { role: 'user', content: input.trim() }];
-    setMessages(nextMessages);
+    const convId = activeConversationId;
+    const conv = conversations.find((c) => c.id === convId);
+    const nextMessages = [...conv.messages, { role: 'user', content: input.trim() }];
+    updateConversation(convId, { messages: nextMessages, loading: true, loadingLabel: 'Thinking…', error: null });
     setInput('');
-    setLoading(true);
-    setLoadingLabel('Thinking…');
-    setError(null);
     try {
       const context = await api.buildContext({
         sources: validSources,
-        noteIds: attachedNotes.map((n) => n.id),
+        noteIds: conv.attachedNotes.map((n) => n.id),
       });
-      const res = await api.askAssistant({ context, messages: nextMessages, sessionId });
-      setMessages((prev) => [...prev, { role: 'assistant', content: res.reply }]);
-      setSessionId(res.sessionId);
+      const res = await api.askAssistant({ context, messages: nextMessages, sessionId: conv.sessionId });
+      updateConversation(convId, (c) => ({
+        messages: [...c.messages, { role: 'assistant', content: res.reply }],
+        sessionId: res.sessionId,
+        loading: false,
+      }));
     } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
+      updateConversation(convId, { error: e.message, loading: false });
     }
   }
 
   async function saveAsNote(content, index) {
-    const primary = validSources[0];
+    const anchor = activeConversation.meta.reference || activeConversation.meta.module ? activeConversation.meta : validSources[0] || {};
     try {
       await api.createNote({
         title: content.slice(0, 60).replace(/\s+\S*$/, '') + (content.length > 60 ? '…' : ''),
         body: content,
-        reference: primary?.reference || null,
-        module: primary?.module || null,
+        reference: anchor.reference || null,
+        module: anchor.module || null,
         tags: ['assistant'],
         fromAssistant: true,
       });
       setSavedIndex(index);
       setTimeout(() => setSavedIndex((i) => (i === index ? null : i)), 1500);
     } catch (e) {
-      setError(e.message);
+      updateConversation(activeConversationId, { error: e.message });
     }
   }
 
   return (
     <div className="flex h-full flex-col p-4">
-      <h3 className="mb-2 font-display text-lg text-parchment">Study assistant</h3>
+      <div className="mb-2 flex items-center gap-1 overflow-x-auto border-b border-rule pb-2">
+        {conversations.map((c) => (
+          <div
+            key={c.id}
+            className={`flex shrink-0 items-center rounded text-xs whitespace-nowrap ${
+              c.id === activeConversationId ? 'bg-panel text-brass' : 'text-muted'
+            }`}
+          >
+            <button
+              onClick={() => setActiveConversationId(c.id)}
+              className={`max-w-[10rem] truncate px-2 py-1 ${c.id === activeConversationId ? '' : 'hover:text-parchment'}`}
+              title={c.title}
+            >
+              {c.title}
+            </button>
+            {conversations.length > 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeConversation(c.id);
+                }}
+                className="px-1.5 py-1 hover:text-red-400"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+        <button
+          onClick={() => addConversation('chat', 'Chat')}
+          className="shrink-0 px-2 py-1 text-xs text-muted hover:text-brass"
+          title="New chat"
+        >
+          +
+        </button>
+      </div>
 
       <p className="mb-2 text-xs text-muted">
         {validSources.length > 0 ? (
@@ -184,11 +276,12 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
           onClick={() => setShowNotePicker((v) => !v)}
           className="text-xs text-verdigris hover:text-brass"
         >
-          {showNotePicker ? 'hide' : 'attach'} personal notes {attachedNotes.length > 0 && `(${attachedNotes.length})`}
+          {showNotePicker ? 'hide' : 'attach'} personal notes{' '}
+          {activeConversation.attachedNotes.length > 0 && `(${activeConversation.attachedNotes.length})`}
         </button>
-        {attachedNotes.length > 0 && (
+        {activeConversation.attachedNotes.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
-            {attachedNotes.map((n) => (
+            {activeConversation.attachedNotes.map((n) => (
               <span key={n.id} className="flex items-center gap-1 rounded border border-rule px-2 py-0.5 text-xs text-parchment/90">
                 {n.title || 'Untitled'}
                 <button onClick={() => toggleAttachNote(n)} className="text-muted hover:text-red-400">
@@ -212,10 +305,10 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
                   key={n.id}
                   onClick={() => toggleAttachNote(n)}
                   className={`block w-full truncate px-2 py-1 text-left text-xs ${
-                    attachedNotes.some((a) => a.id === n.id) ? 'text-brass' : 'text-parchment/90 hover:text-brass'
+                    activeConversation.attachedNotes.some((a) => a.id === n.id) ? 'text-brass' : 'text-parchment/90 hover:text-brass'
                   }`}
                 >
-                  {attachedNotes.some((a) => a.id === n.id) ? '✓ ' : ''}
+                  {activeConversation.attachedNotes.some((a) => a.id === n.id) ? '✓ ' : ''}
                   {n.title || n.body.slice(0, 40)}
                 </button>
               ))}
@@ -225,10 +318,10 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
         )}
       </div>
 
-      {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
+      {activeConversation.error && <p className="mb-2 text-sm text-red-400">{activeConversation.error}</p>}
 
       <div className="mb-3 min-h-0 flex-1 space-y-2 overflow-y-auto">
-        {messages.map((m, i) => (
+        {activeConversation.messages.map((m, i) => (
           <div
             key={i}
             className={`markdown-body group relative rounded-md px-3 py-2 text-sm ${
@@ -247,7 +340,7 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
             )}
           </div>
         ))}
-        {loading && <p className="px-1 text-xs italic text-muted">{loadingLabel}</p>}
+        {activeConversation.loading && <p className="px-1 text-xs italic text-muted">{activeConversation.loadingLabel}</p>}
       </div>
 
       <div className="flex gap-2">
@@ -261,10 +354,10 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
         />
         <button
           onClick={send}
-          disabled={validSources.length === 0 || loading}
+          disabled={validSources.length === 0 || activeConversation.loading}
           className="rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50"
         >
-          {loading ? '…' : 'Ask'}
+          {activeConversation.loading ? '…' : 'Ask'}
         </button>
       </div>
     </div>
