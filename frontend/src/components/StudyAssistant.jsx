@@ -41,6 +41,7 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
   const [activeConversationId, setActiveConversationId] = useState(() => conversations[0].id);
   const [input, setInput] = useState('');
   const [savedIndex, setSavedIndex] = useState(null);
+  const [savedModuleIndex, setSavedModuleIndex] = useState(null);
 
   const [noteQuery, setNoteQuery] = useState('');
   const [noteResults, setNoteResults] = useState([]);
@@ -157,13 +158,6 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
     }
   }
 
-  // overviewRequest/wordStudyRequest are handed a fresh object (with a
-  // nonce) each time the corresponding action fires elsewhere in the
-  // app; picking that up here needs an effect since it's a prop change,
-  // not a local event.
-  useEffectOnPropChange(overviewRequest, runOverview);
-  useEffectOnPropChange(wordStudyRequest, runWordStudy);
-
   async function searchNotes(q) {
     setNoteQuery(q);
     if (!q.trim()) return setNoteResults([]);
@@ -219,6 +213,32 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
       });
       setSavedIndex(index);
       setTimeout(() => setSavedIndex((i) => (i === index ? null : i)), 1500);
+    } catch (e) {
+      updateConversation(activeConversationId, { error: e.message });
+    }
+  }
+
+  /** A word-study conversation saves as a DICT-type personal entry
+   * (keyed by its Strong's number); any conversation anchored to a
+   * reference (overview, or regular chat with something open) saves as
+   * a COMMENTARY-type entry instead — connected to that passage the same
+   * way a real commentary would be, via personalModuleService's
+   * range-overlap matching on the backend. */
+  function moduleSaveAnchor() {
+    if (activeConversation.kind === 'wordStudy') {
+      return activeConversation.meta.strongsKey ? { type: 'DICT', key: activeConversation.meta.strongsKey } : null;
+    }
+    const anchor = activeConversation.meta.reference ? activeConversation.meta : validSources[0];
+    return anchor?.reference ? { type: 'COMMENTARY', reference: anchor.reference } : null;
+  }
+
+  async function saveAsModule(content, index) {
+    const anchor = moduleSaveAnchor();
+    if (!anchor) return;
+    try {
+      await api.savePersonalModule({ ...anchor, title: activeConversation.title, body: content });
+      setSavedModuleIndex(index);
+      setTimeout(() => setSavedModuleIndex((i) => (i === index ? null : i)), 1500);
     } catch (e) {
       updateConversation(activeConversationId, { error: e.message });
     }
@@ -330,13 +350,30 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
           >
             {m.role === 'assistant' ? <Markdown remarkPlugins={[remarkGfm]}>{m.content}</Markdown> : m.content}
             {m.role === 'assistant' && (
-              <button
-                onClick={() => saveAsNote(m.content, i)}
-                className="absolute right-2 top-2 rounded border border-rule bg-panel px-1.5 py-0.5 text-xs text-muted opacity-0 hover:text-brass group-hover:opacity-100"
-                title="Save this reply as a personal note"
-              >
-                {savedIndex === i ? 'saved ✓' : 'save as note'}
-              </button>
+              <div className="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100">
+                <button
+                  onClick={() => saveAsNote(m.content, i)}
+                  className="rounded border border-rule bg-panel px-1.5 py-0.5 text-xs text-muted hover:text-brass"
+                  title="Save this reply as a personal note"
+                >
+                  {savedIndex === i ? 'saved ✓' : 'save as note'}
+                </button>
+                {moduleSaveAnchor() && (
+                  <button
+                    onClick={() => saveAsModule(m.content, i)}
+                    className="rounded border border-rule bg-panel px-1.5 py-0.5 text-xs text-muted hover:text-brass"
+                    title={
+                      activeConversation.kind === 'wordStudy'
+                        ? 'Save as a personal dictionary entry — browsable and searchable like any other dictionary module'
+                        : 'Save as a personal commentary entry — connected to this passage, shown alongside any other commentary'
+                    }
+                  >
+                    {savedModuleIndex === i
+                      ? 'saved ✓'
+                      : `save as ${activeConversation.kind === 'wordStudy' ? 'dictionary' : 'commentary'} entry`}
+                  </button>
+                )}
+              </div>
             )}
           </div>
         ))}

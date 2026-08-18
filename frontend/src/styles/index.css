@@ -149,11 +149,13 @@
   font-family: theme('fontFamily.mono');
   font-size: 0.85em;
   background: theme('colors.ink');
+  color: theme('colors.parchment');
   padding: 0.1em 0.35em;
   border-radius: 3px;
 }
 .markdown-body pre {
   background: theme('colors.ink');
+  color: theme('colors.parchment');
   padding: 0.6em 0.8em;
   border-radius: 6px;
   overflow-x: auto;
@@ -172,4 +174,27 @@
   border: 1px solid theme('colors.rule');
   padding: 0.3em 0.6em;
   text-align: left;
+}
+
+/* .markdown-body above is tuned for the study assistant's dark ink/
+   panel background by default — colors like parchment-colored bold
+   text read fine there, but go nearly invisible against the light
+   "page" reading surfaces (DictionaryPane, ReaderPane's commentary
+   tabs) where saved word studies and conversations also render as
+   markdown now. .markdown-body-page is an additional modifier class,
+   applied alongside .markdown-body (not instead of it) wherever
+   markdown content shows up on a light page background — it only
+   overrides the specific rules that actually depend on the
+   surrounding background being dark; most of .markdown-body (headings,
+   links, code blocks) already has reasonable contrast against either
+   background and needs no override. Code/pre blocks keep their dark
+   ink background and parchment text in both contexts — a deliberate
+   "terminal-style" look regardless of the surrounding theme, and
+   parchment-on-ink is high-contrast either way, so no override needed
+   there. */
+.markdown-body.markdown-body-page strong {
+  color: theme('colors.pageAccent');
+}
+.markdown-body.markdown-body-page blockquote {
+  color: theme('colors.pageMuted');
 }

@@ -73,3 +73,31 @@ model StudySession {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+// A personal, AI-study-derived "module" — DICT-type (word studies,
+// entries keyed by term) or COMMENTARY-type (conversations about a
+// passage, entries keyed by reference). Listed alongside real SWORD
+// modules under a "personal:<id>" module code, so the app's existing
+// dictionary/commentary browsing UI works on these without any changes —
+// see backend/src/services/personalModuleService.js.
+model PersonalModule {
+  id        String          @id @default(cuid())
+  type      String // 'DICT' | 'COMMENTARY'
+  name      String // display name, e.g. "My Word Studies"
+  createdAt DateTime        @default(now())
+  entries   PersonalEntry[]
+}
+
+model PersonalEntry {
+  id         String         @id @default(cuid())
+  moduleId   String
+  module     PersonalModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  key        String? // DICT-type: the term/word (e.g. "G26")
+  reference  String? // COMMENTARY-type: the reference this entry is about (e.g. "John 3:16-18")
+  title      String
+  body       String // HTML — converted from the LLM's markdown reply at save time
+  createdAt  DateTime       @default(now())
+
+  @@index([moduleId, key])
+  @@index([moduleId, reference])
+}

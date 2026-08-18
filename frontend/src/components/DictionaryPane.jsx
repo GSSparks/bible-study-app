@@ -142,14 +142,14 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
         {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
         <SelectableNoteRegion
           module={module}
-          className="max-w-2xl font-display text-base leading-relaxed text-pageText"
+          className="markdown-body markdown-body-page max-w-2xl font-display text-base leading-relaxed text-pageText"
           onClick={handleContentClick}
         >
           {refVerses.map((v) => (
-            <p key={`${v.chapter}-${v.verseNr}`} className="mb-2">
+            <div key={`${v.chapter}-${v.verseNr}`} className="mb-2">
               <sup className="mr-1 text-xs text-pageAccent">{v.verseNr}</sup>
-              <span dangerouslySetInnerHTML={{ __html: v.content }} />
-            </p>
+              <div className="inline" dangerouslySetInnerHTML={{ __html: v.content }} />
+            </div>
           ))}
         </SelectableNoteRegion>
 
@@ -200,7 +200,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
         {selectedKey && !loadingEntry && (
           <SelectableNoteRegion
             module={module}
-            className="max-w-2xl font-display text-base leading-relaxed text-pageText"
+            className="markdown-body markdown-body-page max-w-2xl font-display text-base leading-relaxed text-pageText"
             onClick={handleContentClick}
           >
             <h2 className="mb-3 font-sans text-xs uppercase tracking-wide text-verdigris">{selectedKey}</h2>

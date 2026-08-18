@@ -242,7 +242,9 @@ export default function ReaderPane({
           <SelectableNoteRegion
             reference={reference}
             module={module}
-            className="verse-content max-w-2xl flex-1 space-y-4 font-display text-base leading-relaxed text-pageText"
+            className={`verse-content max-w-2xl flex-1 space-y-4 font-display text-base leading-relaxed text-pageText ${
+              focusMode ? '' : 'markdown-body markdown-body-page'
+            }`}
             onClick={handleContentClick}
           >
             {segments.map((seg, i) => (

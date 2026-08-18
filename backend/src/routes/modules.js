@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { swordService } from '../services/swordService.js';
+import { listPersonalModules } from '../services/personalModuleService.js';
 
 export const modulesRouter = Router();
 
@@ -35,9 +36,19 @@ modulesRouter.get('/available', async (req, res, next) => {
 });
 
 // GET /api/modules/installed?type=BIBLE|COMMENTARY|DICT
+// DICT/COMMENTARY results also include personal (AI-derived) modules
+// alongside real SWORD ones — same shape ({name, description}), so
+// nothing downstream (module pickers, tab strips) needs to know the
+// difference.
 modulesRouter.get('/installed', async (req, res, next) => {
   try {
-    res.json(await swordService.listInstalledModules(req.query.type || 'BIBLE'));
+    const type = req.query.type || 'BIBLE';
+    const swordModules = await swordService.listInstalledModules(type);
+    if (type === 'DICT' || type === 'COMMENTARY') {
+      const personalModules = await listPersonalModules(type);
+      return res.json([...swordModules, ...personalModules]);
+    }
+    res.json(swordModules);
   } catch (err) {
     next(err);
   }
