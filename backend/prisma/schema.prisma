@@ -101,3 +101,37 @@ model PersonalEntry {
   @@index([moduleId, key])
   @@index([moduleId, reference])
 }
+
+// Auth. Deliberately minimal for Phase 1 — just enough for login,
+// roles, and the bootstrap-safety mechanism. Per-user data ownership
+// (adding userId to Note/Highlight/PersonalModule/etc.) is Phase 2,
+// not part of this migration.
+model User {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  passwordHash String
+  role         String    @default("user") // "admin" | "user"
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+}
+
+// A generic key/value settings table. Right now it exists for exactly
+// one purpose: bootstrapAdmin() inserts a row here under a fixed unique
+// key inside the same transaction that creates the first admin, so
+// Postgres's own unique-constraint enforcement — atomic even under
+// concurrent transactions — is what guarantees only one "first admin"
+// can ever be created, rather than relying on a check-then-create
+// pattern that would leave a real race window open. See
+// authService.js's bootstrapAdmin for the full reasoning.
+model AppSetting {
+  key   String @id
+  value String
+}
+
+// NOTE: this migration's SQL also creates a `session` table, but it is
+// deliberately NOT represented as a Prisma model here. connect-pg-simple
+// (the session store) reads and writes that table directly via its own
+// raw SQL — Prisma Client is never used to query it — so modeling it
+// here would just create a model nothing ever calls, while the actual
+// schema is defined by connect-pg-simple's own conventions instead of
+// Prisma's.

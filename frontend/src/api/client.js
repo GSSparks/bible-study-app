@@ -63,4 +63,12 @@ export const api = {
   buildPhraseStudyContext: (payload) => request('/phrase-study', { method: 'POST', body: JSON.stringify(payload) }),
   askPhraseStudy: (payload) => request('/phrase-study/ask', { method: 'POST', body: JSON.stringify(payload) }),
   savePersonalModule: (payload) => request('/personal-modules/save', { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Auth
+  bootstrapStatus: () => request('/auth/bootstrap-status'),
+  me: () => request('/auth/me'),
+  bootstrap: (payload) => request('/auth/bootstrap', { method: 'POST', body: JSON.stringify(payload) }),
+  login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  logout: () => request('/auth/logout', { method: 'POST' }),
+  createUser: (payload) => request('/auth/users', { method: 'POST', body: JSON.stringify(payload) }),
 };

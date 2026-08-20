@@ -12,6 +12,7 @@ services:
       PDF_STORAGE_PATH: /data/pdfs
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      SESSION_SECRET: ${SESSION_SECRET:-}
     volumes:
       - sword_modules:/data/sword-modules
       - pdf_storage:/data/pdfs

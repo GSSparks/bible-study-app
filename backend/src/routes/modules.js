@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { swordService } from '../services/swordService.js';
 import { listPersonalModules } from '../services/personalModuleService.js';
+import { requireAdmin } from '../middleware/auth.js';
 
 export const modulesRouter = Router();
 
@@ -15,8 +16,10 @@ const upload = multer({
   },
 });
 
-// GET /api/modules/repositories
-modulesRouter.get('/repositories', async (req, res, next) => {
+// GET /api/modules/repositories — admin-only: only useful as part of
+// the install workflow (browsing what could be installed), and only
+// admins can install anything.
+modulesRouter.get('/repositories', requireAdmin, async (req, res, next) => {
   try {
     res.json(await swordService.listRepositories());
   } catch (err) {
@@ -24,8 +27,9 @@ modulesRouter.get('/repositories', async (req, res, next) => {
   }
 });
 
-// GET /api/modules/available?repo=CrossWire&type=BIBLE
-modulesRouter.get('/available', async (req, res, next) => {
+// GET /api/modules/available?repo=CrossWire&type=BIBLE — admin-only,
+// same reasoning as /repositories above.
+modulesRouter.get('/available', requireAdmin, async (req, res, next) => {
   try {
     const { repo, type } = req.query;
     if (!repo) return res.status(400).json({ error: 'repo query param is required' });
@@ -35,7 +39,10 @@ modulesRouter.get('/available', async (req, res, next) => {
   }
 });
 
-// GET /api/modules/installed?type=BIBLE|COMMENTARY|DICT
+// GET /api/modules/installed?type=BIBLE|COMMENTARY|DICT — stays
+// public: this is what populates the module picker for actually
+// *reading* content (Bible/commentary/dictionary tabs), which everyone
+// — including anonymous visitors — should be able to do.
 // DICT/COMMENTARY results also include personal (AI-derived) modules
 // alongside real SWORD ones — same shape ({name, description}), so
 // nothing downstream (module pickers, tab strips) needs to know the
@@ -54,8 +61,8 @@ modulesRouter.get('/installed', async (req, res, next) => {
   }
 });
 
-// POST /api/modules/install  { repo, moduleCode }
-modulesRouter.post('/install', async (req, res, next) => {
+// POST /api/modules/install  { repo, moduleCode } — admin-only.
+modulesRouter.post('/install', requireAdmin, async (req, res, next) => {
   try {
     const { repo, moduleCode } = req.body;
     if (!repo || !moduleCode) {
@@ -70,8 +77,12 @@ modulesRouter.post('/install', async (req, res, next) => {
   }
 });
 
-// POST /api/modules/upload  (multipart form, field name "file", a SWORD module .zip)
-modulesRouter.post('/upload', upload.single('file'), async (req, res, next) => {
+// POST /api/modules/upload — admin-only. requireAdmin runs BEFORE
+// multer's file-parsing middleware deliberately: it only needs
+// req.user (already attached from the session by the time this runs),
+// not the parsed body, so a non-admin's request is rejected immediately
+// rather than after fully parsing a file that could be up to 300MB.
+modulesRouter.post('/upload', requireAdmin, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'file is required' });
     swordService.installModuleFromZip(req.file.buffer);
@@ -84,8 +95,8 @@ modulesRouter.post('/upload', upload.single('file'), async (req, res, next) => {
   }
 });
 
-// DELETE /api/modules/:moduleCode
-modulesRouter.delete('/:moduleCode', async (req, res, next) => {
+// DELETE /api/modules/:moduleCode — admin-only.
+modulesRouter.delete('/:moduleCode', requireAdmin, async (req, res, next) => {
   try {
     await swordService.removeModule(req.params.moduleCode);
     res.json({ status: 'removed', moduleCode: req.params.moduleCode });

@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
@@ -16,17 +18,60 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { wordStudyRouter } from './routes/wordStudy.js';
 import { personalModulesRouter } from './routes/personalModulesRouter.js';
 import { phraseStudyRouter } from './routes/phraseStudy.js';
+import { authRouter } from './routes/auth.js';
+import { attachUser, blockUntilBootstrapped } from './middleware/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND_DIST = path.join(__dirname, '..', 'public');
 
 const app = express();
 
+// Public server, presumably behind a reverse proxy terminating TLS —
+// needed so express-session's cookie.secure check (which reads
+// X-Forwarded-Proto) works correctly instead of seeing every request as
+// plain HTTP and refusing to set the cookie.
+app.set('trust proxy', 1);
+
 app.use(helmet({ contentSecurityPolicy: false })); // CSP tuned separately if you add one
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
+const PgSession = connectPgSimple(session);
+app.use(
+  session({
+    store: new PgSession({ conString: config.databaseUrl, tableName: 'session' }),
+    secret: config.sessionSecret,
+    resave: false,
+    // true so anonymous visitors get a session id too, not just people
+    // who log in — that's what generic (non-account) usage tracking
+    // hangs off of.
+    saveUninitialized: true,
+    cookie: {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    },
+  })
+);
+
+app.use(attachUser);
+
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// authRouter mounted BEFORE blockUntilBootstrapped, deliberately — see
+// blockUntilBootstrapped's own comment for why this (mount order, not a
+// hardcoded path allowlist) is what keeps login/bootstrap reachable
+// during initial setup, without reintroducing the path-matching
+// fragility an earlier version of this hit.
+app.use('/api/auth', authRouter);
+
+// Everything else under /api is blocked until the first admin account
+// exists — the app has no real owner before that, and letting any
+// other route function in that state (even read-only ones) is a
+// confusing, arguably insecure thing to leave exposed on a public
+// server.
+app.use('/api', blockUntilBootstrapped);
 
 app.use('/api/modules', modulesRouter);
 app.use('/api/bible', bibleRouter);

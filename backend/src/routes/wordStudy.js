@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import { buildWordStudyContext, askWordStudy } from '../services/contextBuilder.js';
+import { requireLogin } from '../middleware/auth.js';
 
 export const wordStudyRouter = Router();
+
+// Uses the Study Assistant under the hood — real API cost per use,
+// same reasoning as context.js's whole-router gate.
+wordStudyRouter.use(requireLogin);
 
 // POST /api/word-study  { module, strongsKey }
 // Builds the context (dictionary gloss + every occurrence across the

@@ -1,8 +1,15 @@
 import { Router } from 'express';
 import { buildPassageContext, askStudyAssistant } from '../services/contextBuilder.js';
 import { prisma } from '../db/prisma.js';
+import { requireLogin } from '../middleware/auth.js';
 
 export const contextRouter = Router();
+
+// The whole Study Assistant costs real API money per use — gated
+// behind login for the entire router rather than per-route, so a
+// future route added here can't accidentally end up unprotected by
+// forgetting its own requireLogin call.
+contextRouter.use(requireLogin);
 
 // POST /api/context/build
 // { sources: [{ module, reference, kind, title }], noteIds?: [], includeAllCommentaries?: bool, includeWordStudies?: bool }

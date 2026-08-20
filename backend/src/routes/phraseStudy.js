@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import { buildPhraseStudyContext, askPhraseStudy } from '../services/contextBuilder.js';
+import { requireLogin } from '../middleware/auth.js';
 
 export const phraseStudyRouter = Router();
+
+// Uses the Study Assistant under the hood — real API cost per use,
+// same reasoning as context.js's whole-router gate.
+phraseStudyRouter.use(requireLogin);
 
 // POST /api/phrase-study  { module, phrase?, strongsSequence?, displayText? }
 // Pass `phrase` for exact-wording matching, `strongsSequence` (array of

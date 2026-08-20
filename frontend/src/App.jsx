@@ -7,14 +7,19 @@ import VersePopup from './components/VersePopup.jsx';
 import Library from './components/Library.jsx';
 import NotesSidebar from './components/NotesSidebar.jsx';
 import StudyAssistant from './components/StudyAssistant.jsx';
+import BootstrapScreen from './components/BootstrapScreen.jsx';
+import LoginModal from './components/LoginModal.jsx';
 import { api } from './api/client.js';
 import { useResizableWidth } from './hooks/useResizableWidth.js';
 import { useTabbedWindow } from './hooks/useTabbedWindow.js';
+import { useAuth } from './hooks/useAuth.js';
 import { simplifyForTopicalSearch } from './utils/searchStem.js';
 
 const DOCK_TABS = ['notes', 'library', 'assistant'];
 
 export default function App() {
+  const auth = useAuth();
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [focusedReference, setFocusedReference] = useState('John 3:16');
   const [navHistory, setNavHistory] = useState({ entries: ['John 3:16'], index: 0 });
   const bible = useTabbedWindow([{ id: 'bible-0', module: '', title: 'Bible' }]);
@@ -56,7 +61,17 @@ export default function App() {
     side: 'left',
   });
 
+  // Waits on auth.loading/setupRequired deliberately, not just an empty
+  // dependency array — every /api/* route except the auth ones is
+  // blocked until setup completes, so firing this before that resolves
+  // would fail silently (already swallowed by the catch below) and,
+  // critically, never retry: with an empty dependency array this would
+  // have run exactly once, during the pending-bootstrap window, and
+  // left the Bible pane permanently unpopulated even after a
+  // successful bootstrap. Re-running when setupRequired flips to false
+  // is what actually loads the default module at the right time.
   useEffect(() => {
+    if (auth.loading || auth.setupRequired) return;
     api
       .listInstalledModules('BIBLE')
       .then((mods) => {
@@ -69,7 +84,7 @@ export default function App() {
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [auth.loading, auth.setupRequired]);
 
   const openSources = [
     ...bible.tabs.map((t) => ({ module: t.module, reference: focusedReference, kind: 'bible', title: t.title })),
@@ -191,6 +206,21 @@ export default function App() {
     });
   }
 
+  // Placed after every hook above (Rules of Hooks — every hook must
+  // still run unconditionally on every render, even while showing a
+  // completely different screen below).
+  if (auth.loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-ink text-parchment">
+        <p className="text-sm text-muted">Loading…</p>
+      </div>
+    );
+  }
+
+  if (auth.setupRequired) {
+    return <BootstrapScreen onComplete={auth.bootstrap} />;
+  }
+
   return (
     <div className="flex h-screen min-h-0 flex-col bg-ink text-parchment">
       <header className="flex items-center gap-4 border-b border-rule px-6 py-3">
@@ -215,12 +245,32 @@ export default function App() {
         </div>
         <SearchBar activeModule={bible.activeTab?.module} onJump={handleSearchJump} />
         <div className="ml-auto flex items-center gap-3">
-          <button
-            onClick={() => setShowModuleManager(true)}
-            className="rounded border border-rule px-3 py-1.5 text-xs hover:border-brass"
-          >
-            Manage modules
-          </button>
+          {auth.user?.role === 'admin' && (
+            <button
+              onClick={() => setShowModuleManager(true)}
+              className="rounded border border-rule px-3 py-1.5 text-xs hover:border-brass"
+            >
+              Manage modules
+            </button>
+          )}
+          {auth.user ? (
+            <div className="flex items-center gap-2 text-xs text-muted">
+              <span className="text-parchment">{auth.user.username}</span>
+              <button
+                onClick={() => auth.logout()}
+                className="rounded border border-rule px-2 py-1.5 hover:border-brass hover:text-parchment"
+              >
+                Log out
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="rounded border border-rule px-3 py-1.5 text-xs hover:border-brass"
+            >
+              Log in
+            </button>
+          )}
         </div>
       </header>
 
@@ -263,7 +313,7 @@ export default function App() {
           </nav>
           <div className="min-h-0 flex-1 overflow-hidden">
             <div className={dockTab === 'notes' ? 'h-full' : 'hidden'}>
-              <NotesSidebar reference={focusedReference} module={bible.activeTab?.module} />
+              <NotesSidebar reference={focusedReference} module={bible.activeTab?.module} isLoggedIn={Boolean(auth.user)} />
             </div>
             <div className={dockTab === 'library' ? 'h-full' : 'hidden'}>
               <Library />
@@ -274,6 +324,7 @@ export default function App() {
                 overviewRequest={overviewRequest}
                 wordStudyRequest={wordStudyRequest}
                 phraseStudyRequest={phraseStudyRequest}
+                isLoggedIn={Boolean(auth.user)}
               />
             </div>
           </div>
@@ -319,6 +370,8 @@ export default function App() {
           onOpenInTab={openVerseTab}
         />
       )}
+
+      {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} onLogin={auth.login} />}
     </div>
   );
 }

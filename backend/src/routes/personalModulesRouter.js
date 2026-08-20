@@ -1,7 +1,15 @@
 import { Router } from 'express';
 import { savePersonalEntry } from '../services/personalModuleService.js';
+import { requireLogin } from '../middleware/auth.js';
 
 export const personalModulesRouter = Router();
+
+// Saving a new personal module requires login, to keep anonymous
+// visitors from creating content. Reading already-saved ones stays
+// public (via bible.js/dictionary.js's routing to this service) —
+// consistent with everything else being shared/global until Phase 2
+// adds real per-user ownership.
+personalModulesRouter.use(requireLogin);
 
 // POST /api/personal-modules/save
 // { type: 'DICT'|'COMMENTARY', key?, reference?, title, body }

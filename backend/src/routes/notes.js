@@ -1,7 +1,15 @@
 import { Router } from 'express';
 import { prisma } from '../db/prisma.js';
+import { requireLogin } from '../middleware/auth.js';
 
 export const notesRouter = Router();
+
+// Notes, highlights, and bookmarks are all personal data — gated
+// behind login for the entire router. Not yet scoped to the specific
+// logged-in user (that's Phase 2 — adding userId to these tables and
+// filtering every query by it); for now this only gates *who* can use
+// these features at all, not which user's data they see.
+notesRouter.use(requireLogin);
 
 // GET /api/notes?reference=John.3.16       -> notes anchored to that passage
 // GET /api/notes?q=grace                   -> search title/body across ALL notes

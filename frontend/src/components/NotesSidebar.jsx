@@ -10,7 +10,7 @@ import '@uiw/react-markdown-preview/markdown.css';
  * (a personal study journal, not tied to any reference) — the "This
  * passage" / "All notes" tabs switch between those views, and both use
  * the same rich markdown editor and are both searchable. */
-export default function NotesSidebar({ reference, module }) {
+export default function NotesSidebar({ reference, module, isLoggedIn }) {
   const [tab, setTab] = useState('passage'); // 'passage' | 'all'
   const [notes, setNotes] = useState([]);
   const [query, setQuery] = useState('');
@@ -76,6 +76,19 @@ export default function NotesSidebar({ reference, module }) {
     } catch (e) {
       setError(e.message);
     }
+  }
+
+  // Placed after every hook above (Rules of Hooks) — refresh() still
+  // fires even in this state (via the useEffect above), but its result
+  // is never rendered here, so it just fails silently in the background
+  // rather than causing a visible bug.
+  if (!isLoggedIn) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+        <p className="mb-2 font-display text-lg text-parchment">Notes</p>
+        <p className="text-sm text-muted">Log in to create and view personal notes.</p>
+      </div>
+    );
   }
 
   return (

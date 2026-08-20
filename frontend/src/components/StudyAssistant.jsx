@@ -36,7 +36,7 @@ function makeConversation(kind, title, meta = {}) {
  * transient UI, not conversation data, and there's no strong case for
  * preserving an in-progress draft across a tab switch in this version.
  */
-export default function StudyAssistant({ sources, overviewRequest, wordStudyRequest, phraseStudyRequest }) {
+export default function StudyAssistant({ sources, overviewRequest, wordStudyRequest, phraseStudyRequest, isLoggedIn }) {
   const [conversations, setConversations] = useState(() => [makeConversation('chat', 'Chat')]);
   const [activeConversationId, setActiveConversationId] = useState(() => conversations[0].id);
   const [input, setInput] = useState('');
@@ -301,6 +301,22 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
     } catch (e) {
       updateConversation(activeConversationId, { error: e.message });
     }
+  }
+
+  // Placed after every hook above (Rules of Hooks) — the effects
+  // watching overviewRequest/wordStudyRequest/phraseStudyRequest still
+  // run even in this state, but any conversation they'd create is never
+  // rendered here, so a request that arrives while logged out just
+  // fails silently in the background rather than causing a visible bug.
+  if (!isLoggedIn) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+        <p className="mb-2 font-display text-lg text-parchment">Study assistant</p>
+        <p className="text-sm text-muted">
+          Log in to use the study assistant — it calls the Claude API, which costs real money per use.
+        </p>
+      </div>
+    );
   }
 
   return (

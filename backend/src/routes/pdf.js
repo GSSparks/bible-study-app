@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import fs from 'node:fs';
 import { ingestPdf, listDocuments, getDocumentFilePath } from '../services/pdfService.js';
+import { requireAdmin } from '../middleware/auth.js';
 
 const upload = multer({
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB per file
@@ -15,7 +16,8 @@ const upload = multer({
 
 export const pdfRouter = Router();
 
-// GET /api/pdf  -> library listing
+// GET /api/pdf  -> library listing. Public — the library is available
+// to anonymous visitors; only uploading new material is admin-only.
 pdfRouter.get('/', async (req, res, next) => {
   try {
     res.json(await listDocuments());
@@ -24,8 +26,12 @@ pdfRouter.get('/', async (req, res, next) => {
   }
 });
 
-// POST /api/pdf  (multipart form: file, title?, author?)
-pdfRouter.post('/', upload.single('file'), async (req, res, next) => {
+// POST /api/pdf  (multipart form: file, title?, author?) — admin-only.
+// requireAdmin runs BEFORE multer's file-parsing middleware
+// deliberately, same reasoning as modules.js's upload route: it only
+// needs req.user, not the parsed body, so a non-admin's request is
+// rejected before the (possibly 100MB) file is parsed at all.
+pdfRouter.post('/', requireAdmin, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'file is required' });
     const doc = await ingestPdf({
@@ -40,7 +46,8 @@ pdfRouter.post('/', upload.single('file'), async (req, res, next) => {
   }
 });
 
-// GET /api/pdf/:id/file -> stream the actual PDF for viewing/download
+// GET /api/pdf/:id/file -> stream the actual PDF for viewing/download.
+// Public, same reasoning as the listing above.
 pdfRouter.get('/:id/file', async (req, res, next) => {
   try {
     const filePath = await getDocumentFilePath(req.params.id);
