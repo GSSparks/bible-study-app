@@ -36,14 +36,19 @@ class SwordService {
   constructor() {
     this.sword = new NodeSwordInterface(config.swordModulesPath);
     this._repoConfigLoaded = false;
-    // moduleCode -> Map(strongsKey -> [{book, chapter, verse, text}]),
-    // built lazily on first word-study request for that module (see
-    // buildStrongsIndexForModule) and kept for the life of the process.
-    this._strongsIndexCache = new Map();
-    // moduleCode -> in-flight build Promise, so two concurrent word-
-    // study requests for the same not-yet-indexed module share one scan
-    // instead of each starting their own full pass.
-    this._strongsIndexBuilding = new Map();
+    // moduleCode -> { strongsIndex: Map(strongsKey -> occurrences),
+    // verses: [{book, chapter, verse, text, strongsSequence}] }, built
+    // lazily on first word/phrase-study request for that module (see
+    // buildModuleIndex) and kept for the life of the process. Originally
+    // just a Strong's-key index; extended to also carry the flat verse
+    // list (plain text + an ordered per-word Strong's-key sequence) so
+    // phrase studies can reuse the exact same one-time full-Bible scan
+    // rather than duplicating it.
+    this._moduleIndexCache = new Map();
+    // moduleCode -> in-flight build Promise, so two concurrent word/
+    // phrase-study requests for the same not-yet-indexed module share
+    // one scan instead of each starting their own full pass.
+    this._moduleIndexBuilding = new Map();
     try {
       this.sword.enableMarkup();
     } catch (err) {
@@ -375,31 +380,51 @@ class SwordService {
     return [...keys];
   }
 
+  /** Like extractStrongsKeysFrom, but preserves reading order and
+   *  per-word grouping instead of collapsing to a unique set — returns
+   *  one entry per Strong's-tagged word, each entry listing that word's
+   *  key(s) (a single word can map to more than one Strong's number).
+   *  This is what makes phrase search by original-language word
+   *  sequence possible: matching a *consecutive* run of positions,
+   *  which requires knowing the order words actually appear in, not
+   *  just which keys occur somewhere in the verse. */
+  extractStrongsSequenceFrom(html) {
+    const sequence = [];
+    for (const m of html.matchAll(/data-strong="([^"]*)"/g)) {
+      const keys = m[1].split(',').map((k) => k.trim()).filter(Boolean);
+      if (keys.length > 0) sequence.push(keys);
+    }
+    return sequence;
+  }
+
   /**
-   * Builds (and caches) an index of every verse where each Strong's key
-   * appears, for one specific module — a full Bible scan, done once per
-   * module and kept in memory thereafter. This is deliberately built on
-   * getChapterText + extractStrongsKeysFrom (already proven correct
-   * elsewhere in this file) rather than SWORD's own search engine — I
-   * don't have confirmed documentation that node-sword-interface's
-   * search supports Strong's-number-aware queries, and getting that
-   * wrong silently (wrong or empty results instead of a clear error)
-   * felt like a worse failure mode than a slower but verified approach.
+   * Builds (and caches) a full-Bible index for one module — a Strong's-
+   * key occurrence index (word studies) plus a flat verse list with
+   * plain text and an ordered Strong's-key sequence per verse (phrase
+   * studies), from the same single scan. Originally just built the
+   * Strong's index (see the word-study feature); extended rather than
+   * duplicated when phrase search needed the same full-Bible pass, so
+   * there's one expensive scan serving both features instead of two.
    *
-   * This runs synchronously per chapter (getChapterText/
-   * processVerseContent have no async boundaries of their own) and a
-   * full Bible is ~1,189 chapters, so without yielding this would block
-   * the Node event loop — including other people's requests, or the
-   * same person's other UI actions — for however long the scan takes.
-   * Yielding to the event loop every 20 chapters keeps the server
-   * responsive during the (one-time, per-module) build.
+   * Deliberately built on getChapterText + extraction (already proven
+   * correct elsewhere in this file) rather than SWORD's own search
+   * engine — no confirmed documentation that node-sword-interface's
+   * search supports Strong's-number-aware or exact-phrase queries, and
+   * getting that wrong silently felt like a worse failure mode than a
+   * slower but verified approach.
+   *
+   * Runs synchronously per chapter and a full Bible is ~1,189 chapters,
+   * so without yielding this would block the Node event loop for
+   * however long the scan takes. Yielding every 20 chapters keeps the
+   * server responsive during the (one-time, per-module) build.
    */
-  async buildStrongsIndexForModule(moduleCode) {
-    if (this._strongsIndexCache.has(moduleCode)) return this._strongsIndexCache.get(moduleCode);
-    if (this._strongsIndexBuilding.has(moduleCode)) return this._strongsIndexBuilding.get(moduleCode);
+  async buildModuleIndex(moduleCode) {
+    if (this._moduleIndexCache.has(moduleCode)) return this._moduleIndexCache.get(moduleCode);
+    if (this._moduleIndexBuilding.has(moduleCode)) return this._moduleIndexBuilding.get(moduleCode);
 
     const buildPromise = (async () => {
-      const index = new Map();
+      const strongsIndex = new Map();
+      const verses = [];
       let chaptersProcessed = 0;
 
       for (const [book, chapterCount] of BIBLE_BOOKS) {
@@ -413,12 +438,15 @@ class SwordService {
 
           for (const v of rawVerses) {
             const { content } = this.processVerseContent(v.content);
-            const keys = this.extractStrongsKeysFrom(content);
-            if (keys.length === 0) continue;
             const plainText = this.stripHtml(content);
+            const verseNr = Number(v.verseNr);
+            const strongsSequence = this.extractStrongsSequenceFrom(content);
+            verses.push({ book, chapter, verse: verseNr, text: plainText, strongsSequence });
+
+            const keys = this.extractStrongsKeysFrom(content);
             for (const key of keys) {
-              if (!index.has(key)) index.set(key, []);
-              index.get(key).push({ book, chapter, verse: Number(v.verseNr), text: plainText });
+              if (!strongsIndex.has(key)) strongsIndex.set(key, []);
+              strongsIndex.get(key).push({ book, chapter, verse: verseNr, text: plainText });
             }
           }
 
@@ -429,12 +457,13 @@ class SwordService {
         }
       }
 
-      this._strongsIndexCache.set(moduleCode, index);
-      this._strongsIndexBuilding.delete(moduleCode);
-      return index;
+      const result = { strongsIndex, verses };
+      this._moduleIndexCache.set(moduleCode, result);
+      this._moduleIndexBuilding.delete(moduleCode);
+      return result;
     })();
 
-    this._strongsIndexBuilding.set(moduleCode, buildPromise);
+    this._moduleIndexBuilding.set(moduleCode, buildPromise);
     return buildPromise;
   }
 
@@ -443,8 +472,61 @@ class SwordService {
    *  a given module is slow (a real full-Bible scan); every call after
    *  that, for any key in that same module, is an instant Map lookup. */
   async getStrongsOccurrences(moduleCode, strongsKey) {
-    const index = await this.buildStrongsIndexForModule(moduleCode);
-    return index.get(strongsKey) || [];
+    const { strongsIndex } = await this.buildModuleIndex(moduleCode);
+    return strongsIndex.get(strongsKey) || [];
+  }
+
+  /** Every verse containing the exact phrase (case-insensitive plain-
+   *  text substring match) — data behind phrase studies by literal
+   *  wording. A real, narrower capability than word studies: this only
+   *  catches this exact translation's wording, not a different English
+   *  rendering of the same underlying phrase (that's what
+   *  findStrongsSequenceOccurrences below is for). */
+  async findPhraseOccurrences(moduleCode, phrase) {
+    const { verses } = await this.buildModuleIndex(moduleCode);
+    const needle = phrase.trim().toLowerCase();
+    if (!needle) return [];
+    return verses
+      .filter((v) => v.text.toLowerCase().includes(needle))
+      .map((v) => ({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text }));
+  }
+
+  /** Does `verseSequence` (a verse's ordered list of per-word Strong's-
+   *  key arrays) contain `querySequence` (an ordered list of single
+   *  keys, one per selected word) as a consecutive run, allowing a
+   *  match at any position and matching a query position against ANY
+   *  of a word's keys (a word can map to more than one Strong's
+   *  number)? Verified against 9 cases including word order, multi-key
+   *  words, and repeated phrases within one verse. */
+  _sequenceContains(verseSequence, querySequence) {
+    const qLen = querySequence.length;
+    if (qLen === 0 || verseSequence.length < qLen) return false;
+    for (let i = 0; i <= verseSequence.length - qLen; i++) {
+      let matchesHere = true;
+      for (let j = 0; j < qLen; j++) {
+        if (!verseSequence[i + j].includes(querySequence[j])) {
+          matchesHere = false;
+          break;
+        }
+      }
+      if (matchesHere) return true;
+    }
+    return false;
+  }
+
+  /** Every verse containing the same sequence of underlying Strong's-
+   *  tagged words, regardless of how this translation renders them in
+   *  English — data behind phrase studies by original-language words.
+   *  Catches "kingdom of heaven" and "kingdom of the heavens" alike, as
+   *  long as both are built from the same tagged words in the same
+   *  order; still specific to this module's own tagging, not a
+   *  cross-translation or grammatical-form-aware match. */
+  async findStrongsSequenceOccurrences(moduleCode, querySequence) {
+    if (!Array.isArray(querySequence) || querySequence.length === 0) return [];
+    const { verses } = await this.buildModuleIndex(moduleCode);
+    return verses
+      .filter((v) => this._sequenceContains(v.strongsSequence, querySequence))
+      .map((v) => ({ book: v.book, chapter: v.chapter, verse: v.verse, text: v.text }));
   }
 }
 

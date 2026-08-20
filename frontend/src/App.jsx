@@ -30,6 +30,7 @@ export default function App() {
   const [pendingDictTabId, setPendingDictTabId] = useState(null);
   const [overviewRequest, setOverviewRequest] = useState(null); // { module, reference, nonce }
   const [wordStudyRequest, setWordStudyRequest] = useState(null); // { module, strongsKey, nonce }
+  const [phraseStudyRequest, setPhraseStudyRequest] = useState(null); // { module, phrase, strongsSequence, nonce }
   const [defaultBibleModule, setDefaultBibleModuleState] = useState(() => {
     try {
       return localStorage.getItem('scriptorium-default-bible') || '';
@@ -126,6 +127,15 @@ export default function App() {
   function handleWordStudy(strongsKey, module) {
     setDockTab('assistant');
     setWordStudyRequest({ module, strongsKey, nonce: Date.now() });
+  }
+
+  /** "Study this phrase" from ReaderPane's text-selection toolbar.
+   * `strongsSequence` is present only for the "original words" button —
+   * undefined for the "exact wording" button, which is how
+   * StudyAssistant distinguishes which matching mode to run. */
+  function handlePhraseStudy(phrase, module, strongsSequence) {
+    setDockTab('assistant');
+    setPhraseStudyRequest({ module, phrase, strongsSequence, nonce: Date.now() });
   }
 
   function handleAskAboutPassage(module, reference) {
@@ -229,6 +239,7 @@ export default function App() {
           onOpenInDictionary={openStrongsInDictionary}
           onAnnotate={() => setDockTab('notes')}
           onAskAboutPassage={handleAskAboutPassage}
+          onPhraseStudy={handlePhraseStudy}
         />
 
         <div
@@ -258,7 +269,12 @@ export default function App() {
               <Library />
             </div>
             <div className={dockTab === 'assistant' ? 'h-full' : 'hidden'}>
-              <StudyAssistant sources={openSources} overviewRequest={overviewRequest} wordStudyRequest={wordStudyRequest} />
+              <StudyAssistant
+                sources={openSources}
+                overviewRequest={overviewRequest}
+                wordStudyRequest={wordStudyRequest}
+                phraseStudyRequest={phraseStudyRequest}
+              />
             </div>
           </div>
         </aside>

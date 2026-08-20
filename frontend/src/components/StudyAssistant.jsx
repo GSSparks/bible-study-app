@@ -36,7 +36,7 @@ function makeConversation(kind, title, meta = {}) {
  * transient UI, not conversation data, and there's no strong case for
  * preserving an in-progress draft across a tab switch in this version.
  */
-export default function StudyAssistant({ sources, overviewRequest, wordStudyRequest }) {
+export default function StudyAssistant({ sources, overviewRequest, wordStudyRequest, phraseStudyRequest }) {
   const [conversations, setConversations] = useState(() => [makeConversation('chat', 'Chat')]);
   const [activeConversationId, setActiveConversationId] = useState(() => conversations[0].id);
   const [input, setInput] = useState('');
@@ -91,6 +91,12 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
     void runWordStudy(wordStudyRequest);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wordStudyRequest]);
+
+  useEffect(() => {
+    if (!phraseStudyRequest) return;
+    void runPhraseStudy(phraseStudyRequest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phraseStudyRequest]);
 
   async function runOverview({ module, reference }) {
     const id = addConversation('overview', `${reference} overview`, { module, reference });
@@ -149,6 +155,52 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
       // separate wait.
       updateConversation(id, { title: `${wordLabel} word study`, messages: [userMessage], loadingLabel: 'Thinking…' });
       const res = await api.askWordStudy({ context });
+      updateConversation(id, {
+        messages: [userMessage, { role: 'assistant', content: res.reply }],
+        loading: false,
+      });
+    } catch (e) {
+      updateConversation(id, { error: e.message, loading: false });
+    }
+  }
+
+  /** Mirrors runWordStudy's shape and reasoning (single-shot, no
+   * session continuation — see that function's comment). The one real
+   * difference: two matching modes. `strongsSequence` present means
+   * "original words" mode (same underlying tagged words regardless of
+   * English wording); absent means "exact wording" mode (plain text
+   * match in this translation only). Both funnel through the same
+   * backend endpoint and conversation shape — only the request payload
+   * and the title/labels differ. */
+  async function runPhraseStudy({ module, phrase, strongsSequence }) {
+    const isSequence = Array.isArray(strongsSequence) && strongsSequence.length > 0;
+    const title = isSequence ? `"${phrase}" (original words)` : `"${phrase}"`;
+    const id = addConversation('phraseStudy', title, { module, phrase, strongsSequence });
+    updateConversation(id, {
+      loading: true,
+      loadingLabel:
+        'Scanning the whole Bible for every occurrence — can take up to a minute the first time for a translation, instant after that…',
+    });
+    try {
+      const context = await api.buildPhraseStudyContext({
+        module,
+        phrase: isSequence ? undefined : phrase,
+        strongsSequence: isSequence ? strongsSequence : undefined,
+        displayText: phrase,
+      });
+      const occurrenceNote = context.truncated
+        ? `${context.occurrenceCount} of ${context.totalOccurrenceCount} occurrences (truncated)`
+        : `${context.occurrenceCount} occurrence${context.occurrenceCount === 1 ? '' : 's'}`;
+      const matchNote =
+        context.matchType === 'strongsSequence'
+          ? 'matched by the same underlying original-language words, not exact English wording'
+          : 'matched by exact wording in this translation';
+      const userMessage = {
+        role: 'user',
+        content: `Give a phrase study for "${phrase}" in ${module} (${matchNote}) — synthesizing patterns across ${occurrenceNote}.`,
+      };
+      updateConversation(id, { title, messages: [userMessage], loadingLabel: 'Thinking…' });
+      const res = await api.askPhraseStudy({ context });
       updateConversation(id, {
         messages: [userMessage, { role: 'assistant', content: res.reply }],
         loading: false,
@@ -227,6 +279,13 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
   function moduleSaveAnchor() {
     if (activeConversation.kind === 'wordStudy') {
       return activeConversation.meta.strongsKey ? { type: 'DICT', key: activeConversation.meta.strongsKey } : null;
+    }
+    // A phrase study, like a word study, is about a linguistic unit
+    // studied across the whole Bible rather than anchored to one
+    // passage — saves the same way, as a DICT-type entry, just keyed by
+    // the phrase text itself instead of a Strong's number.
+    if (activeConversation.kind === 'phraseStudy') {
+      return activeConversation.meta.phrase ? { type: 'DICT', key: activeConversation.meta.phrase } : null;
     }
     const anchor = activeConversation.meta.reference ? activeConversation.meta : validSources[0];
     return anchor?.reference ? { type: 'COMMENTARY', reference: anchor.reference } : null;
@@ -363,14 +422,14 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
                     onClick={() => saveAsModule(m.content, i)}
                     className="rounded border border-rule bg-panel px-1.5 py-0.5 text-xs text-muted hover:text-brass"
                     title={
-                      activeConversation.kind === 'wordStudy'
+                      moduleSaveAnchor().type === 'DICT'
                         ? 'Save as a personal dictionary entry — browsable and searchable like any other dictionary module'
                         : 'Save as a personal commentary entry — connected to this passage, shown alongside any other commentary'
                     }
                   >
                     {savedModuleIndex === i
                       ? 'saved ✓'
-                      : `save as ${activeConversation.kind === 'wordStudy' ? 'dictionary' : 'commentary'} entry`}
+                      : `save as ${moduleSaveAnchor().type === 'DICT' ? 'dictionary' : 'commentary'} entry`}
                   </button>
                 )}
               </div>

@@ -56,6 +56,27 @@ function extractStrongsData(target) {
   return null;
 }
 
+/** window.getSelection().toString() faithfully includes the text
+ * content of every DOM node the selection passes through — including
+ * our own xref/footnote marker superscripts (tiny inline elements
+ * sitting immediately next to real words, e.g. a cross-reference letter
+ * "b"), which a natural drag-selection can easily sweep over without
+ * the person noticing. Confirmed as a real bug: a selection over
+ * "...unless it has been given..." came back as "...unless it bhas
+ * been given...", a stray marker letter fused into the middle of a
+ * word, corrupting the phrase search. Cloning the selected range into a
+ * detached fragment and stripping marker elements out of the clone
+ * before reading textContent avoids reproducing that — the clone is
+ * never attached to the page, so removing elements from it can't affect
+ * anything the person actually sees. */
+function extractCleanSelectionText(range) {
+  const fragment = range.cloneContents();
+  fragment.querySelectorAll('.xref-marker, .footnote-marker').forEach((el) => el.remove());
+  const container = document.createElement('div');
+  container.appendChild(fragment);
+  return container.textContent.trim().replace(/\s+/g, ' ');
+}
+
 export default function ReaderPane({
   module,
   reference,
@@ -65,6 +86,7 @@ export default function ReaderPane({
   onVerseRefClick,
   onAnnotate,
   onAskAboutPassage,
+  onPhraseStudy,
 }) {
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -72,6 +94,7 @@ export default function ReaderPane({
   const [footnotePopup, setFootnotePopup] = useState(null);
   const [bookPicker, setBookPicker] = useState(null);
   const [selectedRange, setSelectedRange] = useState(null);
+  const [phraseSelection, setPhraseSelection] = useState(null); // { text, strongsSequence, x, y }
   const [focusedVerseKey, setFocusedVerseKey] = useState(null);
   const verseRefs = useRef(new Map());
 
@@ -129,6 +152,7 @@ export default function ReaderPane({
 
   function handleVerseNumberClick(e, v) {
     e.stopPropagation();
+    setPhraseSelection(null);
     if (e.shiftKey && selectedRange) {
       setSelectedRange((prev) => ({ ...prev, focus: v.__index, x: e.clientX, y: e.clientY + 16 }));
       return;
@@ -189,6 +213,71 @@ export default function ReaderPane({
     if (result) onStrongsClick(result.key, e, result.morph, result.word, module);
   }
 
+  /**
+   * Detects a real inline text selection (dragging over rendered words,
+   * as opposed to clicking a verse number) via the browser's native
+   * window.getSelection() — the standard DOM API for this, not
+   * anything SWORD/app-specific. Distinct from selectedRange above,
+   * which tracks whole-verse selection by index; this tracks an
+   * arbitrary mid-sentence text span, which is what a "phrase" actually
+   * is. The two are mutually exclusive (this clears selectedRange, and
+   * handleVerseNumberClick clears this) so only one floating toolbar
+   * ever shows at once.
+   *
+   * Also collects the Strong's key of every tagged word the selection
+   * overlaps, in reading order, via Range.intersectsNode (again,
+   * standard DOM API) — this is what powers "study this phrase by
+   * original words" as well as by exact text, without needing any
+   * SWORD-specific selection machinery.
+   */
+  function handleContentMouseUp(e) {
+    const selection = window.getSelection();
+    const rawText = selection?.toString().trim();
+    if (!rawText || selection.isCollapsed) {
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    const container = e.currentTarget;
+    if (!container.contains(range.commonAncestorContainer)) {
+      return;
+    }
+    setSelectedRange(null);
+
+    // Use the cleaned text (marker elements stripped) as the actual
+    // phrase, not the raw selection string — see
+    // extractCleanSelectionText's comment for why the raw string can be
+    // silently corrupted by a swept-up cross-reference marker.
+    const text = extractCleanSelectionText(range);
+    if (!text) return;
+
+    const taggedWords = container.querySelectorAll('[data-strong]');
+    const strongsSequence = [];
+    for (const el of taggedWords) {
+      if (range.intersectsNode(el)) {
+        const keys = (el.dataset.strong || '').split(',').map((k) => k.trim()).filter(Boolean);
+        if (keys.length > 0) strongsSequence.push(keys[0]);
+      }
+    }
+
+    const rect = range.getBoundingClientRect();
+    // Offset further down than SelectableNoteRegion's own "+note"
+    // button (which lands at rect.bottom + 6) — both react to the same
+    // selection now, so without this gap the two floating toolbars
+    // would land almost exactly on top of each other.
+    setPhraseSelection({ text, strongsSequence, x: rect.left, y: rect.bottom + 40 });
+  }
+
+  function handlePhraseStudyClick(useOriginalWords) {
+    if (!phraseSelection) return;
+    onPhraseStudy?.(
+      phraseSelection.text,
+      module,
+      useOriginalWords ? phraseSelection.strongsSequence : undefined
+    );
+    setPhraseSelection(null);
+    window.getSelection()?.removeAllRanges();
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-page px-6 py-6 text-pageText">
       <header className="mb-4 flex items-baseline gap-3">
@@ -246,6 +335,7 @@ export default function ReaderPane({
               focusMode ? '' : 'markdown-body markdown-body-page'
             }`}
             onClick={handleContentClick}
+            onMouseUp={handleContentMouseUp}
           >
             {segments.map((seg, i) => (
               <div key={seg.key}>
@@ -315,6 +405,42 @@ export default function ReaderPane({
               </button>
               <button
                 onClick={() => setSelectedRange(null)}
+                className="rounded px-1.5 py-1 text-xs text-muted hover:text-parchment"
+              >
+                ✕
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
+
+      {phraseSelection &&
+        onPhraseStudy &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-30" onClick={() => setPhraseSelection(null)} />
+            <div
+              className="fixed z-40 flex max-w-md items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
+              style={{ left: phraseSelection.x, top: phraseSelection.y }}
+            >
+              <button
+                onClick={() => handlePhraseStudyClick(false)}
+                className="rounded bg-brass px-2 py-1 text-xs font-medium text-ink hover:bg-brass/90"
+                title="Search this exact wording across the whole Bible in this translation"
+              >
+                Study this phrase (exact wording) →
+              </button>
+              {phraseSelection.strongsSequence.length > 0 && (
+                <button
+                  onClick={() => handlePhraseStudyClick(true)}
+                  className="rounded bg-verdigris px-2 py-1 text-xs font-medium text-ink hover:bg-verdigris/90"
+                  title="Search for the same underlying original-language words, regardless of English wording"
+                >
+                  Study this phrase (original words) →
+                </button>
+              )}
+              <button
+                onClick={() => setPhraseSelection(null)}
                 className="rounded px-1.5 py-1 text-xs text-muted hover:text-parchment"
               >
                 ✕

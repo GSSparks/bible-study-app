@@ -60,5 +60,7 @@ export const api = {
   askAssistant: (payload) => request('/context/ask', { method: 'POST', body: JSON.stringify(payload) }),
   buildWordStudyContext: (payload) => request('/word-study', { method: 'POST', body: JSON.stringify(payload) }),
   askWordStudy: (payload) => request('/word-study/ask', { method: 'POST', body: JSON.stringify(payload) }),
+  buildPhraseStudyContext: (payload) => request('/phrase-study', { method: 'POST', body: JSON.stringify(payload) }),
+  askPhraseStudy: (payload) => request('/phrase-study/ask', { method: 'POST', body: JSON.stringify(payload) }),
   savePersonalModule: (payload) => request('/personal-modules/save', { method: 'POST', body: JSON.stringify(payload) }),
 };

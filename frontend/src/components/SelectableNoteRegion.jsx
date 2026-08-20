@@ -2,20 +2,28 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import SelectionNotePopup from './SelectionNotePopup.jsx';
 
-export default function SelectableNoteRegion({ reference, module, className, onClick, onContextMenu, children }) {
+export default function SelectableNoteRegion({ reference, module, className, onClick, onContextMenu, onMouseUp, children }) {
   const contentRef = useRef(null);
   const [selection, setSelection] = useState(null); // { text, x, y }
   const [showPopup, setShowPopup] = useState(false);
 
-  function handleMouseUp() {
+  /** Both the "+note" popup below and, separately, ReaderPane's phrase-
+   * study toolbar need to react to the same underlying text-selection
+   * event on this same div — but a DOM element can only have one
+   * onMouseUp handler. This component's own note-selection logic runs
+   * first (unchanged), then the externally-passed onMouseUp (if any) —
+   * so a caller like ReaderPane can add its own selection handling
+   * without needing to reimplement or replace this component's. */
+  function handleMouseUp(e) {
     const sel = window.getSelection();
     const text = sel?.toString().trim();
     if (!text || !sel.rangeCount || !contentRef.current?.contains(sel.anchorNode)) {
       setSelection(null);
-      return;
+    } else {
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      setSelection({ text, x: rect.left, y: rect.bottom + 6 });
     }
-    const rect = sel.getRangeAt(0).getBoundingClientRect();
-    setSelection({ text, x: rect.left, y: rect.bottom + 6 });
+    onMouseUp?.(e);
   }
 
   function closePopup() {

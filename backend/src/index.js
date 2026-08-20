@@ -15,6 +15,7 @@ import { dictionaryRouter } from './routes/dictionary.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { wordStudyRouter } from './routes/wordStudy.js';
 import { personalModulesRouter } from './routes/personalModulesRouter.js';
+import { phraseStudyRouter } from './routes/phraseStudy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND_DIST = path.join(__dirname, '..', 'public');
@@ -37,6 +38,7 @@ app.use('/api/strongs', strongsRouter);
 app.use('/api/dictionary', dictionaryRouter);
 app.use('/api/word-study', wordStudyRouter);
 app.use('/api/personal-modules', personalModulesRouter);
+app.use('/api/phrase-study', phraseStudyRouter);
 
 // Serve the built React app for everything else (SPA fallback)
 app.use(express.static(FRONTEND_DIST));

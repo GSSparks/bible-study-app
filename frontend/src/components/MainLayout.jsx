@@ -34,6 +34,7 @@ export default function MainLayout({
   onOpenInDictionary,
   onAnnotate,
   onAskAboutPassage,
+  onPhraseStudy,
 }) {
   const { width: commentaryWidth, onDragStart: onCommentaryDragStart } = useResizableWidth({
     key: 'scriptorium-commentary-width',
@@ -77,6 +78,7 @@ export default function MainLayout({
                   onVerseRefClick={onVerseRefClick}
                   onAnnotate={onAnnotate}
                   onAskAboutPassage={onAskAboutPassage}
+                  onPhraseStudy={onPhraseStudy}
                 />
               </div>
             ))}
@@ -166,6 +168,7 @@ export default function MainLayout({
                   onVerseRefClick={onVerseRefClick}
                   onAnnotate={onAnnotate}
                   onAskAboutPassage={onAskAboutPassage}
+                  onPhraseStudy={onPhraseStudy}
                 />
               </div>
             ))
