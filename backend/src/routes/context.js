@@ -22,6 +22,13 @@ contextRouter.post('/build', async (req, res, next) => {
     const context = await buildPassageContext({
       sources,
       noteIds: noteIds || [],
+      // IMPORTANT: buildPassageContext auto-includes notes anchored to
+      // the open reference — that query needs to be scoped by userId
+      // too (in contextBuilder.js itself, not yet fixed here), or a
+      // logged-in user's assistant context could silently pull in
+      // another user's notes. Passing userId through regardless, so
+      // that fix has what it needs once it's made.
+      userId: req.user.id,
       includeAllCommentaries: Boolean(includeAllCommentaries),
       includeWordStudies: Boolean(includeWordStudies),
     });
@@ -45,19 +52,35 @@ contextRouter.post('/ask', async (req, res, next) => {
     const updatedMessages = [...messages, { role: 'assistant', content: reply }];
     const firstPassage = context.passages[0];
 
-    const session = sessionId
-      ? await prisma.studySession.update({
-          where: { id: sessionId },
-          data: { messages: updatedMessages, contextSnapshot: context },
-        })
-      : await prisma.studySession.create({
-          data: {
-            reference: firstPassage?.reference || null,
-            module: firstPassage?.module || null,
-            messages: updatedMessages,
-            contextSnapshot: context,
-          },
-        });
+    // IMPORTANT: updating an existing session needs an ownership check,
+    // same IDOR concern as notes.js's single-item routes — without it,
+    // a logged-in user could read and append to another user's saved
+    // conversation just by supplying their sessionId. 404 (not 403) so
+    // a user probing ids can't tell the difference between "doesn't
+    // exist" and "exists but isn't yours".
+    let session;
+    if (sessionId) {
+      const existing = await prisma.studySession.findUnique({ where: { id: sessionId } });
+      if (!existing || existing.userId !== req.user.id) {
+        const err = new Error('Session not found.');
+        err.status = 404;
+        throw err;
+      }
+      session = await prisma.studySession.update({
+        where: { id: sessionId },
+        data: { messages: updatedMessages, contextSnapshot: context },
+      });
+    } else {
+      session = await prisma.studySession.create({
+        data: {
+          userId: req.user.id,
+          reference: firstPassage?.reference || null,
+          module: firstPassage?.module || null,
+          messages: updatedMessages,
+          contextSnapshot: context,
+        },
+      });
+    }
 
     res.json({ reply, sessionId: session.id });
   } catch (err) {
@@ -69,7 +92,7 @@ contextRouter.get('/sessions/:reference', async (req, res, next) => {
   try {
     res.json(
       await prisma.studySession.findMany({
-        where: { reference: req.params.reference },
+        where: { reference: req.params.reference, userId: req.user.id },
         orderBy: { updatedAt: 'desc' },
       })
     );

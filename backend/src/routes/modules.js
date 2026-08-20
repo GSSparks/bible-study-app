@@ -52,7 +52,7 @@ modulesRouter.get('/installed', async (req, res, next) => {
     const type = req.query.type || 'BIBLE';
     const swordModules = await swordService.listInstalledModules(type);
     if (type === 'DICT' || type === 'COMMENTARY') {
-      const personalModules = await listPersonalModules(type);
+      const personalModules = await listPersonalModules(type, req.user?.id);
       return res.json([...swordModules, ...personalModules]);
     }
     res.json(swordModules);

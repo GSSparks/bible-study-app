@@ -15,6 +15,8 @@ datasource db {
 // pulled into the study assistant's context.
 model Note {
   id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title      String?
   reference  String?
   module     String? // which SWORD module the note is anchored to, e.g. "KJV"
@@ -26,26 +28,33 @@ model Note {
   updatedAt  DateTime @updatedAt
 
   @@index([reference])
+  @@index([userId])
 }
 
 model Highlight {
   id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   reference String
   module    String
   color     String   @default("yellow")
   createdAt DateTime @default(now())
 
   @@index([reference])
+  @@index([userId])
 }
 
 model Bookmark {
   id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   reference String
   module    String
   label     String?
   createdAt DateTime @default(now())
 
   @@index([reference])
+  @@index([userId])
 }
 
 // Metadata for uploaded PDFs (commentaries, study guides, etc.)
@@ -66,12 +75,16 @@ model Document {
 // in contextSnapshot.
 model StudySession {
   id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   reference     String?
   module        String?
   messages      Json // [{ role, content, ts }]
   contextSnapshot Json? // the assembled context sent to the LLM at session start
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@index([userId])
 }
 
 // A personal, AI-study-derived "module" — DICT-type (word studies,
@@ -80,12 +93,23 @@ model StudySession {
 // modules under a "personal:<id>" module code, so the app's existing
 // dictionary/commentary browsing UI works on these without any changes —
 // see backend/src/services/personalModuleService.js.
+//
+// Private per-user: each user gets their own separate "My Word
+// Studies"/"My Studies" module rather than one everyone shares —
+// confirmed explicitly, not assumed. getOrCreateDefaultPersonalModule
+// looks up/creates scoped to (type, name, userId), not just (type,
+// name), so two different users' "My Word Studies" are two entirely
+// separate rows even though they share a display name.
 model PersonalModule {
   id        String          @id @default(cuid())
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      String // 'DICT' | 'COMMENTARY'
   name      String // display name, e.g. "My Word Studies"
   createdAt DateTime        @default(now())
   entries   PersonalEntry[]
+
+  @@index([userId])
 }
 
 model PersonalEntry {
@@ -113,6 +137,12 @@ model User {
   role         String    @default("user") // "admin" | "user"
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
+
+  notes           Note[]
+  highlights      Highlight[]
+  bookmarks       Bookmark[]
+  studySessions   StudySession[]
+  personalModules PersonalModule[]
 }
 
 // A generic key/value settings table. Right now it exists for exactly

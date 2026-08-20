@@ -15,7 +15,18 @@ bibleRouter.get('/:module/passage', async (req, res, next) => {
     const { ref } = req.query;
     if (!ref) return res.status(400).json({ error: 'ref query param is required' });
     if (isPersonalModuleCode(req.params.module)) {
-      const verses = await getPersonalPassage(req.params.module, ref);
+      // Personal modules are private — unlike real SWORD modules
+      // (fully public below), reading one requires being logged in
+      // AND owning it. getPersonalPassage itself verifies ownership
+      // (404 on mismatch); this check catches the anonymous case
+      // earlier with a clearer 401 rather than routing an inevitably-
+      // failing undefined userId through to that check.
+      if (!req.user) {
+        const err = new Error('Login required to access a personal module.');
+        err.status = 401;
+        throw err;
+      }
+      const verses = await getPersonalPassage(req.params.module, ref, req.user.id);
       return res.json({ module: req.params.module, reference: ref, verses });
     }
     const verses = swordService.getPassage(req.params.module, ref);

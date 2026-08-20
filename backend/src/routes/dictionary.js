@@ -8,7 +8,12 @@ export const dictionaryRouter = Router();
 dictionaryRouter.get('/:module/keys', async (req, res, next) => {
   try {
     if (isPersonalModuleCode(req.params.module)) {
-      return res.json(await listPersonalKeys(req.params.module));
+      if (!req.user) {
+        const err = new Error('Login required to access a personal module.');
+        err.status = 401;
+        throw err;
+      }
+      return res.json(await listPersonalKeys(req.params.module, req.user.id));
     }
     res.json(swordService.getDictionaryKeys(req.params.module));
   } catch (err) {
@@ -22,7 +27,12 @@ dictionaryRouter.get('/:module/entry', async (req, res, next) => {
     const { key } = req.query;
     if (!key) return res.status(400).json({ error: 'key query param is required' });
     if (isPersonalModuleCode(req.params.module)) {
-      const entry = await getPersonalEntryByKey(req.params.module, key);
+      if (!req.user) {
+        const err = new Error('Login required to access a personal module.');
+        err.status = 401;
+        throw err;
+      }
+      const entry = await getPersonalEntryByKey(req.params.module, key, req.user.id);
       if (!entry) {
         const err = new Error(`No entry found for "${key}"`);
         err.status = 404;

@@ -29,7 +29,7 @@ personalModulesRouter.post('/save', async (req, res, next) => {
     if (type === 'COMMENTARY' && !reference) {
       return res.status(400).json({ error: 'reference is required for COMMENTARY-type entries' });
     }
-    const entry = await savePersonalEntry({ type, key, reference, title, body });
+    const entry = await savePersonalEntry({ type, key, reference, title, body, userId: req.user.id });
     res.json({ status: 'saved', entryId: entry.id, moduleCode: entry.moduleCode });
   } catch (err) {
     next(err);

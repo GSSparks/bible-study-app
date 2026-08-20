@@ -90,7 +90,7 @@ async function runWithPassageTool({ module, system, initialMessages }) {
   return "I wasn't able to finish gathering all the referenced passages — here's what I found so far, though the discussion may be incomplete.";
 }
 
-export async function buildPassageContext({ sources = [], noteIds = [], includeAllCommentaries = false, includeWordStudies = false }) {
+export async function buildPassageContext({ sources = [], noteIds = [], userId, includeAllCommentaries = false, includeWordStudies = false }) {
   const passages = [];
 
   for (const src of sources) {
@@ -164,9 +164,18 @@ export async function buildPassageContext({ sources = [], noteIds = [], includeA
 
   const references = [...new Set(sources.map((s) => s.reference).filter(Boolean))];
 
+  // Both queries scoped by userId now that notes are per-user —
+  // without this, a logged-in user's assistant context could silently
+  // pull in another user's notes just because they happened to be
+  // anchored to the same reference. context.js's /build route always
+  // passes the logged-in user's id through (the whole router requires
+  // login), so userId is never actually undefined here in practice —
+  // but the queries are written to produce an empty result rather than
+  // an unfiltered one if it somehow were, rather than accidentally
+  // falling back to "all users' notes".
   const [referenceNotes, attachedNotes] = await Promise.all([
-    references.length ? prisma.note.findMany({ where: { reference: { in: references } } }) : [],
-    noteIds.length ? prisma.note.findMany({ where: { id: { in: noteIds } } }) : [],
+    references.length && userId ? prisma.note.findMany({ where: { reference: { in: references }, userId } }) : [],
+    noteIds.length && userId ? prisma.note.findMany({ where: { id: { in: noteIds }, userId } }) : [],
   ]);
 
   const noteMap = new Map();

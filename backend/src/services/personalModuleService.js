@@ -37,26 +37,53 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/** Verifies the personal module identified by moduleCode belongs to
+ *  userId, throwing a 404 (not 403) on any mismatch — same reasoning
+ *  as every other ownership check in this app: a mismatch should look
+ *  identical to the module simply not existing, rather than confirming
+ *  to a caller that some other user's module exists at that id. This
+ *  is what actually makes personal modules private, not just
+ *  unlisted — without it, reading one's content by module code was
+ *  still fully open to anyone who knew or guessed the id, even after
+ *  it stopped showing up in that other user's module list. */
+async function assertOwnsModule(moduleCode, userId) {
+  const id = extractModuleId(moduleCode);
+  const mod = await prisma.personalModule.findUnique({ where: { id } });
+  if (!mod || mod.userId !== userId) {
+    const err = new Error('Personal module not found.');
+    err.status = 404;
+    throw err;
+  }
+  return mod;
+}
+
 /** Lists personal modules of a given type in the same shape
  *  listInstalledModules() returns for real SWORD modules — `{ name,
  *  description }` — so routes/modules.js can just concatenate the two
  *  arrays and the frontend's module pickers/tab strips need no changes
- *  at all. */
-export async function listPersonalModules(type) {
-  const modules = await prisma.personalModule.findMany({ where: { type }, orderBy: { createdAt: 'asc' } });
+ *  at all. Scoped to userId — personal modules are private per-user
+ *  (confirmed explicitly), so an anonymous visitor or another user
+ *  sees none of someone else's, not just an unlabeled shared list. */
+export async function listPersonalModules(type, userId) {
+  if (!userId) return [];
+  const modules = await prisma.personalModule.findMany({ where: { type, userId }, orderBy: { createdAt: 'asc' } });
   return modules.map((m) => ({ name: toModuleCode(m.id), description: m.name }));
 }
 
-/** One default personal module per type, created the first time
- *  something is actually saved into it. Keeps the initial save flow
- *  simple (no "which personal module?" picker needed yet) while the
- *  underlying schema already supports more than one per type, if a
- *  reason to add that picker comes up later. */
-async function getOrCreateDefaultPersonalModule(type) {
+/** One default personal module per type *per user*, created the first
+ *  time something is actually saved into it. Scoped by userId in both
+ *  the lookup and the create — without that, every user's "My Word
+ *  Studies" would collide into the same shared row despite personal
+ *  modules being private, since (type, name) alone doesn't distinguish
+ *  users. Keeps the initial save flow simple (no "which personal
+ *  module?" picker needed yet) while the underlying schema already
+ *  supports more than one per user per type, if a reason to add that
+ *  picker comes up later. */
+async function getOrCreateDefaultPersonalModule(type, userId) {
   const name = type === 'DICT' ? 'My Word Studies' : 'My Studies';
-  const existing = await prisma.personalModule.findFirst({ where: { type, name } });
+  const existing = await prisma.personalModule.findFirst({ where: { type, name, userId } });
   if (existing) return existing;
-  return prisma.personalModule.create({ data: { type, name } });
+  return prisma.personalModule.create({ data: { type, name, userId } });
 }
 
 /** Saves a word study (type "DICT", keyed by the Strong's number) or a
@@ -66,8 +93,13 @@ async function getOrCreateDefaultPersonalModule(type) {
  *  future read, and stored that way for consistency with how every
  *  other dictionary/commentary entry in this app is already HTML by
  *  the time it reaches the frontend. */
-export async function savePersonalEntry({ type, key, reference, title, body }) {
-  const mod = await getOrCreateDefaultPersonalModule(type);
+export async function savePersonalEntry({ type, key, reference, title, body, userId }) {
+  if (!userId) {
+    const err = new Error('Login required to save a personal module entry.');
+    err.status = 401;
+    throw err;
+  }
+  const mod = await getOrCreateDefaultPersonalModule(type, userId);
   const html = marked.parse(body);
   const entry = await prisma.personalEntry.create({
     data: { moduleId: mod.id, key: key || null, reference: reference || null, title, body: html },
@@ -77,7 +109,8 @@ export async function savePersonalEntry({ type, key, reference, title, body }) {
 
 /** DICT-type: every saved key in this personal module, for
  *  DictionaryPane's key-browse list. */
-export async function listPersonalKeys(moduleCode) {
+export async function listPersonalKeys(moduleCode, userId) {
+  await assertOwnsModule(moduleCode, userId);
   const id = extractModuleId(moduleCode);
   const entries = await prisma.personalEntry.findMany({
     where: { moduleId: id, key: { not: null } },
@@ -88,7 +121,8 @@ export async function listPersonalKeys(moduleCode) {
 }
 
 /** DICT-type: a single entry's HTML by its exact key. */
-export async function getPersonalEntryByKey(moduleCode, key) {
+export async function getPersonalEntryByKey(moduleCode, key, userId) {
+  await assertOwnsModule(moduleCode, userId);
   const id = extractModuleId(moduleCode);
   return prisma.personalEntry.findFirst({ where: { moduleId: id, key } });
 }
@@ -131,7 +165,8 @@ function osisOverlaps(aItem, bItem) {
  *  (chapter/verseNr/content) so DictionaryPane's existing reference-mode
  *  rendering needs no changes at all — it already just maps over
  *  whatever `verses` it's handed. */
-export async function getPersonalPassage(moduleCode, humanReference) {
+export async function getPersonalPassage(moduleCode, humanReference, userId) {
+  await assertOwnsModule(moduleCode, userId);
   const id = extractModuleId(moduleCode);
   const osis = toOsis(humanReference);
   if (!osis) return [];
