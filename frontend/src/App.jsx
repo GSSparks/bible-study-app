@@ -10,6 +10,7 @@ import StudyAssistant from './components/StudyAssistant.jsx';
 import BootstrapScreen from './components/BootstrapScreen.jsx';
 import LoginModal from './components/LoginModal.jsx';
 import ChangePasswordModal from './components/ChangePasswordModal.jsx';
+import UserMenu from './components/UserMenu.jsx';
 import { api } from './api/client.js';
 import { useResizableWidth } from './hooks/useResizableWidth.js';
 import { useTabbedWindow } from './hooks/useTabbedWindow.js';
@@ -256,21 +257,14 @@ export default function App() {
             </button>
           )}
           {auth.user ? (
-            <div className="flex items-center gap-2 text-xs text-muted">
-              <span className="text-parchment">{auth.user.username}</span>
-              <button
-                onClick={() => setShowChangePasswordModal(true)}
-                className="rounded border border-rule px-2 py-1.5 hover:border-brass hover:text-parchment"
-              >
-                Change password
-              </button>
-              <button
-                onClick={() => auth.logout()}
-                className="rounded border border-rule px-2 py-1.5 hover:border-brass hover:text-parchment"
-              >
-                Log out
-              </button>
-            </div>
+            <UserMenu
+              username={auth.user.username}
+              // Extensible by design — future entries (friends, groups,
+              // whatever comes next) are just more objects in this
+              // array, not a UserMenu restructure.
+              items={[{ label: 'Change password', onClick: () => setShowChangePasswordModal(true) }]}
+              onLogout={() => auth.logout()}
+            />
           ) : (
             <button
               onClick={() => setShowLoginModal(true)}
