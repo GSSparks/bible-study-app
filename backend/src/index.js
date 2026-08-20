@@ -48,7 +48,16 @@ app.use(
     saveUninitialized: true,
     cookie: {
       httpOnly: true,
-      secure: config.nodeEnv === 'production',
+      // 'auto' rather than NODE_ENV === 'production' — express-session
+      // resolves this from req.secure (which itself respects
+      // X-Forwarded-Proto since trust proxy is set above), so the same
+      // setting is correct both testing locally over plain HTTP with
+      // no proxy and running behind nginx terminating real TLS in
+      // production, without needing NODE_ENV to be flipped back and
+      // forth between environments. Confirmed directly: no Secure
+      // attribute on the cookie over plain HTTP, Secure attribute
+      // correctly present the moment X-Forwarded-Proto: https shows up.
+      secure: 'auto',
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     },

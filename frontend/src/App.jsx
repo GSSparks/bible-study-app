@@ -9,6 +9,7 @@ import NotesSidebar from './components/NotesSidebar.jsx';
 import StudyAssistant from './components/StudyAssistant.jsx';
 import BootstrapScreen from './components/BootstrapScreen.jsx';
 import LoginModal from './components/LoginModal.jsx';
+import ChangePasswordModal from './components/ChangePasswordModal.jsx';
 import { api } from './api/client.js';
 import { useResizableWidth } from './hooks/useResizableWidth.js';
 import { useTabbedWindow } from './hooks/useTabbedWindow.js';
@@ -20,6 +21,7 @@ const DOCK_TABS = ['notes', 'library', 'assistant'];
 export default function App() {
   const auth = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [focusedReference, setFocusedReference] = useState('John 3:16');
   const [navHistory, setNavHistory] = useState({ entries: ['John 3:16'], index: 0 });
   const bible = useTabbedWindow([{ id: 'bible-0', module: '', title: 'Bible' }]);
@@ -257,6 +259,12 @@ export default function App() {
             <div className="flex items-center gap-2 text-xs text-muted">
               <span className="text-parchment">{auth.user.username}</span>
               <button
+                onClick={() => setShowChangePasswordModal(true)}
+                className="rounded border border-rule px-2 py-1.5 hover:border-brass hover:text-parchment"
+              >
+                Change password
+              </button>
+              <button
                 onClick={() => auth.logout()}
                 className="rounded border border-rule px-2 py-1.5 hover:border-brass hover:text-parchment"
               >
@@ -372,6 +380,7 @@ export default function App() {
       )}
 
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} onLogin={auth.login} />}
+      {showChangePasswordModal && <ChangePasswordModal onClose={() => setShowChangePasswordModal(false)} />}
     </div>
   );
 }
