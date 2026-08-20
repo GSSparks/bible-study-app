@@ -150,3 +150,34 @@ export async function verifyLogin({ username, password }) {
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   return { id: user.id, username: user.username, role: user.role };
 }
+
+/** Lets a logged-in user change their own password. Requires the
+ *  current password as confirmation — without that, anyone who found
+ *  an already-logged-in session (a shared or unlocked device, say)
+ *  could lock the real account holder out just by having an active
+ *  session, without ever needing to actually know the password. Unlike
+ *  verifyLogin, no timing-safety concern here: the caller's identity
+ *  already comes from their session, not something being guessed, so
+ *  there's no username-enumeration-style risk to guard against. */
+export async function changePassword({ userId, currentPassword, newPassword }) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    const err = new Error('User not found.');
+    err.status = 404;
+    throw err;
+  }
+  const valid = await verifyPassword(user.passwordHash, currentPassword);
+  if (!valid) {
+    const err = new Error('Current password is incorrect.');
+    err.status = 401;
+    throw err;
+  }
+  const strengthError = validatePasswordStrength(newPassword);
+  if (strengthError) {
+    const err = new Error(strengthError);
+    err.status = 400;
+    throw err;
+  }
+  const passwordHash = await hashPassword(newPassword);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+}

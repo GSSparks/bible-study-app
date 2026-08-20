@@ -70,5 +70,6 @@ export const api = {
   bootstrap: (payload) => request('/auth/bootstrap', { method: 'POST', body: JSON.stringify(payload) }),
   login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
+  changePassword: (payload) => request('/auth/change-password', { method: 'POST', body: JSON.stringify(payload) }),
   createUser: (payload) => request('/auth/users', { method: 'POST', body: JSON.stringify(payload) }),
 };

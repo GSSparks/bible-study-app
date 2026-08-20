@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { isBootstrapNeeded, bootstrapAdmin, verifyLogin, createUser } from '../services/authService.js';
-import { requireAdmin } from '../middleware/auth.js';
+import { isBootstrapNeeded, bootstrapAdmin, verifyLogin, createUser, changePassword } from '../services/authService.js';
+import { requireAdmin, requireLogin } from '../middleware/auth.js';
 
 export const authRouter = Router();
 
@@ -74,6 +74,24 @@ authRouter.post('/logout', (req, res, next) => {
 
 authRouter.get('/me', (req, res) => {
   res.json({ user: req.user || null });
+});
+
+// Same rate-limit reasoning as login: even though this requires the
+// correct current password to succeed, an attacker who found an
+// already-logged-in session (without knowing the password itself)
+// could otherwise brute-force the current-password check with
+// unlimited attempts.
+authRouter.post('/change-password', requireLogin, loginLimiter, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'currentPassword and newPassword are both required' });
+    }
+    await changePassword({ userId: req.user.id, currentPassword, newPassword });
+    res.json({ status: 'password changed' });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Admin-only: creates a regular (or additional admin) account. No
