@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { swordService } from '../services/swordService.js';
 import { listPersonalModules } from '../services/personalModuleService.js';
+import { filterAvailableModules } from '../services/moduleVisibilityService.js';
 import { requireAdmin } from '../middleware/auth.js';
 
 export const modulesRouter = Router();
@@ -50,7 +51,16 @@ modulesRouter.get('/available', requireAdmin, async (req, res, next) => {
 modulesRouter.get('/installed', async (req, res, next) => {
   try {
     const type = req.query.type || 'BIBLE';
-    const swordModules = await swordService.listInstalledModules(type);
+    let swordModules = await swordService.listInstalledModules(type);
+    // Admins always see every installed module, including hidden ones
+    // — they're the ones managing visibility, so filtering it away
+    // from them would make that impossible to do from this same list.
+    // Personal modules are never filtered here — they're already
+    // private per-user through a completely separate mechanism, and
+    // this visibility toggle is specifically about real SWORD modules.
+    if (req.user?.role !== 'admin') {
+      swordModules = await filterAvailableModules(swordModules);
+    }
     if (type === 'DICT' || type === 'COMMENTARY') {
       const personalModules = await listPersonalModules(type, req.user?.id);
       return res.json([...swordModules, ...personalModules]);

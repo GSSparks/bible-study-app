@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { isBootstrapNeeded, bootstrapAdmin, verifyLogin, createUser, changePassword } from '../services/authService.js';
+import { isBootstrapNeeded, bootstrapAdmin, verifyLogin, createUser, changePassword, listUsers } from '../services/authService.js';
 import { requireAdmin, requireLogin } from '../middleware/auth.js';
 
 export const authRouter = Router();
@@ -89,6 +89,15 @@ authRouter.post('/change-password', requireLogin, loginLimiter, async (req, res,
     }
     await changePassword({ userId: req.user.id, currentPassword, newPassword });
     res.json({ status: 'password changed' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Admin-only: lists every account, for the admin user-management view.
+authRouter.get('/users', requireAdmin, async (req, res, next) => {
+  try {
+    res.json(await listUsers());
   } catch (err) {
     next(err);
   }

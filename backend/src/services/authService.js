@@ -98,6 +98,17 @@ export async function bootstrapAdmin({ username, password }) {
   }
 }
 
+/** Every account, for the admin user-management view. Never includes
+ *  passwordHash — same select shape as createUser/bootstrapAdmin, so
+ *  a password hash never accidentally ends up in a JSON response
+ *  anywhere in this file. */
+export async function listUsers() {
+  return prisma.user.findMany({
+    select: { id: true, username: true, role: true, createdAt: true, lastLoginAt: true },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
 /** Regular user creation, admin-only (enforced by the route, not here).
  *  Unlike bootstrapAdmin, this doesn't need the singleton-row trick —
  *  there's no "only the first one wins" race to guard against, just the

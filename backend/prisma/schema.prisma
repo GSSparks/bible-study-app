@@ -165,3 +165,18 @@ model AppSetting {
 // here would just create a model nothing ever calls, while the actual
 // schema is defined by connect-pg-simple's own conventions instead of
 // Prisma's.
+
+// Tracks which installed modules are exposed to non-admin users.
+// Separate from "is it installed" (that's SWORD's own state, or
+// PersonalModule for personal ones) — an admin can install something
+// and deliberately not make it available yet. Defaults to available:
+// installing something today already makes it usable immediately, and
+// this is additive on top of that existing behavior rather than a
+// reversal of it — nothing becomes newly hidden just because this
+// table now exists. No row for a module means "available" (the
+// default); a row only needs to exist once something is deliberately
+// hidden.
+model ModuleVisibility {
+  moduleCode       String  @id
+  availableToUsers Boolean @default(true)
+}
