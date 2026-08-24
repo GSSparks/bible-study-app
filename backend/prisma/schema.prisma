@@ -143,6 +143,36 @@ model User {
   bookmarks       Bookmark[]
   studySessions   StudySession[]
   personalModules PersonalModule[]
+  connectionsSent     Connection[] @relation("ConnectionsSent")
+  connectionsReceived Connection[] @relation("ConnectionsReceived")
+}
+
+// Mutual-acceptance connections ("Fellows" in the UI). One row per
+// pair with a status, not two directional rows — simpler to query "are
+// these two connected" and can't get out of sync with itself.
+// requesterId/recipientId track who sent it, but once accepted the
+// relationship is symmetric — both people see each other as a Fellow.
+//
+// The @@unique constraint only prevents a duplicate in the SAME
+// direction (A requesting B twice) — it does not prevent A requesting
+// B while B is separately, simultaneously requesting A. That's handled
+// in application logic (connectionService.sendRequest), not the
+// schema: a new request first checks for a reverse-direction pending
+// row and auto-accepts both as one connection instead of creating a
+// duplicate.
+model Connection {
+  id          String   @id @default(cuid())
+  requesterId String
+  requester   User     @relation("ConnectionsSent", fields: [requesterId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient   User     @relation("ConnectionsReceived", fields: [recipientId], references: [id], onDelete: Cascade)
+  status      String   @default("pending") // "pending" | "accepted" | "declined"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([requesterId, recipientId])
+  @@index([recipientId, status])
+  @@index([requesterId, status])
 }
 
 // A generic key/value settings table. Right now it exists for exactly
@@ -165,7 +195,6 @@ model AppSetting {
 // here would just create a model nothing ever calls, while the actual
 // schema is defined by connect-pg-simple's own conventions instead of
 // Prisma's.
-
 // Tracks which installed modules are exposed to non-admin users.
 // Separate from "is it installed" (that's SWORD's own state, or
 // PersonalModule for personal ones) — an admin can install something

@@ -3,6 +3,7 @@ import StudyMode from './StudyMode.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
 import AdminView from './AdminView.jsx';
+import FellowsView from './FellowsView.jsx';
 import LoginModal from './LoginModal.jsx';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
 import UserMenu from './UserMenu.jsx';
@@ -33,11 +34,12 @@ const NAV_ITEMS = [
   },
   { key: 'library', label: 'Library', description: 'Your notes, highlights, bookmarks, and saved study library, as their own page rather than a docked panel.' },
   { key: 'ai-companion', label: 'AI Companion', description: 'The study assistant, as its own page for general use outside an open passage.' },
+  { key: 'fellows', label: 'Fellows', requiresAuth: true },
   {
     key: 'notifications',
     label: 'Notifications',
     requiresAuth: true,
-    description: "You'll see Fellow requests, comments, and Scriptorium activity here.",
+    description: "You'll see comments, mentions, and Scriptorium activity here. Fellow requests live in the Fellows page.",
   },
   { key: 'messages', label: 'Messages', requiresAuth: true, description: 'Direct messages with your Fellows.' },
   { key: 'settings', label: 'Settings', requiresAuth: true },
@@ -116,7 +118,8 @@ export default function AppShell({ auth }) {
           <SettingsView username={auth.user?.username} onOpenChangePassword={() => setShowChangePasswordModal(true)} />
         )}
         {activeView === 'admin' && <AdminView />}
-        {activeView !== 'passages' && activeView !== 'settings' && activeView !== 'admin' && (
+        {activeView === 'fellows' && <FellowsView />}
+        {activeView !== 'passages' && activeView !== 'settings' && activeView !== 'admin' && activeView !== 'fellows' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
         )}
       </main>

@@ -86,4 +86,14 @@ export const api = {
   // Branding
   getBranding: () => request('/branding'),
   setBranding: (name) => request('/branding', { method: 'POST', body: JSON.stringify({ name }) }),
+
+  // Connections (Fellows)
+  searchConnections: (q) => request(`/connections/search?q=${encodeURIComponent(q)}`),
+  listConnections: () => request('/connections'),
+  listConnectionRequests: () => request('/connections/requests'),
+  listSentConnectionRequests: () => request('/connections/sent'),
+  sendConnectionRequest: (username) => request('/connections', { method: 'POST', body: JSON.stringify({ username }) }),
+  acceptConnectionRequest: (id) => request(`/connections/${id}/accept`, { method: 'POST' }),
+  declineConnectionRequest: (id) => request(`/connections/${id}/decline`, { method: 'POST' }),
+  removeConnection: (id) => request(`/connections/${id}`, { method: 'DELETE' }),
 };
