@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Home, BookOpen, Box, FileText, Library as LibraryIcon, Sparkles, Bell, MessageCircle, Users, UserCircle, Settings as SettingsIcon, Shield } from 'lucide-react';
 import StudyMode from './StudyMode.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
@@ -19,38 +20,53 @@ import { api } from '../api/client.js';
 // filtered out for anonymous visitors — no point linking to a page
 // that only says "log in", when the Log in button is already right
 // there at the bottom of this same sidebar.
-const NAV_ITEMS = [
-  { key: 'home', label: 'Home', requiresAuth: true, description: 'A feed of what your Fellows and Scriptoriums are sharing.' },
-  { key: 'passages', label: 'Passages' },
-  {
-    key: 'scriptoriums',
-    label: 'Scriptoriums',
-    requiresAuth: true,
-    description: 'Create or join a Scriptorium — a group space with its own wall for studying together, private or public.',
-  },
-  {
-    key: 'studies',
-    label: 'Studies',
-    requiresAuth: true,
-    description: 'Structured, multi-session studies — for a Scriptorium or on your own. Planned for Phase 2.',
-  },
-  { key: 'library', label: 'Library' },
-  { key: 'ai-companion', label: 'AI Companion' },
-  { key: 'fellows', label: 'Fellows', requiresAuth: true },
-  {
-    key: 'notifications',
-    label: 'Notifications',
-    requiresAuth: true,
-    description: "You'll see comments, mentions, and Scriptorium activity here. Fellow requests live in the Fellows page.",
-  },
-  { key: 'messages', label: 'Messages', requiresAuth: true, description: 'Direct messages with your Fellows.' },
-  { key: 'settings', label: 'Settings', requiresAuth: true },
-  {
-    key: 'admin',
-    label: 'Admin',
-    requiresAuth: true,
-    adminOnly: true,
-  },
+//
+// Grouped into two sections matching the mockup — a main-features
+// group and an activity/account group, with a thin divider between
+// them. Groups are arrays here (not objects with a label) since the
+// mockup itself has no visible group headings, just the spacing/
+// divider — nothing to actually render as a label.
+const NAV_GROUPS = [
+  [
+    { key: 'home', label: 'Home', Icon: Home, requiresAuth: true, description: 'A feed of what your Fellows and Scriptoriums are sharing.' },
+    { key: 'passages', label: 'Passages', Icon: BookOpen },
+    {
+      key: 'scriptoriums',
+      label: 'Scriptoriums',
+      Icon: Box,
+      requiresAuth: true,
+      description: 'Create or join a Scriptorium — a group space with its own wall for studying together, private or public.',
+    },
+    {
+      key: 'studies',
+      label: 'Studies',
+      Icon: FileText,
+      requiresAuth: true,
+      description: 'Structured, multi-session studies — for a Scriptorium or on your own. Planned for Phase 2.',
+    },
+    { key: 'library', label: 'Library', Icon: LibraryIcon },
+    { key: 'ai-companion', label: 'AI Companion', Icon: Sparkles },
+  ],
+  [
+    {
+      key: 'notifications',
+      label: 'Notifications',
+      Icon: Bell,
+      requiresAuth: true,
+      description: "You'll see comments, mentions, and Scriptorium activity here. Fellow requests live in the Fellows page.",
+    },
+    { key: 'messages', label: 'Messages', Icon: MessageCircle, requiresAuth: true, description: 'Direct messages with your Fellows.' },
+    { key: 'fellows', label: 'Fellows', Icon: Users, requiresAuth: true },
+    {
+      key: 'profile',
+      label: 'Profile',
+      Icon: UserCircle,
+      requiresAuth: true,
+      description: 'Your public profile — bio, favorite verses, and activity, visible to your Fellows.',
+    },
+    { key: 'settings', label: 'Settings', Icon: SettingsIcon, requiresAuth: true },
+    { key: 'admin', label: 'Admin', Icon: Shield, requiresAuth: true, adminOnly: true },
+  ],
 ];
 
 export default function AppShell({ auth }) {
@@ -66,13 +82,20 @@ export default function AppShell({ auth }) {
     api.getBranding().then((b) => setBrandName(b.name)).catch(() => {});
   }, []);
 
-  const visibleItems = NAV_ITEMS.filter((item) => {
+  function isVisible(item) {
     if (item.adminOnly && auth.user?.role !== 'admin') return false;
     if (item.requiresAuth && !auth.user) return false;
     return true;
-  });
+  }
 
-  const activeItem = NAV_ITEMS.find((item) => item.key === activeView) || NAV_ITEMS[0];
+  // Filtered per group, then any group left with zero visible items is
+  // dropped entirely — otherwise an anonymous visitor (for whom the
+  // entire second group requires auth) would see a stray divider line
+  // with an empty gap below it and nothing in it.
+  const visibleGroups = NAV_GROUPS.map((group) => group.filter(isVisible)).filter((group) => group.length > 0);
+
+  const allItems = NAV_GROUPS.flat();
+  const activeItem = allItems.find((item) => item.key === activeView) || allItems[0];
 
   return (
     <div className="flex h-screen min-h-0 bg-ink text-parchment">
@@ -83,16 +106,25 @@ export default function AppShell({ auth }) {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-2">
-          {visibleItems.map((item) => (
-            <button
-              key={item.key}
-              onClick={() => setActiveView(item.key)}
-              className={`block w-full px-5 py-2 text-left text-sm ${
-                activeView === item.key ? 'border-r-2 border-brass bg-panel text-parchment' : 'text-muted hover:bg-panel hover:text-parchment'
-              }`}
-            >
-              {item.label}
-            </button>
+          {visibleGroups.map((group, groupIndex) => (
+            <div key={groupIndex} className={groupIndex > 0 ? 'mt-2 border-t border-rule pt-2' : ''}>
+              {group.map((item) => {
+                const Icon = item.Icon;
+                const active = activeView === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setActiveView(item.key)}
+                    className={`flex w-full items-center gap-3 px-5 py-2 text-left text-sm ${
+                      active ? 'border-r-2 border-brass bg-panel text-brass' : 'text-muted hover:bg-panel hover:text-parchment'
+                    }`}
+                  >
+                    <Icon size={18} strokeWidth={2} className="shrink-0" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </nav>
 
