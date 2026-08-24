@@ -88,6 +88,26 @@ contextRouter.post('/ask', async (req, res, next) => {
   }
 });
 
+// GET /api/context/sessions — most recent conversations across every
+// reference, for a "recent conversations" list. Placed before
+// /sessions/:reference below as good practice, though the two don't
+// actually collide — :reference requires a path segment to be present,
+// so a bare /sessions request was never going to match it regardless
+// of registration order.
+contextRouter.get('/sessions', async (req, res, next) => {
+  try {
+    res.json(
+      await prisma.studySession.findMany({
+        where: { userId: req.user.id },
+        orderBy: { updatedAt: 'desc' },
+        take: 20,
+      })
+    );
+  } catch (err) {
+    next(err);
+  }
+});
+
 contextRouter.get('/sessions/:reference', async (req, res, next) => {
   try {
     res.json(

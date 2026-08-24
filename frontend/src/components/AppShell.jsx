@@ -4,6 +4,8 @@ import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
 import AdminView from './AdminView.jsx';
 import FellowsView from './FellowsView.jsx';
+import LibraryView from './LibraryView.jsx';
+import AICompanionView from './AICompanionView.jsx';
 import LoginModal from './LoginModal.jsx';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
 import UserMenu from './UserMenu.jsx';
@@ -32,8 +34,8 @@ const NAV_ITEMS = [
     requiresAuth: true,
     description: 'Structured, multi-session studies — for a Scriptorium or on your own. Planned for Phase 2.',
   },
-  { key: 'library', label: 'Library', description: 'Your notes, highlights, bookmarks, and saved study library, as their own page rather than a docked panel.' },
-  { key: 'ai-companion', label: 'AI Companion', description: 'The study assistant, as its own page for general use outside an open passage.' },
+  { key: 'library', label: 'Library' },
+  { key: 'ai-companion', label: 'AI Companion' },
   { key: 'fellows', label: 'Fellows', requiresAuth: true },
   {
     key: 'notifications',
@@ -113,13 +115,20 @@ export default function AppShell({ auth }) {
       </aside>
 
       <main className="min-h-0 flex-1 overflow-hidden">
-        {activeView === 'passages' && <StudyMode auth={auth} />}
+        {activeView === 'passages' && <StudyMode auth={auth} onNavigateToLibrary={() => setActiveView('library')} />}
         {activeView === 'settings' && (
           <SettingsView username={auth.user?.username} onOpenChangePassword={() => setShowChangePasswordModal(true)} />
         )}
         {activeView === 'admin' && <AdminView />}
         {activeView === 'fellows' && <FellowsView />}
-        {activeView !== 'passages' && activeView !== 'settings' && activeView !== 'admin' && activeView !== 'fellows' && (
+        {activeView === 'library' && <LibraryView isLoggedIn={Boolean(auth.user)} />}
+        {activeView === 'ai-companion' && <AICompanionView isLoggedIn={Boolean(auth.user)} />}
+        {activeView !== 'passages' &&
+          activeView !== 'settings' &&
+          activeView !== 'admin' &&
+          activeView !== 'fellows' &&
+          activeView !== 'library' &&
+          activeView !== 'ai-companion' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
         )}
       </main>

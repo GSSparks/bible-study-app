@@ -58,6 +58,7 @@ export const api = {
   // Study assistant
   buildContext: (payload) => request('/context/build', { method: 'POST', body: JSON.stringify(payload) }),
   askAssistant: (payload) => request('/context/ask', { method: 'POST', body: JSON.stringify(payload) }),
+  listRecentSessions: () => request('/context/sessions'),
   buildWordStudyContext: (payload) => request('/word-study', { method: 'POST', body: JSON.stringify(payload) }),
   askWordStudy: (payload) => request('/word-study/ask', { method: 'POST', body: JSON.stringify(payload) }),
   buildPhraseStudyContext: (payload) => request('/phrase-study', { method: 'POST', body: JSON.stringify(payload) }),

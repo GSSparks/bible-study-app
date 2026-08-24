@@ -11,7 +11,13 @@ import '@uiw/react-markdown-preview/markdown.css';
  * passage" / "All notes" tabs switch between those views, and both use
  * the same rich markdown editor and are both searchable. */
 export default function NotesSidebar({ reference, module, isLoggedIn }) {
-  const [tab, setTab] = useState('passage'); // 'passage' | 'all'
+  // Defaults to 'all' when no reference is provided (the standalone
+  // Library page) rather than always defaulting to 'passage', which
+  // would otherwise show "Open a passage to see notes here" as the
+  // very first thing on a page where there's no passage concept at
+  // all. Still defaults to 'passage' if a reference IS provided, for
+  // any future case where this gets embedded somewhere with one again.
+  const [tab, setTab] = useState(reference ? 'passage' : 'all'); // 'passage' | 'all'
   const [notes, setNotes] = useState([]);
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState(null); // note id, or 'new'

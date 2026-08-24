@@ -4,15 +4,11 @@ import SearchBar from './SearchBar.jsx';
 import ModuleManager from './ModuleManager.jsx';
 import StrongsPopup from './StrongsPopup.jsx';
 import VersePopup from './VersePopup.jsx';
-import NotesSidebar from './NotesSidebar.jsx';
-import Library from './Library.jsx';
 import StudyAssistant from './StudyAssistant.jsx';
 import { api } from '../api/client.js';
 import { useResizableWidth } from '../hooks/useResizableWidth.js';
 import { useTabbedWindow } from '../hooks/useTabbedWindow.js';
 import { simplifyForTopicalSearch } from '../utils/searchStem.js';
-
-const DOCK_TABS = ['notes', 'library', 'assistant'];
 
 /** The pre-existing power-user reading/study experience — the 3-pane
  * Bible/commentary/dictionary layout, Strong's word-clicking, phrase
@@ -26,7 +22,7 @@ const DOCK_TABS = ['notes', 'library', 'assistant'];
  * copies of auth state that could drift out of sync with the one in
  * AppShell (logging out via one copy wouldn't update the other).
  */
-export default function StudyMode({ auth }) {
+export default function StudyMode({ auth, onNavigateToLibrary }) {
   const [focusedReference, setFocusedReference] = useState('John 3:16');
   const [navHistory, setNavHistory] = useState({ entries: ['John 3:16'], index: 0 });
   const bible = useTabbedWindow([{ id: 'bible-0', module: '', title: 'Bible' }]);
@@ -34,7 +30,6 @@ export default function StudyMode({ auth }) {
   const dictionary = useTabbedWindow([]);
 
   const [showModuleManager, setShowModuleManager] = useState(false);
-  const [dockTab, setDockTab] = useState('notes');
   const [strongsPopup, setStrongsPopup] = useState(null); // { key, x, y, morph }
   const [versePopup, setVersePopup] = useState(null); // { osisRef, x, y }
   const [pendingDictKey, setPendingDictKey] = useState(null);
@@ -147,7 +142,6 @@ export default function StudyMode({ auth }) {
   }
 
   function handleWordStudy(strongsKey, module) {
-    setDockTab('assistant');
     setWordStudyRequest({ module, strongsKey, nonce: Date.now() });
   }
 
@@ -156,12 +150,10 @@ export default function StudyMode({ auth }) {
    * undefined for the "exact wording" button, which is how
    * StudyAssistant distinguishes which matching mode to run. */
   function handlePhraseStudy(phrase, module, strongsSequence) {
-    setDockTab('assistant');
     setPhraseStudyRequest({ module, phrase, strongsSequence, nonce: Date.now() });
   }
 
   function handleAskAboutPassage(module, reference) {
-    setDockTab('assistant');
     setOverviewRequest({ module, reference, nonce: Date.now() });
   }
 
@@ -265,7 +257,7 @@ export default function StudyMode({ auth }) {
           onStrongsClick={handleStrongsClick}
           onVerseRefClick={handleVerseRefClick}
           onOpenInDictionary={openStrongsInDictionary}
-          onAnnotate={() => setDockTab('notes')}
+          onAnnotate={onNavigateToLibrary}
           onAskAboutPassage={handleAskAboutPassage}
           onPhraseStudy={handlePhraseStudy}
         />
@@ -276,35 +268,18 @@ export default function StudyMode({ auth }) {
           title="Drag to resize"
         />
         <aside className="flex min-h-0 shrink-0 flex-col border-l border-rule" style={{ width: dockWidth }}>
-          <nav className="flex border-b border-rule">
-            {DOCK_TABS.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setDockTab(tab)}
-                className={`flex-1 py-2 text-xs uppercase tracking-wide ${
-                  dockTab === tab ? 'border-b-2 border-brass text-parchment' : 'text-muted'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </nav>
+          {/* Notes and Library moved out to their own top-level page —
+              this dock now only ever holds the Assistant, so the tab
+              strip that used to switch between three sections is gone;
+              nothing left to switch between. */}
           <div className="min-h-0 flex-1 overflow-hidden">
-            <div className={dockTab === 'notes' ? 'h-full' : 'hidden'}>
-              <NotesSidebar reference={focusedReference} module={bible.activeTab?.module} isLoggedIn={Boolean(auth.user)} />
-            </div>
-            <div className={dockTab === 'library' ? 'h-full' : 'hidden'}>
-              <Library />
-            </div>
-            <div className={dockTab === 'assistant' ? 'h-full' : 'hidden'}>
-              <StudyAssistant
-                sources={openSources}
-                overviewRequest={overviewRequest}
-                wordStudyRequest={wordStudyRequest}
-                phraseStudyRequest={phraseStudyRequest}
-                isLoggedIn={Boolean(auth.user)}
-              />
-            </div>
+            <StudyAssistant
+              sources={openSources}
+              overviewRequest={overviewRequest}
+              wordStudyRequest={wordStudyRequest}
+              phraseStudyRequest={phraseStudyRequest}
+              isLoggedIn={Boolean(auth.user)}
+            />
           </div>
         </aside>
       </div>

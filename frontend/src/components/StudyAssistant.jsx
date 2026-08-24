@@ -36,7 +36,16 @@ function makeConversation(kind, title, meta = {}) {
  * transient UI, not conversation data, and there's no strong case for
  * preserving an in-progress draft across a tab switch in this version.
  */
-export default function StudyAssistant({ sources, overviewRequest, wordStudyRequest, phraseStudyRequest, isLoggedIn }) {
+export default function StudyAssistant({
+  sources,
+  overviewRequest,
+  wordStudyRequest,
+  phraseStudyRequest,
+  askQuestionRequest,
+  resumeSessionRequest,
+  isLoggedIn,
+  onSessionSaved,
+}) {
   const [conversations, setConversations] = useState(() => [makeConversation('chat', 'Chat')]);
   const [activeConversationId, setActiveConversationId] = useState(() => conversations[0].id);
   const [input, setInput] = useState('');
@@ -49,6 +58,11 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
 
   const validSources = sources.filter((s) => s.module && s.reference);
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || conversations[0];
+  // Mirrors the same fallback send() uses — the input is usable either
+  // when there's something open elsewhere (the sources prop) or the
+  // active conversation already has its own anchor from being started
+  // via a tool (Ask a Question / Study a Passage).
+  const canSend = validSources.length > 0 || Boolean(activeConversation.meta.module && activeConversation.meta.reference);
 
   function updateConversation(id, patch) {
     setConversations((prev) =>
@@ -98,6 +112,18 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phraseStudyRequest]);
 
+  useEffect(() => {
+    if (!askQuestionRequest) return;
+    void runAskQuestion(askQuestionRequest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askQuestionRequest]);
+
+  useEffect(() => {
+    if (!resumeSessionRequest) return;
+    resumeSession(resumeSessionRequest.session);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeSessionRequest]);
+
   async function runOverview({ module, reference }) {
     const id = addConversation('overview', `${reference} overview`, { module, reference });
     updateConversation(id, { loading: true, loadingLabel: 'Thinking…' });
@@ -118,9 +144,54 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
         sessionId: res.sessionId,
         loading: false,
       });
+      onSessionSaved?.();
     } catch (e) {
       updateConversation(id, { error: e.message, loading: false });
     }
+  }
+
+  /** Mirrors runOverview's shape exactly — same self-contained single-
+   * source context build, same reasoning (no dependency on anything
+   * being "open" elsewhere) — the only difference is sending the
+   * person's own typed question as the first message instead of the
+   * fixed overview prompt. This is what makes the "Ask a Question" tool
+   * work on a standalone page with nothing open: like runOverview, it
+   * never touches the `sources` prop at all. */
+  async function runAskQuestion({ module, reference, question }) {
+    const title = reference ? `${reference}: ${question.slice(0, 30)}${question.length > 30 ? '…' : ''}` : question.slice(0, 40);
+    const id = addConversation('chat', title, { module, reference });
+    updateConversation(id, { loading: true, loadingLabel: 'Thinking…' });
+    try {
+      const context = await api.buildContext({
+        sources: [{ module, reference, kind: 'bible', title: module }],
+        includeAllCommentaries: true,
+        includeWordStudies: true,
+      });
+      const userMessage = { role: 'user', content: question };
+      updateConversation(id, { messages: [userMessage] });
+      const res = await api.askAssistant({ context, messages: [userMessage] });
+      updateConversation(id, {
+        messages: [userMessage, { role: 'assistant', content: res.reply }],
+        sessionId: res.sessionId,
+        loading: false,
+      });
+      onSessionSaved?.();
+    } catch (e) {
+      updateConversation(id, { error: e.message, loading: false });
+    }
+  }
+
+  /** Resuming a past conversation from the "Recent Conversations" list
+   * — the session object handed in already carries its full messages
+   * (the list endpoint returns full rows, not summaries), so this needs
+   * no extra API call: it just opens a new tab seeded with that history
+   * and sessionId, so replying continues the same saved conversation
+   * server-side rather than starting a new one. */
+  function resumeSession(session) {
+    if (!session) return;
+    const title = session.reference ? `${session.reference} (resumed)` : 'Resumed chat';
+    const id = addConversation('chat', title, { module: session.module, reference: session.reference });
+    updateConversation(id, { messages: session.messages || [], sessionId: session.id });
   }
 
   /** Word studies don't chain into a session the way regular chat/
@@ -230,15 +301,28 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
   }
 
   async function send() {
-    if (!input.trim() || validSources.length === 0) return;
+    if (!input.trim()) return;
     const convId = activeConversationId;
     const conv = conversations.find((c) => c.id === convId);
+    // Falls back to the active conversation's own anchor (set when it
+    // was created via a tool like "Ask a Question"/"Study a Passage")
+    // when the sources prop is empty — this is what makes following up
+    // within a conversation possible on a standalone page with nothing
+    // open elsewhere, rather than the input staying permanently
+    // disabled the moment sources is empty.
+    const effectiveSources =
+      validSources.length > 0
+        ? validSources
+        : conv.meta.module && conv.meta.reference
+        ? [{ module: conv.meta.module, reference: conv.meta.reference, kind: 'bible', title: conv.meta.module }]
+        : [];
+    if (effectiveSources.length === 0) return;
     const nextMessages = [...conv.messages, { role: 'user', content: input.trim() }];
     updateConversation(convId, { messages: nextMessages, loading: true, loadingLabel: 'Thinking…', error: null });
     setInput('');
     try {
       const context = await api.buildContext({
-        sources: validSources,
+        sources: effectiveSources,
         noteIds: conv.attachedNotes.map((n) => n.id),
       });
       const res = await api.askAssistant({ context, messages: nextMessages, sessionId: conv.sessionId });
@@ -247,6 +331,7 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
         sessionId: res.sessionId,
         loading: false,
       }));
+      onSessionSaved?.();
     } catch (e) {
       updateConversation(convId, { error: e.message, loading: false });
     }
@@ -361,6 +446,8 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
       <p className="mb-2 text-xs text-muted">
         {validSources.length > 0 ? (
           <>Context: {validSources.map((s) => `${s.title} ${s.reference}`).join(' · ')}</>
+        ) : activeConversation.meta.module && activeConversation.meta.reference ? (
+          <>Context: {activeConversation.meta.module} {activeConversation.meta.reference}</>
         ) : (
           'Open a Bible or commentary window to give the assistant something to work from.'
         )}
@@ -460,13 +547,13 @@ export default function StudyAssistant({ sources, overviewRequest, wordStudyRequ
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
-          disabled={validSources.length === 0}
-          placeholder={validSources.length > 0 ? 'Ask about what\'s open…' : 'Nothing open yet'}
+          disabled={!canSend}
+          placeholder={canSend ? 'Ask about what\'s open…' : 'Nothing open yet'}
           className="flex-1 rounded-md border border-rule bg-ink px-3 py-2 text-sm placeholder:text-muted disabled:opacity-50"
         />
         <button
           onClick={send}
-          disabled={validSources.length === 0 || activeConversation.loading}
+          disabled={!canSend || activeConversation.loading}
           className="rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50"
         >
           {activeConversation.loading ? '…' : 'Ask'}
