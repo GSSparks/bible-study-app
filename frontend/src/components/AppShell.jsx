@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import StudyMode from './StudyMode.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
+import AdminView from './AdminView.jsx';
 import LoginModal from './LoginModal.jsx';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
 import UserMenu from './UserMenu.jsx';
+import { api } from '../api/client.js';
 
 // Views with no `description` are ones with a real component below —
 // everything else renders PlaceholderView with this text. `adminOnly`
@@ -44,7 +46,6 @@ const NAV_ITEMS = [
     label: 'Admin',
     requiresAuth: true,
     adminOnly: true,
-    description: 'The backend for user management, module visibility, and metrics is already built — this page is next.',
   },
 ];
 
@@ -52,6 +53,14 @@ export default function AppShell({ auth }) {
   const [activeView, setActiveView] = useState('passages');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  // 'My Scriptorium' as the initial value matches the backend's own
+  // default, so there's no flash of a different placeholder before the
+  // real fetch resolves.
+  const [brandName, setBrandName] = useState('My Scriptorium');
+
+  useEffect(() => {
+    api.getBranding().then((b) => setBrandName(b.name)).catch(() => {});
+  }, []);
 
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (item.adminOnly && auth.user?.role !== 'admin') return false;
@@ -64,8 +73,9 @@ export default function AppShell({ auth }) {
   return (
     <div className="flex h-screen min-h-0 bg-ink text-parchment">
       <aside className="flex w-56 shrink-0 flex-col border-r border-rule">
-        <div className="border-b border-rule px-5 py-4">
-          <span className="font-display text-xl tracking-wide">Scriptorium</span>
+        <div className="flex items-center gap-2 border-b border-rule px-5 py-4">
+          <img src="/logo.png" alt="" className="h-8 w-8 rounded-md" />
+          <span className="font-display text-lg tracking-wide">{brandName}</span>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-2">
@@ -105,7 +115,8 @@ export default function AppShell({ auth }) {
         {activeView === 'settings' && (
           <SettingsView username={auth.user?.username} onOpenChangePassword={() => setShowChangePasswordModal(true)} />
         )}
-        {activeView !== 'passages' && activeView !== 'settings' && (
+        {activeView === 'admin' && <AdminView />}
+        {activeView !== 'passages' && activeView !== 'settings' && activeView !== 'admin' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
         )}
       </main>

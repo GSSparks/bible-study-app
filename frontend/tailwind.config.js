@@ -4,12 +4,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: '#12141A',
-        panel: '#1B1F29',
-        rule: '#30364A',
-        parchment: '#E8E1D0',
-        muted: '#9098AC',
-        brass: '#C89B3C',
+        // Sampled directly from the app-UI mockup (not eyeballed) —
+        // navy/gold rebrand per the mockup images. verdigris and the
+        // light "page" reading-surface colors below are deliberately
+        // untouched: the mockup didn't show an equivalent for either,
+        // and both are functional accents rather than part of the core
+        // brand identity the mockup was actually showing.
+        ink: '#0D1B29',
+        panel: '#1A2634',
+        rule: '#2D3745',
+        parchment: '#F5F4F1',
+        muted: '#8B8F98',
+        brass: '#E8A441',
         verdigris: '#3F7168',
         // Reading surfaces (ReaderPane, DictionaryPane) use this lighter
         // "open page" palette instead of the dark app-chrome colors above

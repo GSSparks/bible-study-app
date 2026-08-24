@@ -72,4 +72,18 @@ export const api = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   changePassword: (payload) => request('/auth/change-password', { method: 'POST', body: JSON.stringify(payload) }),
   createUser: (payload) => request('/auth/users', { method: 'POST', body: JSON.stringify(payload) }),
+  listUsers: () => request('/auth/users'),
+
+  // Admin
+  getAdminMetrics: () => request('/admin/metrics'),
+  listModuleVisibility: (type) => request(`/admin/modules/visibility?type=${type}`),
+  setModuleVisibility: (moduleCode, availableToUsers) =>
+    request(`/admin/modules/${encodeURIComponent(moduleCode)}/visibility`, {
+      method: 'POST',
+      body: JSON.stringify({ availableToUsers }),
+    }),
+
+  // Branding
+  getBranding: () => request('/branding'),
+  setBranding: (name) => request('/branding', { method: 'POST', body: JSON.stringify({ name }) }),
 };

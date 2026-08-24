@@ -21,6 +21,7 @@ import { phraseStudyRouter } from './routes/phraseStudy.js';
 import { authRouter } from './routes/auth.js';
 import { attachUser, blockUntilBootstrapped } from './middleware/auth.js';
 import { adminRouter } from './routes/admin.js';
+import { brandingRouter } from './routes/branding.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND_DIST = path.join(__dirname, '..', 'public');
@@ -95,6 +96,7 @@ app.use('/api/word-study', wordStudyRouter);
 app.use('/api/personal-modules', personalModulesRouter);
 app.use('/api/phrase-study', phraseStudyRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/branding', brandingRouter);
 
 // Serve the built React app for everything else (SPA fallback)
 app.use(express.static(FRONTEND_DIST));
