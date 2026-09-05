@@ -7,28 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// A note can be anchored to a passage (reference + module set) or
-// freestanding (a personal study note, journal entry, etc. — reference
-// and module left null). It can also carry a `quote`: the exact text the
-// person selected when creating it, distinct from `body` (their own
-// commentary on that quote). Both kinds are searchable and both can be
-// pulled into the study assistant's context.
 model Note {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title      String?
-  reference  String?
-  module     String? // which SWORD module the note is anchored to, e.g. "KJV"
-  quote      String? // the exact selected text this note is annotating, if any
-  body       String
-  tags       String[] @default([])
-  fromAssistant Boolean @default(false) // saved from a study assistant reply
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String?
+  reference     String?
+  module        String?
+  quote         String?
+  body          String
+  tags          String[]
+  fromAssistant Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  @@index([reference])
   @@index([userId])
+  @@index([reference])
 }
 
 model Highlight {
@@ -40,8 +34,8 @@ model Highlight {
   color     String   @default("yellow")
   createdAt DateTime @default(now())
 
-  @@index([reference])
   @@index([userId])
+  @@index([reference])
 }
 
 model Bookmark {
@@ -53,90 +47,67 @@ model Bookmark {
   label     String?
   createdAt DateTime @default(now())
 
+  @@index([userId])
   @@index([reference])
-  @@index([userId])
 }
 
-// Metadata for uploaded PDFs (commentaries, study guides, etc.)
-// The actual file lives on disk under the pdf storage volume.
 model Document {
-  id          String   @id @default(cuid())
-  title       String
-  author      String?
-  filename    String   @unique
-  pageCount   Int?
-  extractedText String? // used for full-text search alongside SWORD content
-  createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  title         String
+  author        String?
+  filename      String   @unique
+  pageCount     Int?
+  extractedText String?
+  createdAt     DateTime @default(now())
 }
 
-// A saved LLM study conversation. Historically scoped to one
-// reference/module; now a conversation's context can span several open
-// windows at once, so those are optional and the full source list lives
-// in contextSnapshot.
 model StudySession {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reference     String?
-  module        String?
-  messages      Json // [{ role, content, ts }]
-  contextSnapshot Json? // the assembled context sent to the LLM at session start
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reference String?
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([reference])
 }
 
-// A personal, AI-study-derived "module" — DICT-type (word studies,
-// entries keyed by term) or COMMENTARY-type (conversations about a
-// passage, entries keyed by reference). Listed alongside real SWORD
-// modules under a "personal:<id>" module code, so the app's existing
-// dictionary/commentary browsing UI works on these without any changes —
-// see backend/src/services/personalModuleService.js.
-//
-// Private per-user: each user gets their own separate "My Word
-// Studies"/"My Studies" module rather than one everyone shares —
-// confirmed explicitly, not assumed. getOrCreateDefaultPersonalModule
-// looks up/creates scoped to (type, name, userId), not just (type,
-// name), so two different users' "My Word Studies" are two entirely
-// separate rows even though they share a display name.
 model PersonalModule {
-  id        String          @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String // 'DICT' | 'COMMENTARY'
-  name      String // display name, e.g. "My Word Studies"
-  createdAt DateTime        @default(now())
-  entries   PersonalEntry[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  name      String
+  createdAt DateTime @default(now())
+
+  entries PersonalEntry[]
 
   @@index([userId])
 }
 
 model PersonalEntry {
-  id         String         @id @default(cuid())
-  moduleId   String
-  module     PersonalModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  key        String? // DICT-type: the term/word (e.g. "G26")
-  reference  String? // COMMENTARY-type: the reference this entry is about (e.g. "John 3:16-18")
-  title      String
-  body       String // HTML — converted from the LLM's markdown reply at save time
-  createdAt  DateTime       @default(now())
+  id             String         @id @default(cuid())
+  moduleId       String
+  personalModule PersonalModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  key            String?
+  reference      String?
+  title          String
+  body           String
+  createdAt      DateTime       @default(now())
 
   @@index([moduleId, key])
   @@index([moduleId, reference])
 }
 
-// Auth. Deliberately minimal for Phase 1 — just enough for login,
-// roles, and the bootstrap-safety mechanism. Per-user data ownership
-// (adding userId to Note/Highlight/PersonalModule/etc.) is Phase 2,
-// not part of this migration.
 model User {
-  id           String    @id @default(cuid())
-  username     String    @unique
-  passwordHash String
-  role         String    @default("user") // "admin" | "user"
-  createdAt    DateTime  @default(now())
-  lastLoginAt  DateTime?
+  id             String    @id @default(cuid())
+  username       String    @unique
+  passwordHash   String
+  role           String    @default("user")
+  createdAt      DateTime  @default(now())
+  lastLoginAt    DateTime?
 
   notes           Note[]
   highlights      Highlight[]
@@ -145,6 +116,17 @@ model User {
   personalModules PersonalModule[]
   connectionsSent     Connection[] @relation("ConnectionsSent")
   connectionsReceived Connection[] @relation("ConnectionsReceived")
+  scriptoriumsOwned          Scriptorium[]           @relation("ScriptoriumsOwned")
+  scriptoriumMemberships     ScriptoriumMembership[]
+  scriptoriumInvitesSent     ScriptoriumInvite[]      @relation("ScriptoriumInvitesSent")
+  scriptoriumInvitesReceived ScriptoriumInvite[]      @relation("ScriptoriumInvitesReceived")
+  posts    Post[]
+  comments Comment[]
+  studiesCreated         Study[]                  @relation("StudiesCreated")
+  studyParticipations    StudyParticipant[]
+  studyLessonCompletions StudyLessonCompletion[]
+  studyComments      StudyComment[]
+  studyCommentLikes  StudyCommentLike[]
 }
 
 // Mutual-acceptance connections ("Fellows" in the UI). One row per
@@ -152,14 +134,6 @@ model User {
 // these two connected" and can't get out of sync with itself.
 // requesterId/recipientId track who sent it, but once accepted the
 // relationship is symmetric — both people see each other as a Fellow.
-//
-// The @@unique constraint only prevents a duplicate in the SAME
-// direction (A requesting B twice) — it does not prevent A requesting
-// B while B is separately, simultaneously requesting A. That's handled
-// in application logic (connectionService.sendRequest), not the
-// schema: a new request first checks for a reverse-direction pending
-// row and auto-accepts both as one connection instead of creating a
-// duplicate.
 model Connection {
   id          String   @id @default(cuid())
   requesterId String
@@ -175,37 +149,213 @@ model Connection {
   @@index([requesterId, status])
 }
 
-// A generic key/value settings table. Right now it exists for exactly
-// one purpose: bootstrapAdmin() inserts a row here under a fixed unique
-// key inside the same transaction that creates the first admin, so
-// Postgres's own unique-constraint enforcement — atomic even under
-// concurrent transactions — is what guarantees only one "first admin"
-// can ever be created, rather than relying on a check-then-create
-// pattern that would leave a real race window open. See
-// authService.js's bootstrapAdmin for the full reasoning.
 model AppSetting {
   key   String @id
   value String
 }
 
-// NOTE: this migration's SQL also creates a `session` table, but it is
-// deliberately NOT represented as a Prisma model here. connect-pg-simple
-// (the session store) reads and writes that table directly via its own
-// raw SQL — Prisma Client is never used to query it — so modeling it
-// here would just create a model nothing ever calls, while the actual
-// schema is defined by connect-pg-simple's own conventions instead of
-// Prisma's.
-// Tracks which installed modules are exposed to non-admin users.
-// Separate from "is it installed" (that's SWORD's own state, or
-// PersonalModule for personal ones) — an admin can install something
-// and deliberately not make it available yet. Defaults to available:
-// installing something today already makes it usable immediately, and
-// this is additive on top of that existing behavior rather than a
-// reversal of it — nothing becomes newly hidden just because this
-// table now exists. No row for a module means "available" (the
-// default); a row only needs to exist once something is deliberately
-// hidden.
 model ModuleVisibility {
   moduleCode       String  @id
   availableToUsers Boolean @default(true)
+}
+
+// The core, named community unit of this app — "Scriptoriums" in the
+// UI, matching the app's own branding rather than a generic "Group"
+// name, since this isn't a utility feature but the central social
+// concept the whole vision is built around.
+model Scriptorium {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  visibility  String   @default("private") // "private" | "public" — private: invite-only, hidden from browse for non-members; public: any logged-in user can find and join directly
+  ownerId     String
+  owner       User     @relation("ScriptoriumsOwned", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  memberships ScriptoriumMembership[]
+  invites     ScriptoriumInvite[]
+  posts       Post[]
+  studies     Study[]
+}
+
+model ScriptoriumMembership {
+  id            String      @id @default(cuid())
+  scriptoriumId String
+  scriptorium   Scriptorium @relation(fields: [scriptoriumId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          String      @default("member") // "owner" | "member"
+  joinedAt      DateTime    @default(now())
+
+  @@unique([scriptoriumId, userId])
+  @@index([userId])
+}
+
+// Invites route through the existing Fellows graph rather than an open
+// link — you invite someone you're already connected to. Same
+// mutual-request-shaped pattern as Connection (one row, a status,
+// re-inviting after a decline resets the row rather than duplicating
+// it), though invites here are one-directional by nature.
+model ScriptoriumInvite {
+  id            String      @id @default(cuid())
+  scriptoriumId String
+  scriptorium   Scriptorium @relation(fields: [scriptoriumId], references: [id], onDelete: Cascade)
+  inviterId     String
+  inviter       User        @relation("ScriptoriumInvitesSent", fields: [inviterId], references: [id], onDelete: Cascade)
+  inviteeId     String
+  invitee       User        @relation("ScriptoriumInvitesReceived", fields: [inviteeId], references: [id], onDelete: Cascade)
+  status        String      @default("pending") // "pending" | "accepted" | "declined"
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([scriptoriumId, inviteeId])
+  @@index([inviteeId, status])
+}
+
+// A single model covers both personal-wall and Scriptorium-wall posts
+// — scriptoriumId null means a personal wall post, set means it's
+// posted to that Scriptorium's wall.
+model Post {
+  id            String   @id @default(cuid())
+  authorId      String
+  author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  scriptoriumId String?
+  scriptorium   Scriptorium? @relation(fields: [scriptoriumId], references: [id], onDelete: Cascade)
+  body          String
+  createdAt     DateTime @default(now())
+
+  comments      Comment[]
+
+  @@index([authorId])
+  @@index([scriptoriumId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+// Phase A of Studies — the core structure everything else (comments,
+// AI-assisted generation, resources) builds on top of.
+model Study {
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  scriptoriumId String?      // null = personal solo study, private to the creator; set = group study, inherits that Scriptorium's own visibility/membership rules entirely
+  scriptorium   Scriptorium? @relation(fields: [scriptoriumId], references: [id], onDelete: Cascade)
+  creatorId     String
+  creator       User         @relation("StudiesCreated", fields: [creatorId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+
+  lessons      StudyLesson[]
+  participants StudyParticipant[]
+  resources    StudyResource[]
+
+  @@index([scriptoriumId])
+  @@index([creatorId])
+}
+
+// Each "week" — a passage pointer PLUS the leader's own shared write-up
+// (body). Participants' own private notes reuse the existing Note
+// model entirely, filtered by this lesson's reference, rather than a
+// new per-user notes table.
+model StudyLesson {
+  id        String   @id @default(cuid())
+  studyId   String
+  study     Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  order     Int
+  title     String
+  module    String?
+  reference String?
+  body      String?
+  createdAt DateTime @default(now())
+
+  completions StudyLessonCompletion[]
+  comments    StudyComment[]
+
+  @@index([studyId])
+}
+
+model StudyParticipant {
+  id       String   @id @default(cuid())
+  studyId  String
+  study    Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String   @default("participant") // "owner" | "participant"
+  joinedAt DateTime @default(now())
+
+  @@unique([studyId, userId])
+  @@index([userId])
+}
+
+model StudyLessonCompletion {
+  id          String      @id @default(cuid())
+  lessonId    String
+  lesson      StudyLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completedAt DateTime    @default(now())
+
+  @@unique([lessonId, userId])
+  @@index([userId])
+}
+
+// Phase B — the "Discussion" tab. Scoped to a lesson (not the whole
+// Study). Viewing a lesson's comments only requires being able to view
+// the lesson itself; posting a comment or a like requires actually
+// being a participant.
+model StudyComment {
+  id        String   @id @default(cuid())
+  lessonId  String
+  lesson    StudyLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  likes StudyCommentLike[]
+
+  @@index([lessonId])
+}
+
+model StudyCommentLike {
+  id        String       @id @default(cuid())
+  commentId String
+  comment   StudyComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([commentId, userId])
+  @@index([userId])
+}
+
+// Phase D — the leader-curated resource list behind the footer.
+// "commentary" resources point at an installed SWORD module (fetched
+// against whichever lesson's reference is currently open); "link"
+// resources point at an external URL the frontend just opens. The
+// always-present "Text" compare-translations tab isn't stored here at
+// all — it's built into the footer itself, reusing the existing
+// compare-translations endpoint directly, not a per-study resource a
+// leader curates.
+model StudyResource {
+  id         String   @id @default(cuid())
+  studyId    String
+  study      Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  type       String   // "commentary" | "link"
+  label      String   // footer tab display text, e.g. "Commentary: Clarke" or "Bible Project: John"
+  moduleCode String?  // required for type="commentary"
+  url        String?  // required for type="link"
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([studyId])
 }
