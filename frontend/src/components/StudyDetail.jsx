@@ -56,6 +56,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack }) {
   const [tab, setTab] = useState('content');
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showAddLessonModal, setShowAddLessonModal] = useState(false);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showEditStudyModal, setShowEditStudyModal] = useState(false);
 
   function refresh() {
@@ -209,6 +210,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack }) {
               onSelectLesson={setActiveLessonId}
               isOwner={isOwner}
               onAddLesson={() => setShowAddLessonModal(true)}
+              onGenerate={() => setShowGenerateModal(true)}
               onLessonsChanged={refresh}
             />
           )}
@@ -245,6 +247,18 @@ export default function StudyDetail({ studyId, currentUserId, onBack }) {
           onClose={() => setShowAddLessonModal(false)}
           onCreated={() => {
             setShowAddLessonModal(false);
+            refresh();
+          }}
+        />
+      )}
+
+      {showGenerateModal && (
+        <GenerateStudyModal
+          studyId={studyId}
+          nextOrder={lessons.length + 1}
+          onClose={() => setShowGenerateModal(false)}
+          onCreated={() => {
+            setShowGenerateModal(false);
             refresh();
           }}
         />
@@ -335,15 +349,20 @@ function StudySidebar({ study, lessons, progress, resources, nextLesson, onCompl
   );
 }
 
-function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onAddLesson, onLessonsChanged }) {
+function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onAddLesson, onGenerate, onLessonsChanged }) {
   if (lessons.length === 0) {
     return (
       <div className="rounded-md border border-rule bg-panel p-6 text-center">
         <p className="mb-3 text-sm text-muted">This study has no lessons yet.</p>
         {isOwner && (
-          <button onClick={onAddLesson} className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass">
-            + add a lesson
-          </button>
+          <div className="flex justify-center gap-2">
+            <button onClick={onAddLesson} className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass">
+              + add a lesson
+            </button>
+            <button onClick={onGenerate} className="rounded border border-rule px-3 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment">
+              ✨ generate with AI
+            </button>
+          </div>
         )}
       </div>
     );
@@ -364,9 +383,14 @@ function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onA
           </button>
         ))}
         {isOwner && (
-          <button onClick={onAddLesson} className="rounded-full border border-dashed border-rule px-3 py-1 text-xs text-muted hover:border-brass hover:text-parchment">
-            + add lesson
-          </button>
+          <>
+            <button onClick={onAddLesson} className="rounded-full border border-dashed border-rule px-3 py-1 text-xs text-muted hover:border-brass hover:text-parchment">
+              + add lesson
+            </button>
+            <button onClick={onGenerate} className="rounded-full border border-dashed border-rule px-3 py-1 text-xs text-muted hover:border-brass hover:text-parchment">
+              ✨ generate with AI
+            </button>
+          </>
         )}
       </div>
 
@@ -717,6 +741,203 @@ function AddLessonModal({ studyId, nextOrder, onClose, onCreated }) {
   );
 }
 
+function GenerateStudyModal({ studyId, nextOrder, onClose, onCreated }) {
+  const [step, setStep] = useState('form'); // 'form' | 'reviewing'
+  const [topic, setTopic] = useState('');
+  const [weekCount, setWeekCount] = useState(6);
+  const [module, setModule] = useState('');
+  const [modules, setModules] = useState([]);
+  const [drafts, setDrafts] = useState([]);
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    api
+      .listInstalledModules('BIBLE')
+      .then((list) => {
+        setModules(list);
+        if (list[0]) setModule(list[0].name);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleGenerate(e) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await api.generateStudyLessonDrafts(studyId, { topic, weekCount: Number(weekCount), module });
+      // tempId is purely a local React key/removal handle — these
+      // drafts have no real id yet, since nothing has been persisted.
+      setDrafts(result.map((d, i) => ({ ...d, tempId: i })));
+      setStep('reviewing');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function updateDraft(tempId, field, value) {
+    setDrafts((prev) => prev.map((d) => (d.tempId === tempId ? { ...d, [field]: value } : d)));
+  }
+
+  function removeDraft(tempId) {
+    setDrafts((prev) => prev.filter((d) => d.tempId !== tempId));
+  }
+
+  async function handleAccept() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const lessons = drafts.map((d, i) => ({
+        order: nextOrder + i,
+        title: d.title,
+        module: d.module,
+        reference: d.reference || null,
+        body: d.body || null,
+      }));
+      await api.bulkCreateStudyLessons(studyId, lessons);
+      onCreated();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-lg">Generate a Study Plan</h2>
+          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
+            close
+          </button>
+        </div>
+
+        {step === 'form' && (
+          <form onSubmit={handleGenerate} className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Topic</label>
+              <input
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="The Gospel of John, chapters 14-17"
+                autoFocus
+                className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
+              />
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Weeks</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={26}
+                  value={weekCount}
+                  onChange={(e) => setWeekCount(e.target.value)}
+                  className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Bible Module</label>
+                <select
+                  value={module}
+                  onChange={(e) => setModule(e.target.value)}
+                  className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
+                >
+                  {modules.map((m) => (
+                    <option key={m.name} value={m.name}>
+                      {m.description || m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-muted">
+              This drafts a starting point — you'll review and can edit every lesson before anything is actually created.
+            </p>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <button
+              type="submit"
+              disabled={submitting || !topic.trim() || !module}
+              className="w-full rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50"
+            >
+              {submitting ? 'generating…' : 'generate'}
+            </button>
+          </form>
+        )}
+
+        {step === 'reviewing' && (
+          <div className="space-y-4">
+            <p className="text-xs text-muted">
+              Review each lesson below — edit anything, or remove one you don't want. Nothing is created until you accept.
+            </p>
+            {error && <p className="text-sm text-red-400">{error}</p>}
+
+            <div className="space-y-3">
+              {drafts.map((d, i) => (
+                <div key={d.tempId} className="rounded-md border border-rule bg-ink p-3">
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <span className="text-xs uppercase tracking-wide text-muted">Week {i + 1}</span>
+                    <button onClick={() => removeDraft(d.tempId)} className="text-xs text-muted hover:text-red-400">
+                      remove
+                    </button>
+                  </div>
+                  <input
+                    value={d.title}
+                    onChange={(e) => updateDraft(d.tempId, 'title', e.target.value)}
+                    className="mb-2 w-full rounded border border-rule bg-panel px-2 py-1 text-sm text-parchment focus:border-brass"
+                  />
+                  <div className="mb-2">
+                    <input
+                      value={d.reference || ''}
+                      onChange={(e) => updateDraft(d.tempId, 'reference', e.target.value)}
+                      placeholder="John 15:1-17"
+                      className={`w-full rounded border bg-panel px-2 py-1 text-xs placeholder:text-muted focus:border-brass ${
+                        d.reference ? 'border-rule text-parchment' : 'border-amber-600 text-amber-400'
+                      }`}
+                    />
+                    {!d.reference && (
+                      <p className="mt-1 text-xs text-amber-400">
+                        ⚠ No reference — the assistant couldn't confirm this passage against {module}. Fill one in manually or leave it for now.
+                      </p>
+                    )}
+                  </div>
+                  <textarea
+                    value={d.body || ''}
+                    onChange={(e) => updateDraft(d.tempId, 'body', e.target.value)}
+                    rows={2}
+                    className="w-full rounded border border-rule bg-panel px-2 py-1 text-xs text-parchment focus:border-brass"
+                  />
+                </div>
+              ))}
+              {drafts.length === 0 && <p className="text-sm text-muted">All lessons removed — go back and generate again, or close this.</p>}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStep('form')}
+                className="flex-1 rounded border border-rule px-3 py-2 text-sm text-muted hover:border-brass hover:text-parchment"
+              >
+                ← regenerate
+              </button>
+              <button
+                onClick={handleAccept}
+                disabled={submitting || drafts.length === 0}
+                className="flex-1 rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50"
+              >
+                {submitting ? 'creating…' : `accept all (${drafts.length})`}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function EditStudyModal({ study, onClose, onSaved }) {
   const [title, setTitle] = useState(study.title);
   const [description, setDescription] = useState(study.description || '');
@@ -765,4 +986,4 @@ function EditStudyModal({ study, onClose, onSaved }) {
   );
 }
 
-export { DiscussionTab };
+export { DiscussionTab, GenerateStudyModal };
