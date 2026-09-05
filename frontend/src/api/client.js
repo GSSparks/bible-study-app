@@ -97,4 +97,66 @@ export const api = {
   acceptConnectionRequest: (id) => request(`/connections/${id}/accept`, { method: 'POST' }),
   declineConnectionRequest: (id) => request(`/connections/${id}/decline`, { method: 'POST' }),
   removeConnection: (id) => request(`/connections/${id}`, { method: 'DELETE' }),
+
+  // Scriptoriums
+  listPublicScriptoriums: () => request('/scriptoriums/public'),
+  listMyScriptoriums: () => request('/scriptoriums/mine'),
+  listScriptoriumInvites: () => request('/scriptoriums/invites'),
+  getScriptorium: (id) => request(`/scriptoriums/${id}`),
+  listScriptoriumMembers: (id) => request(`/scriptoriums/${id}/members`),
+  createScriptorium: (payload) => request('/scriptoriums', { method: 'POST', body: JSON.stringify(payload) }),
+  joinScriptorium: (id) => request(`/scriptoriums/${id}/join`, { method: 'POST' }),
+  leaveScriptorium: (id) => request(`/scriptoriums/${id}/leave`, { method: 'POST' }),
+  updateScriptorium: (id, payload) => request(`/scriptoriums/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteScriptorium: (id) => request(`/scriptoriums/${id}`, { method: 'DELETE' }),
+  removeScriptoriumMember: (id, membershipId) => request(`/scriptoriums/${id}/members/${membershipId}`, { method: 'DELETE' }),
+  inviteToScriptorium: (id, username) => request(`/scriptoriums/${id}/invite`, { method: 'POST', body: JSON.stringify({ username }) }),
+  acceptScriptoriumInvite: (inviteId) => request(`/scriptoriums/invites/${inviteId}/accept`, { method: 'POST' }),
+  declineScriptoriumInvite: (inviteId) => request(`/scriptoriums/invites/${inviteId}/decline`, { method: 'POST' }),
+
+  // Wall
+  getHomeFeed: () => request('/wall/feed'),
+  getMyWall: () => request('/wall/me'),
+  getUserWall: (username) => request(`/wall/user/${encodeURIComponent(username)}`),
+  getScriptoriumWall: (id) => request(`/wall/scriptorium/${id}`),
+  createPost: ({ body, scriptoriumId }) => request('/wall/posts', { method: 'POST', body: JSON.stringify({ body, scriptoriumId }) }),
+  deletePost: (id) => request(`/wall/posts/${id}`, { method: 'DELETE' }),
+  createComment: (postId, body) => request(`/wall/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ body }) }),
+  deleteComment: (id) => request(`/wall/comments/${id}`, { method: 'DELETE' }),
+
+  // Studies
+  listMyStudies: () => request('/studies/mine'),
+  listScriptoriumStudies: (scriptoriumId) => request(`/studies/scriptorium/${scriptoriumId}`),
+  getStudy: (id) => request(`/studies/${id}`),
+  listStudyParticipants: (id) => request(`/studies/${id}/participants`),
+  createStudy: (payload) => request('/studies', { method: 'POST', body: JSON.stringify(payload) }),
+  updateStudy: (id, payload) => request(`/studies/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteStudy: (id) => request(`/studies/${id}`, { method: 'DELETE' }),
+  joinStudy: (id) => request(`/studies/${id}/join`, { method: 'POST' }),
+  leaveStudy: (id) => request(`/studies/${id}/leave`, { method: 'POST' }),
+
+  listStudyLessons: (studyId) => request(`/studies/${studyId}/lessons`),
+  getStudyLesson: (lessonId) => request(`/studies/lessons/${lessonId}`),
+  createStudyLesson: (studyId, payload) => request(`/studies/${studyId}/lessons`, { method: 'POST', body: JSON.stringify(payload) }),
+  bulkCreateStudyLessons: (studyId, lessons) =>
+    request(`/studies/${studyId}/lessons/bulk`, { method: 'POST', body: JSON.stringify({ lessons }) }),
+  updateStudyLesson: (lessonId, payload) => request(`/studies/lessons/${lessonId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteStudyLesson: (lessonId) => request(`/studies/lessons/${lessonId}`, { method: 'DELETE' }),
+  generateStudyLessonDrafts: (studyId, payload) =>
+    request(`/studies/${studyId}/generate-lessons`, { method: 'POST', body: JSON.stringify(payload) }),
+
+  markStudyLessonComplete: (lessonId) => request(`/studies/lessons/${lessonId}/complete`, { method: 'POST' }),
+  unmarkStudyLessonComplete: (lessonId) => request(`/studies/lessons/${lessonId}/complete`, { method: 'DELETE' }),
+  getStudyProgress: (studyId) => request(`/studies/${studyId}/progress`),
+
+  listStudyComments: (lessonId) => request(`/studies/lessons/${lessonId}/comments`),
+  createStudyComment: (lessonId, body) => request(`/studies/lessons/${lessonId}/comments`, { method: 'POST', body: JSON.stringify({ body }) }),
+  deleteStudyComment: (commentId) => request(`/studies/comments/${commentId}`, { method: 'DELETE' }),
+  likeStudyComment: (commentId) => request(`/studies/comments/${commentId}/like`, { method: 'POST' }),
+  unlikeStudyComment: (commentId) => request(`/studies/comments/${commentId}/like`, { method: 'DELETE' }),
+
+  listStudyResources: (studyId) => request(`/studies/${studyId}/resources`),
+  addStudyResource: (studyId, payload) => request(`/studies/${studyId}/resources`, { method: 'POST', body: JSON.stringify(payload) }),
+  removeStudyResource: (resourceId) => request(`/studies/resources/${resourceId}`, { method: 'DELETE' }),
+  getStudyResourceContent: (lessonId, resourceId) => request(`/studies/lessons/${lessonId}/resources/${resourceId}`),
 };

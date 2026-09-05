@@ -5,8 +5,12 @@ import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
 import AdminView from './AdminView.jsx';
 import FellowsView from './FellowsView.jsx';
+import ScriptoriumsView from './ScriptoriumsView.jsx';
+import HomeView from './HomeView.jsx';
+import ProfileWallView from './ProfileWallView.jsx';
 import LibraryView from './LibraryView.jsx';
 import AICompanionView from './AICompanionView.jsx';
+import StudiesView from './StudiesView.jsx';
 import LoginModal from './LoginModal.jsx';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
 import UserMenu from './UserMenu.jsx';
@@ -28,14 +32,13 @@ import { api } from '../api/client.js';
 // divider — nothing to actually render as a label.
 const NAV_GROUPS = [
   [
-    { key: 'home', label: 'Home', Icon: Home, requiresAuth: true, description: 'A feed of what your Fellows and Scriptoriums are sharing.' },
+    { key: 'home', label: 'Home', Icon: Home, requiresAuth: true },
     { key: 'passages', label: 'Passages', Icon: BookOpen },
     {
       key: 'scriptoriums',
       label: 'Scriptoriums',
       Icon: Box,
       requiresAuth: true,
-      description: 'Create or join a Scriptorium — a group space with its own wall for studying together, private or public.',
     },
     {
       key: 'studies',
@@ -62,7 +65,6 @@ const NAV_GROUPS = [
       label: 'Profile',
       Icon: UserCircle,
       requiresAuth: true,
-      description: 'Your public profile — bio, favorite verses, and activity, visible to your Fellows.',
     },
     { key: 'settings', label: 'Settings', Icon: SettingsIcon, requiresAuth: true },
     { key: 'admin', label: 'Admin', Icon: Shield, requiresAuth: true, adminOnly: true },
@@ -152,15 +154,23 @@ export default function AppShell({ auth }) {
           <SettingsView username={auth.user?.username} onOpenChangePassword={() => setShowChangePasswordModal(true)} />
         )}
         {activeView === 'admin' && <AdminView />}
-        {activeView === 'fellows' && <FellowsView />}
+        {activeView === 'home' && <HomeView currentUserId={auth.user?.id} />}
+        {activeView === 'fellows' && <FellowsView currentUserId={auth.user?.id} />}
+        {activeView === 'scriptoriums' && <ScriptoriumsView currentUserId={auth.user?.id} />}
+        {activeView === 'profile' && <ProfileWallView currentUserId={auth.user?.id} />}
         {activeView === 'library' && <LibraryView isLoggedIn={Boolean(auth.user)} />}
         {activeView === 'ai-companion' && <AICompanionView isLoggedIn={Boolean(auth.user)} />}
+        {activeView === 'studies' && <StudiesView currentUserId={auth.user?.id} />}
         {activeView !== 'passages' &&
           activeView !== 'settings' &&
           activeView !== 'admin' &&
           activeView !== 'fellows' &&
+          activeView !== 'scriptoriums' &&
           activeView !== 'library' &&
-          activeView !== 'ai-companion' && (
+          activeView !== 'ai-companion' &&
+          activeView !== 'studies' &&
+          activeView !== 'home' &&
+          activeView !== 'profile' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
         )}
       </main>

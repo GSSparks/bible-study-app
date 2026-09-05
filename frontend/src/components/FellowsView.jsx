@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
+import ProfileWallView from './ProfileWallView.jsx';
 
 const TABS = ['My Fellows', 'Requests', 'Find people'];
 
-export default function FellowsView() {
+export default function FellowsView({ currentUserId }) {
   const [tab, setTab] = useState('My Fellows');
   // Bumped after any action that changes connection state elsewhere
   // (accepting/declining/sending/removing), so every tab's data stays
@@ -12,6 +13,17 @@ export default function FellowsView() {
   // actually works given how small this surface is.
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = () => setRefreshKey((k) => k + 1);
+  const [viewingWallUsername, setViewingWallUsername] = useState(null);
+
+  if (viewingWallUsername) {
+    return (
+      <ProfileWallView
+        username={viewingWallUsername}
+        currentUserId={currentUserId}
+        onBack={() => setViewingWallUsername(null)}
+      />
+    );
+  }
 
   return (
     <div className="flex h-full flex-col p-6">
@@ -28,7 +40,7 @@ export default function FellowsView() {
         ))}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === 'My Fellows' && <MyFellowsTab refreshKey={refreshKey} onChange={bump} />}
+        {tab === 'My Fellows' && <MyFellowsTab refreshKey={refreshKey} onChange={bump} onViewWall={setViewingWallUsername} />}
         {tab === 'Requests' && <RequestsTab refreshKey={refreshKey} onChange={bump} />}
         {tab === 'Find people' && <FindPeopleTab onChange={bump} />}
       </div>
@@ -48,7 +60,7 @@ function PersonRow({ username, right }) {
   );
 }
 
-function MyFellowsTab({ refreshKey, onChange }) {
+function MyFellowsTab({ refreshKey, onChange, onViewWall }) {
   const [fellows, setFellows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -85,13 +97,21 @@ function MyFellowsTab({ refreshKey, onChange }) {
           key={f.connectionId}
           username={f.username}
           right={
-            <button
-              disabled={removing === f.connectionId}
-              onClick={() => handleRemove(f.connectionId)}
-              className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
-            >
-              {removing === f.connectionId ? '…' : 'remove'}
-            </button>
+            <>
+              <button
+                onClick={() => onViewWall(f.username)}
+                className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
+              >
+                wall
+              </button>
+              <button
+                disabled={removing === f.connectionId}
+                onClick={() => handleRemove(f.connectionId)}
+                className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+              >
+                {removing === f.connectionId ? '…' : 'remove'}
+              </button>
+            </>
           }
         />
       ))}
