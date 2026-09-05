@@ -68,7 +68,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack }) {
         setStudy(s);
         setLessons(l);
         setResources(r);
-        setActiveLessonId((prev) => prev || l[0]?.id || null);
+        setActiveLessonId((prev) => (prev && l.some((lesson) => lesson.id === prev) ? prev : l[0]?.id || null));
         if (s.isParticipant) {
           api.getStudyProgress(studyId).then(setProgress).catch(() => {});
         }
@@ -449,7 +449,7 @@ function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onA
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {activeLesson && <LessonContent lesson={activeLesson} currentUserId={study.creatorId} />}
+        {activeLesson && <LessonContent lesson={activeLesson} currentUserId={study.creatorId} isOwner={isOwner} onLessonsChanged={onLessonsChanged} />}
       </div>
 
       <ResourceFooter tabs={footerTabs} />
@@ -689,13 +689,15 @@ function DiscussionTab({ lesson, isParticipant, currentUserId }) {
   );
 }
 
-function LessonContent({ lesson }) {
+function LessonContent({ lesson, isOwner, onLessonsChanged }) {
   const [passage, setPassage] = useState(null);
   const [passageError, setPassageError] = useState(null);
   const [note, setNote] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [noteLoading, setNoteLoading] = useState(true);
   const [savingNote, setSavingNote] = useState(false);
+  const [showEditLessonModal, setShowEditLessonModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setPassage(null);
@@ -716,10 +718,8 @@ function LessonContent({ lesson }) {
   useEffect(() => {
     setNoteLoading(true);
     if (lesson.reference) {
-      // NOTE: same caveat — best-guess method name for fetching the
-      // participant's own private note for this lesson's reference.
       api
-        .listNotes?.({ reference: lesson.reference })
+        .listNotes({ reference: lesson.reference })
         .then((notes) => {
           const existing = notes?.[0] || null;
           setNote(existing);
@@ -736,9 +736,9 @@ function LessonContent({ lesson }) {
     setSavingNote(true);
     try {
       if (note) {
-        await api.updateNote?.(note.id, { body: noteText });
+        await api.updateNote(note.id, { body: noteText });
       } else {
-        const created = await api.createNote?.({ reference: lesson.reference, body: noteText });
+        const created = await api.createNote({ reference: lesson.reference, body: noteText });
         setNote(created);
       }
     } catch (e) {
@@ -749,6 +749,23 @@ function LessonContent({ lesson }) {
     }
   }
 
+  async function handleDeleteLesson() {
+    if (!confirm(`Delete "${lesson.title}"? This also removes its discussion and progress records — this can't be undone.`)) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await api.deleteStudyLesson(lesson.id);
+      onLessonsChanged();
+    } catch (e) {
+      alert(e.message);
+      setDeleting(false);
+    }
+    // No finally-reset of `deleting` on success — this component is
+    // about to unmount once the lesson list refreshes and activeLesson
+    // moves on, so there's nothing left to reset.
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-rule bg-panel p-4">
@@ -756,6 +773,16 @@ function LessonContent({ lesson }) {
           <h3 className="font-display text-base text-parchment">
             {lesson.reference || 'No reference set'} {lesson.module && <span className="text-xs text-muted">| {lesson.module}</span>}
           </h3>
+          {isOwner && (
+            <div className="flex shrink-0 gap-2">
+              <button onClick={() => setShowEditLessonModal(true)} className="text-xs text-muted hover:text-parchment">
+                edit
+              </button>
+              <button onClick={handleDeleteLesson} disabled={deleting} className="text-xs text-muted hover:text-red-400 disabled:opacity-50">
+                {deleting ? 'deleting…' : 'delete'}
+              </button>
+            </div>
+          )}
         </div>
         {passageError && <p className="text-sm text-red-400">{passageError}</p>}
         {!lesson.reference && <p className="text-sm text-muted">The leader hasn't set a passage for this lesson yet.</p>}
@@ -804,6 +831,17 @@ function LessonContent({ lesson }) {
           </>
         )}
       </div>
+
+      {showEditLessonModal && (
+        <EditLessonModal
+          lesson={lesson}
+          onClose={() => setShowEditLessonModal(false)}
+          onSaved={() => {
+            setShowEditLessonModal(false);
+            onLessonsChanged();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -897,6 +935,72 @@ function AddLessonModal({ studyId, nextOrder, onClose, onCreated }) {
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button type="submit" disabled={submitting} className="w-full rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50">
             {submitting ? 'adding…' : 'add lesson'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditLessonModal({ lesson, onClose, onSaved }) {
+  const [title, setTitle] = useState(lesson.title);
+  const [module, setModule] = useState(lesson.module || '');
+  const [reference, setReference] = useState(lesson.reference || '');
+  const [body, setBody] = useState(lesson.body || '');
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await api.updateStudyLesson(lesson.id, {
+        order: lesson.order,
+        title,
+        module: module || null,
+        reference: reference || null,
+        body: body || null,
+      });
+      onSaved();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-lg">Edit Lesson</h2>
+          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
+            close
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Title</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass" />
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Module</label>
+              <input value={module} onChange={(e) => setModule(e.target.value)} placeholder="KJV" className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass" />
+            </div>
+            <div className="flex-1">
+              <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Reference</label>
+              <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="John 15:1-17" className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass" />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Your Notes (optional)</label>
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass" />
+          </div>
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <button type="submit" disabled={submitting} className="w-full rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50">
+            {submitting ? 'saving…' : 'save changes'}
           </button>
         </form>
       </div>
@@ -1267,4 +1371,4 @@ function EditStudyModal({ study, onClose, onSaved }) {
   );
 }
 
-export { DiscussionTab, GenerateStudyModal, ContentTab, StudySidebar, ProgressRing };
+export { DiscussionTab, GenerateStudyModal, ContentTab, StudySidebar, ProgressRing, LessonContent };
