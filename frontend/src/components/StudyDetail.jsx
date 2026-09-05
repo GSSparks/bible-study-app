@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
+import ResourceFooter from './ResourceFooter.jsx';
 
 const TABS = [
   { key: 'content', label: 'Content' },
@@ -135,6 +136,8 @@ export default function StudyDetail({ studyId, currentUserId, onBack }) {
         setShowMobileSidebar(false);
       }}
       ProgressRing={ProgressRing}
+      isOwner={isOwner}
+      onResourcesChanged={refresh}
     />
   );
 
@@ -212,6 +215,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack }) {
               onAddLesson={() => setShowAddLessonModal(true)}
               onGenerate={() => setShowGenerateModal(true)}
               onLessonsChanged={refresh}
+              resources={resources}
             />
           )}
           {tab === 'discussion' && (
@@ -278,8 +282,21 @@ export default function StudyDetail({ studyId, currentUserId, onBack }) {
   );
 }
 
-function StudySidebar({ study, lessons, progress, resources, nextLesson, onCompleteNext, onJumpToLesson, ProgressRing }) {
+function StudySidebar({ study, lessons, progress, resources, nextLesson, onCompleteNext, onJumpToLesson, ProgressRing, isOwner, onResourcesChanged }) {
   const percent = progress && progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
+  const [showAddResourceModal, setShowAddResourceModal] = useState(false);
+
+  async function handleRemoveResource(id) {
+    try {
+      await api.removeStudyResource(id);
+      onResourcesChanged();
+    } catch (e) {
+      // Sidebar has no dedicated error slot — this is a rare,
+      // low-stakes action, so a plain alert is acceptable here rather
+      // than adding a whole error-state plumbing just for this.
+      alert(e.message);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -320,11 +337,23 @@ function StudySidebar({ study, lessons, progress, resources, nextLesson, onCompl
       )}
 
       <div>
-        <h4 className="mb-2 text-xs uppercase tracking-wide text-muted">Study Resources</h4>
+        <div className="mb-2 flex items-center justify-between">
+          <h4 className="text-xs uppercase tracking-wide text-muted">Study Resources</h4>
+          {isOwner && (
+            <button onClick={() => setShowAddResourceModal(true)} className="text-xs text-brass hover:underline">
+              + add
+            </button>
+          )}
+        </div>
         <div className="space-y-1 rounded-md border border-rule bg-panel p-3">
           {resources.map((r) => (
-            <div key={r.id} className="text-sm text-muted">
-              {r.label}
+            <div key={r.id} className="flex items-center justify-between text-sm text-muted">
+              <span>{r.label}</span>
+              {isOwner && (
+                <button onClick={() => handleRemoveResource(r.id)} className="text-xs text-muted hover:text-red-400">
+                  remove
+                </button>
+              )}
             </div>
           ))}
           {resources.length === 0 && <p className="text-xs text-muted">No resources added yet.</p>}
@@ -345,11 +374,22 @@ function StudySidebar({ study, lessons, progress, resources, nextLesson, onCompl
           ))}
         </div>
       </div>
+
+      {showAddResourceModal && (
+        <AddResourceModal
+          studyId={study.id}
+          onClose={() => setShowAddResourceModal(false)}
+          onAdded={() => {
+            setShowAddResourceModal(false);
+            onResourcesChanged();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onAddLesson, onGenerate, onLessonsChanged }) {
+function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onAddLesson, onGenerate, onLessonsChanged, resources }) {
   if (lessons.length === 0) {
     return (
       <div className="rounded-md border border-rule bg-panel p-6 text-center">
@@ -368,8 +408,22 @@ function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onA
     );
   }
 
+  // Footer tabs: the leader's curated resources, plus an always-present
+  // "Text" tab (a different-translation quick-glance) that isn't a
+  // stored resource at all — it's built into the footer itself.
+  const footerTabs = activeLesson
+    ? [
+        { id: 'text', label: 'Text', content: <TextTabContent lesson={activeLesson} /> },
+        ...resources.map((r) => ({
+          id: r.id,
+          label: r.label,
+          content: <ResourceTabContent lesson={activeLesson} resource={r} />,
+        })),
+      ]
+    : [];
+
   return (
-    <div>
+    <div className="flex h-full flex-col">
       <div className="mb-4 flex flex-wrap gap-2">
         {lessons.map((l, i) => (
           <button
@@ -394,9 +448,118 @@ function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onA
         )}
       </div>
 
-      {activeLesson && <LessonContent lesson={activeLesson} currentUserId={study.creatorId} />}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {activeLesson && <LessonContent lesson={activeLesson} currentUserId={study.creatorId} />}
+      </div>
+
+      <ResourceFooter tabs={footerTabs} />
     </div>
   );
+}
+
+function TextTabContent({ lesson }) {
+  const [modules, setModules] = useState([]);
+  const [module, setModule] = useState(''); // deliberately empty until the modules list resolves — see below
+  const [passage, setPassage] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .listInstalledModules('BIBLE')
+      .then((list) => {
+        setModules(list);
+        // Default to a DIFFERENT translation than the lesson's own —
+        // that's the whole point of this tab (a quick glance at
+        // another rendering), not just repeating what's already shown
+        // in the main content area above. Starting `module` empty
+        // (rather than lesson.module) matters here: if it started as
+        // the lesson's own translation, the passage-fetch effect below
+        // would fire with that value immediately, and the user would
+        // briefly see the SAME translation flash before this resolves
+        // and switches it — a real, visible glitch, not just a timing
+        // technicality.
+        const other = list.find((m) => m.name !== lesson.module);
+        setModule(other?.name || lesson.module || list[0]?.name || '');
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!module || !lesson.reference) return;
+    setPassage(null);
+    setError(null);
+    api
+      .getPassage(module, lesson.reference)
+      .then((res) => setPassage(res.verses || []))
+      .catch((e) => setError(e.message));
+  }, [module, lesson.reference]);
+
+  if (!lesson.reference) return <p className="text-sm text-muted">This lesson has no reference set yet.</p>;
+  if (loading) return <p className="text-sm text-muted">Loading…</p>;
+
+  return (
+    <div>
+      <select
+        value={module}
+        onChange={(e) => setModule(e.target.value)}
+        className="mb-2 rounded border border-rule bg-ink px-2 py-1 text-xs text-parchment focus:border-brass"
+      >
+        {modules.map((m) => (
+          <option key={m.name} value={m.name}>
+            {m.description || m.name}
+          </option>
+        ))}
+      </select>
+      {error && <p className="text-sm text-red-400">{error}</p>}
+      {!passage && !error && <p className="text-sm text-muted">Loading passage…</p>}
+      {passage && (
+        <p className="text-sm text-parchment/90">
+          {passage.map((v) => (
+            <span key={v.verseNr}>
+              <sup className="mr-1 text-xs text-muted">{v.verseNr}</sup>
+              {stripHtml(v.content)}{' '}
+            </span>
+          ))}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ResourceTabContent({ lesson, resource }) {
+  const [content, setContent] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setContent(null);
+    setError(null);
+    api
+      .getStudyResourceContent(lesson.id, resource.id)
+      .then(setContent)
+      .catch((e) => setError(e.message));
+  }, [lesson.id, resource.id]);
+
+  if (error) return <p className="text-sm text-red-400">{error}</p>;
+  if (!content) return <p className="text-sm text-muted">Loading…</p>;
+
+  if (content.type === 'link') {
+    return (
+      <a href={content.url} target="_blank" rel="noreferrer" className="text-sm text-brass hover:underline">
+        Open {content.label} ↗
+      </a>
+    );
+  }
+
+  // Commentary type: either real text, or a graceful note (no
+  // reference set yet, or this module has no entry for it) — the
+  // backend already distinguishes these from an actual error, so this
+  // renders as ordinary, expected content either way, not a failure.
+  if (content.text) {
+    return <p className="whitespace-pre-wrap text-sm text-parchment/90">{content.text}</p>;
+  }
+  return <p className="text-sm text-muted">{content.note}</p>;
 }
 
 function DiscussionTab({ lesson, isParticipant, currentUserId }) {
@@ -938,6 +1101,124 @@ function GenerateStudyModal({ studyId, nextOrder, onClose, onCreated }) {
   );
 }
 
+function AddResourceModal({ studyId, onClose, onAdded }) {
+  const [type, setType] = useState('commentary');
+  const [label, setLabel] = useState('');
+  const [moduleCode, setModuleCode] = useState('');
+  const [url, setUrl] = useState('');
+  const [commentaryModules, setCommentaryModules] = useState([]);
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    api
+      .listInstalledModules('COMMENTARY')
+      .then((list) => {
+        setCommentaryModules(list);
+        if (list[0]) setModuleCode(list[0].name);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await api.addStudyResource(studyId, {
+        type,
+        label,
+        moduleCode: type === 'commentary' ? moduleCode : null,
+        url: type === 'link' ? url : null,
+      });
+      onAdded();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-lg">Add a Resource</h2>
+          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
+            close
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Type</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setType('commentary')}
+                className={`flex-1 rounded border px-3 py-2 text-xs ${type === 'commentary' ? 'border-brass bg-brass/20 text-brass' : 'border-rule text-muted'}`}
+              >
+                Commentary
+              </button>
+              <button
+                type="button"
+                onClick={() => setType('link')}
+                className={`flex-1 rounded border px-3 py-2 text-xs ${type === 'link' ? 'border-brass bg-brass/20 text-brass' : 'border-rule text-muted'}`}
+              >
+                External Link
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Label</label>
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder={type === 'commentary' ? 'Commentary: Clarke' : 'Bible Project: John'}
+              autoFocus
+              className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
+            />
+          </div>
+          {type === 'commentary' ? (
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Commentary Module</label>
+              <select
+                value={moduleCode}
+                onChange={(e) => setModuleCode(e.target.value)}
+                className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
+              >
+                {commentaryModules.map((m) => (
+                  <option key={m.name} value={m.name}>
+                    {m.description || m.name}
+                  </option>
+                ))}
+              </select>
+              {commentaryModules.length === 0 && <p className="mt-1 text-xs text-muted">No commentary modules installed yet.</p>}
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-wide text-muted">URL</label>
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://bibleproject.com/..."
+                className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
+              />
+            </div>
+          )}
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting || !label.trim() || (type === 'commentary' ? !moduleCode : !url.trim())}
+            className="w-full rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50"
+          >
+            {submitting ? 'adding…' : 'add resource'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function EditStudyModal({ study, onClose, onSaved }) {
   const [title, setTitle] = useState(study.title);
   const [description, setDescription] = useState(study.description || '');
@@ -986,4 +1267,4 @@ function EditStudyModal({ study, onClose, onSaved }) {
   );
 }
 
-export { DiscussionTab, GenerateStudyModal };
+export { DiscussionTab, GenerateStudyModal, ContentTab, StudySidebar, ProgressRing };
