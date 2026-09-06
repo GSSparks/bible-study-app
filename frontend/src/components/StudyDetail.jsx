@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 import ResourceFooter from './ResourceFooter.jsx';
+import PassageQuickView from './PassageQuickView.jsx';
 
 const TABS = [
   { key: 'content', label: 'Content' },
@@ -45,7 +46,7 @@ function ProgressRing({ percent, size = 64 }) {
   );
 }
 
-export default function StudyDetail({ studyId, currentUserId, onBack }) {
+export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
   const [study, setStudy] = useState(null);
   const [lessons, setLessons] = useState([]);
   const [progress, setProgress] = useState(null);
@@ -216,6 +217,9 @@ export default function StudyDetail({ studyId, currentUserId, onBack }) {
               onGenerate={() => setShowGenerateModal(true)}
               onLessonsChanged={refresh}
               resources={resources}
+              onOpenInPassages={onOpenInPassages}
+              onAskAiCompanionAbout={onAskAiCompanionAbout}
+              onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
             />
           )}
           {tab === 'discussion' && (
@@ -389,7 +393,19 @@ function StudySidebar({ study, lessons, progress, resources, nextLesson, onCompl
   );
 }
 
-function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onAddLesson, onGenerate, onLessonsChanged, resources }) {
+function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onAddLesson, onGenerate, onLessonsChanged, resources, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
+  // LessonContent and the footer are siblings (both rendered below),
+  // not nested — so a footer action that needs to reach into
+  // LessonContent's own "Your Personal Note" textarea (annotate ->
+  // focus the note) needs a ref shared between them at this level,
+  // the nearest common parent, rather than being handled inside either
+  // one alone.
+  const noteTextareaRef = useRef(null);
+  function focusNote() {
+    noteTextareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    noteTextareaRef.current?.focus();
+  }
+
   if (lessons.length === 0) {
     return (
       <div className="rounded-md border border-rule bg-panel p-6 text-center">
@@ -410,15 +426,58 @@ function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onA
 
   // Footer tabs: the leader's curated resources, plus an always-present
   // "Text" tab (a different-translation quick-glance) that isn't a
-  // stored resource at all — it's built into the footer itself.
+  // stored resource at all — it's built into the footer itself. Both
+  // the Text tab and any commentary-type resource render the same
+  // PassageQuickView — the real ReaderPane, fully interactive — just
+  // parameterized differently (Text allows switching translations;
+  // a commentary resource is fixed to the module the leader chose).
+  // Link-type resources aren't a ReaderPane concern at all, so they
+  // stay a plain link.
   const footerTabs = activeLesson
     ? [
-        { id: 'text', label: 'Text', content: <TextTabContent lesson={activeLesson} /> },
-        ...resources.map((r) => ({
-          id: r.id,
-          label: r.label,
-          content: <ResourceTabContent lesson={activeLesson} resource={r} />,
-        })),
+        {
+          id: 'text',
+          label: 'Text',
+          content: (
+            <PassageQuickView
+              initialModule={activeLesson.module}
+              initialReference={activeLesson.reference}
+              resetKey={activeLesson.id}
+              allowModuleSwitch
+              moduleType="BIBLE"
+              onFocusNote={focusNote}
+              onAskAiCompanionAbout={onAskAiCompanionAbout}
+              onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+            />
+          ),
+        },
+        ...resources.map((r) =>
+          r.type === 'link'
+            ? {
+                id: r.id,
+                label: r.label,
+                content: (
+                  <a href={r.url} target="_blank" rel="noreferrer" className="text-sm text-brass hover:underline">
+                    Open {r.label} ↗
+                  </a>
+                ),
+              }
+            : {
+                id: r.id,
+                label: r.label,
+                content: (
+                  <PassageQuickView
+                    initialModule={r.moduleCode}
+                    initialReference={activeLesson.reference}
+                    resetKey={activeLesson.id}
+                    moduleType="COMMENTARY"
+                    onFocusNote={focusNote}
+                    onAskAiCompanionAbout={onAskAiCompanionAbout}
+                    onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+                  />
+                ),
+              }
+        ),
       ]
     : [];
 
@@ -449,117 +508,22 @@ function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onA
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {activeLesson && <LessonContent lesson={activeLesson} currentUserId={study.creatorId} isOwner={isOwner} onLessonsChanged={onLessonsChanged} />}
+        {activeLesson && (
+          <LessonContent
+            lesson={activeLesson}
+            currentUserId={study.creatorId}
+            isOwner={isOwner}
+            onLessonsChanged={onLessonsChanged}
+            onOpenInPassages={onOpenInPassages}
+            onAskAiCompanionAbout={onAskAiCompanionAbout}
+            noteTextareaRef={noteTextareaRef}
+          />
+        )}
       </div>
 
       <ResourceFooter tabs={footerTabs} />
     </div>
   );
-}
-
-function TextTabContent({ lesson }) {
-  const [modules, setModules] = useState([]);
-  const [module, setModule] = useState(''); // deliberately empty until the modules list resolves — see below
-  const [passage, setPassage] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api
-      .listInstalledModules('BIBLE')
-      .then((list) => {
-        setModules(list);
-        // Default to a DIFFERENT translation than the lesson's own —
-        // that's the whole point of this tab (a quick glance at
-        // another rendering), not just repeating what's already shown
-        // in the main content area above. Starting `module` empty
-        // (rather than lesson.module) matters here: if it started as
-        // the lesson's own translation, the passage-fetch effect below
-        // would fire with that value immediately, and the user would
-        // briefly see the SAME translation flash before this resolves
-        // and switches it — a real, visible glitch, not just a timing
-        // technicality.
-        const other = list.find((m) => m.name !== lesson.module);
-        setModule(other?.name || lesson.module || list[0]?.name || '');
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (!module || !lesson.reference) return;
-    setPassage(null);
-    setError(null);
-    api
-      .getPassage(module, lesson.reference)
-      .then((res) => setPassage(res.verses || []))
-      .catch((e) => setError(e.message));
-  }, [module, lesson.reference]);
-
-  if (!lesson.reference) return <p className="text-sm text-muted">This lesson has no reference set yet.</p>;
-  if (loading) return <p className="text-sm text-muted">Loading…</p>;
-
-  return (
-    <div>
-      <select
-        value={module}
-        onChange={(e) => setModule(e.target.value)}
-        className="mb-2 rounded border border-rule bg-ink px-2 py-1 text-xs text-parchment focus:border-brass"
-      >
-        {modules.map((m) => (
-          <option key={m.name} value={m.name}>
-            {m.description || m.name}
-          </option>
-        ))}
-      </select>
-      {error && <p className="text-sm text-red-400">{error}</p>}
-      {!passage && !error && <p className="text-sm text-muted">Loading passage…</p>}
-      {passage && (
-        <p className="text-sm text-parchment/90">
-          {passage.map((v) => (
-            <span key={v.verseNr}>
-              <sup className="mr-1 text-xs text-muted">{v.verseNr}</sup>
-              {stripHtml(v.content)}{' '}
-            </span>
-          ))}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ResourceTabContent({ lesson, resource }) {
-  const [content, setContent] = useState(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    setContent(null);
-    setError(null);
-    api
-      .getStudyResourceContent(lesson.id, resource.id)
-      .then(setContent)
-      .catch((e) => setError(e.message));
-  }, [lesson.id, resource.id]);
-
-  if (error) return <p className="text-sm text-red-400">{error}</p>;
-  if (!content) return <p className="text-sm text-muted">Loading…</p>;
-
-  if (content.type === 'link') {
-    return (
-      <a href={content.url} target="_blank" rel="noreferrer" className="text-sm text-brass hover:underline">
-        Open {content.label} ↗
-      </a>
-    );
-  }
-
-  // Commentary type: either real text, or a graceful note (no
-  // reference set yet, or this module has no entry for it) — the
-  // backend already distinguishes these from an actual error, so this
-  // renders as ordinary, expected content either way, not a failure.
-  if (content.text) {
-    return <p className="whitespace-pre-wrap text-sm text-parchment/90">{content.text}</p>;
-  }
-  return <p className="text-sm text-muted">{content.note}</p>;
 }
 
 function DiscussionTab({ lesson, isParticipant, currentUserId }) {
@@ -689,7 +653,7 @@ function DiscussionTab({ lesson, isParticipant, currentUserId }) {
   );
 }
 
-function LessonContent({ lesson, isOwner, onLessonsChanged }) {
+function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, onAskAiCompanionAbout, noteTextareaRef }) {
   const [passage, setPassage] = useState(null);
   const [passageError, setPassageError] = useState(null);
   const [note, setNote] = useState(null);
@@ -773,16 +737,36 @@ function LessonContent({ lesson, isOwner, onLessonsChanged }) {
           <h3 className="font-display text-base text-parchment">
             {lesson.reference || 'No reference set'} {lesson.module && <span className="text-xs text-muted">| {lesson.module}</span>}
           </h3>
-          {isOwner && (
-            <div className="flex shrink-0 gap-2">
-              <button onClick={() => setShowEditLessonModal(true)} className="text-xs text-muted hover:text-parchment">
-                edit
-              </button>
-              <button onClick={handleDeleteLesson} disabled={deleting} className="text-xs text-muted hover:text-red-400 disabled:opacity-50">
-                {deleting ? 'deleting…' : 'delete'}
-              </button>
-            </div>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            {lesson.reference && lesson.module && (
+              <>
+                <button
+                  onClick={() => onOpenInPassages?.(lesson.module, lesson.reference)}
+                  className="text-xs text-muted hover:text-brass"
+                  title="Open this passage in Passages for a deeper look — Strong's numbers, cross-references, your notes"
+                >
+                  open in Passages →
+                </button>
+                <button
+                  onClick={() => onAskAiCompanionAbout?.(lesson.module, lesson.reference)}
+                  className="text-xs text-muted hover:text-brass"
+                  title="Ask AI Companion about this passage"
+                >
+                  ask AI Companion →
+                </button>
+              </>
+            )}
+            {isOwner && (
+              <div className="flex shrink-0 gap-2 border-l border-rule pl-2">
+                <button onClick={() => setShowEditLessonModal(true)} className="text-xs text-muted hover:text-parchment">
+                  edit
+                </button>
+                <button onClick={handleDeleteLesson} disabled={deleting} className="text-xs text-muted hover:text-red-400 disabled:opacity-50">
+                  {deleting ? 'deleting…' : 'delete'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         {passageError && <p className="text-sm text-red-400">{passageError}</p>}
         {!lesson.reference && <p className="text-sm text-muted">The leader hasn't set a passage for this lesson yet.</p>}
@@ -813,6 +797,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged }) {
         ) : (
           <>
             <textarea
+              ref={noteTextareaRef}
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               rows={4}

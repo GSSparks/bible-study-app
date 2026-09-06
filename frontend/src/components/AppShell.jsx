@@ -80,6 +80,58 @@ export default function AppShell({ auth }) {
   // real fetch resolves.
   const [brandName, setBrandName] = useState('My Scriptorium');
 
+  // Lifted up from StudyMode (where it used to live entirely local) now
+  // that "set default Bible" moves to Settings — with StudyMode staying
+  // mounted across navigation (see the note on the Passages wrapper
+  // below), it would otherwise only ever read this once, at its first
+  // mount, and never notice a change made later from Settings. Lifting
+  // it here means both places share the exact same live value.
+  const [defaultBibleModule, setDefaultBibleModuleState] = useState(() => {
+    try {
+      return localStorage.getItem('scriptorium-default-bible') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  function setDefaultBibleModule(moduleCode) {
+    setDefaultBibleModuleState(moduleCode);
+    try {
+      localStorage.setItem('scriptorium-default-bible', moduleCode);
+    } catch {
+      // storage unavailable — not worth failing over
+    }
+  }
+
+  // Cross-view deep links — e.g. "open this passage in Passages" or
+  // "ask AI Companion about this passage" from a Study lesson. Each is
+  // a one-shot {module, reference, nonce} request: the nonce (rather
+  // than the raw module/reference) is what the receiving view actually
+  // watches, since it changes on every single request even when the
+  // module/reference are identical to the last one — a plain value
+  // comparison would silently swallow "open the same verse again" as a
+  // no-op. Same pattern StudyMode/StudyAssistant already use internally
+  // for their own request props (overviewRequest, wordStudyRequest,
+  // etc.) — this just extends it one level up, across views.
+  const [pendingBibleOpen, setPendingBibleOpen] = useState(null);
+  const [pendingAiOverview, setPendingAiOverview] = useState(null);
+  const [pendingPhraseStudy, setPendingPhraseStudy] = useState(null);
+
+  function openInPassages(module, reference) {
+    setPendingBibleOpen({ module, reference, nonce: Date.now() });
+    setActiveView('passages');
+  }
+
+  function askAiCompanionAbout(module, reference) {
+    setPendingAiOverview({ module, reference, nonce: Date.now() });
+    setActiveView('ai-companion');
+  }
+
+  function askAiCompanionPhraseStudy(phrase, module, strongsSequence) {
+    setPendingPhraseStudy({ phrase, module, strongsSequence, nonce: Date.now() });
+    setActiveView('ai-companion');
+  }
+
   useEffect(() => {
     api.getBranding().then((b) => setBrandName(b.name)).catch(() => {});
   }, []);
@@ -149,9 +201,30 @@ export default function AppShell({ auth }) {
       </aside>
 
       <main className="min-h-0 flex-1 overflow-hidden">
-        {activeView === 'passages' && <StudyMode auth={auth} onNavigateToLibrary={() => setActiveView('library')} />}
+        {/* Deliberately always mounted, visibility toggled rather than
+            conditionally rendered like every other view below — Passages
+            carries real, valuable in-memory state (open tabs, reading
+            history, the focused reference) that a plain {activeView ===
+            'passages' && ...} would discard on every single navigation
+            away, even just to glance at another tab for a second. Same
+            "keep it mounted, toggle a class" pattern MainLayout already
+            uses internally for its own open tabs — this just applies it
+            one level up, to the whole reading session. */}
+        <div className={activeView === 'passages' ? 'h-full' : 'hidden'}>
+          <StudyMode
+            auth={auth}
+            onNavigateToLibrary={() => setActiveView('library')}
+            pendingBibleOpen={pendingBibleOpen}
+            defaultBibleModule={defaultBibleModule}
+          />
+        </div>
         {activeView === 'settings' && (
-          <SettingsView username={auth.user?.username} onOpenChangePassword={() => setShowChangePasswordModal(true)} />
+          <SettingsView
+            username={auth.user?.username}
+            onOpenChangePassword={() => setShowChangePasswordModal(true)}
+            defaultBibleModule={defaultBibleModule}
+            onSetDefaultBibleModule={setDefaultBibleModule}
+          />
         )}
         {activeView === 'admin' && <AdminView />}
         {activeView === 'home' && <HomeView currentUserId={auth.user?.id} />}
@@ -159,8 +232,17 @@ export default function AppShell({ auth }) {
         {activeView === 'scriptoriums' && <ScriptoriumsView currentUserId={auth.user?.id} />}
         {activeView === 'profile' && <ProfileWallView currentUserId={auth.user?.id} />}
         {activeView === 'library' && <LibraryView isLoggedIn={Boolean(auth.user)} />}
-        {activeView === 'ai-companion' && <AICompanionView isLoggedIn={Boolean(auth.user)} />}
-        {activeView === 'studies' && <StudiesView currentUserId={auth.user?.id} />}
+        {activeView === 'ai-companion' && (
+          <AICompanionView isLoggedIn={Boolean(auth.user)} pendingOverviewRequest={pendingAiOverview} pendingPhraseStudyRequest={pendingPhraseStudy} />
+        )}
+        {activeView === 'studies' && (
+          <StudiesView
+            currentUserId={auth.user?.id}
+            onOpenInPassages={openInPassages}
+            onAskAiCompanionAbout={askAiCompanionAbout}
+            onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
+          />
+        )}
         {activeView !== 'passages' &&
           activeView !== 'settings' &&
           activeView !== 'admin' &&

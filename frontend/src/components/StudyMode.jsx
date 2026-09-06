@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import MainLayout from './MainLayout.jsx';
 import SearchBar from './SearchBar.jsx';
-import ModuleManager from './ModuleManager.jsx';
 import StrongsPopup from './StrongsPopup.jsx';
 import VersePopup from './VersePopup.jsx';
 import StudyAssistant from './StudyAssistant.jsx';
@@ -22,14 +21,13 @@ import { simplifyForTopicalSearch } from '../utils/searchStem.js';
  * copies of auth state that could drift out of sync with the one in
  * AppShell (logging out via one copy wouldn't update the other).
  */
-export default function StudyMode({ auth, onNavigateToLibrary }) {
+export default function StudyMode({ auth, onNavigateToLibrary, pendingBibleOpen, defaultBibleModule }) {
   const [focusedReference, setFocusedReference] = useState('John 3:16');
   const [navHistory, setNavHistory] = useState({ entries: ['John 3:16'], index: 0 });
   const bible = useTabbedWindow([{ id: 'bible-0', module: '', title: 'Bible' }]);
   const commentary = useTabbedWindow([]);
   const dictionary = useTabbedWindow([]);
 
-  const [showModuleManager, setShowModuleManager] = useState(false);
   const [strongsPopup, setStrongsPopup] = useState(null); // { key, x, y, morph }
   const [versePopup, setVersePopup] = useState(null); // { osisRef, x, y }
   const [pendingDictKey, setPendingDictKey] = useState(null);
@@ -38,22 +36,6 @@ export default function StudyMode({ auth, onNavigateToLibrary }) {
   const [overviewRequest, setOverviewRequest] = useState(null); // { module, reference, nonce }
   const [wordStudyRequest, setWordStudyRequest] = useState(null); // { module, strongsKey, nonce }
   const [phraseStudyRequest, setPhraseStudyRequest] = useState(null); // { module, phrase, strongsSequence, nonce }
-  const [defaultBibleModule, setDefaultBibleModuleState] = useState(() => {
-    try {
-      return localStorage.getItem('scriptorium-default-bible') || '';
-    } catch {
-      return '';
-    }
-  });
-
-  function setDefaultBibleModule(moduleCode) {
-    setDefaultBibleModuleState(moduleCode);
-    try {
-      localStorage.setItem('scriptorium-default-bible', moduleCode);
-    } catch {
-      // storage unavailable — not worth failing over
-    }
-  }
 
   const { width: dockWidth, onDragStart: onDockDragStart } = useResizableWidth({
     key: 'scriptorium-dock-width',
@@ -121,12 +103,6 @@ export default function StudyMode({ auth, onNavigateToLibrary }) {
     const newIndex = navHistory.index + 1;
     setFocusedReference(navHistory.entries[newIndex]);
     setNavHistory({ ...navHistory, index: newIndex });
-  }
-
-  function openModule({ kind, module, title }) {
-    if (kind === 'bible') bible.addTab(module, title);
-    else if (kind === 'commentary') commentary.addTab(module, title);
-    else dictionary.addTab(module, title);
   }
 
   function handleSearchJump(ref) {
@@ -210,10 +186,13 @@ export default function StudyMode({ auth, onNavigateToLibrary }) {
       {/* Back/forward and search moved here from the old global header —
           they're about navigating Bible references, a Study Mode
           concept, not something that belongs above a social feed or a
-          Scriptorium page. Same for "Manage modules": it directly
-          manipulates this component's own tabbed-window state via
-          openModule, so it only makes sense living where that state
-          actually lives. */}
+          Scriptorium page. "Manage modules" used to live here too for
+          the same reason (it directly manipulated this component's own
+          tabbed-window state) — but install/remove/upload are
+          fundamentally admin tasks, not reading-session ones, so that
+          moved to Admin's own Modules tab. Opening a module into a new
+          pane is unaffected — that's TabStrip's own "+" button, which
+          never went through this component at all. */}
       <div className="flex items-center gap-4 border-b border-rule px-6 py-3">
         <div className="flex gap-1">
           <button
@@ -234,14 +213,6 @@ export default function StudyMode({ auth, onNavigateToLibrary }) {
           </button>
         </div>
         <SearchBar activeModule={bible.activeTab?.module} onJump={handleSearchJump} />
-        {auth.user?.role === 'admin' && (
-          <button
-            onClick={() => setShowModuleManager(true)}
-            className="ml-auto rounded border border-rule px-3 py-1.5 text-xs hover:border-brass"
-          >
-            Manage modules
-          </button>
-        )}
       </div>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -283,19 +254,6 @@ export default function StudyMode({ auth, onNavigateToLibrary }) {
           </div>
         </aside>
       </div>
-
-      {showModuleManager && (
-        <ModuleManager
-          onClose={() => setShowModuleManager(false)}
-          onOpenModule={(cfg) => {
-            openModule(cfg);
-            setShowModuleManager(false);
-          }}
-          onModulesChanged={() => {}}
-          defaultBibleModule={defaultBibleModule}
-          onSetDefaultBible={setDefaultBibleModule}
-        />
-      )}
 
       {strongsPopup && (
         <StrongsPopup

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import StudyDetail from './StudyDetail.jsx';
 
-export default function StudiesView({ currentUserId }) {
+export default function StudiesView({ currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
   const [view, setView] = useState('list'); // 'list' | 'detail'
   const [selectedId, setSelectedId] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -21,18 +21,35 @@ export default function StudiesView({ currentUserId }) {
   }
 
   if (view === 'detail' && selectedId) {
-    return <StudyDetail studyId={selectedId} currentUserId={currentUserId} onBack={backToList} />;
+    return (
+      <StudyDetail
+        studyId={selectedId}
+        currentUserId={currentUserId}
+        onBack={backToList}
+        onOpenInPassages={onOpenInPassages}
+        onAskAiCompanionAbout={onAskAiCompanionAbout}
+        onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+      />
+    );
   }
 
   return (
     <div className="flex h-full flex-col p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-display text-2xl text-parchment">Studies</h2>
+        <div>
+          <h2 className="font-display text-2xl text-parchment">Studies</h2>
+          {/* Group Studies belong to, and are only ever created within,
+              their Scriptorium — this page is a dashboard of everything
+              you're part of across all of them. Solo Studies have no
+              Scriptorium to live in, so this is their one and only home,
+              creation included. */}
+          <p className="text-xs text-muted">Your Studies, across every Scriptorium, plus any solo Studies of your own.</p>
+        </div>
         <button
           onClick={() => setShowCreateModal(true)}
           className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
         >
-          + create a study
+          + start a solo study
         </button>
       </div>
 
@@ -81,7 +98,11 @@ function MyStudiesList({ onOpen, refreshKey }) {
           </div>
         </button>
       ))}
-      {studies.length === 0 && <p className="text-sm text-muted">You're not part of any Studies yet.</p>}
+      {studies.length === 0 && (
+        <p className="text-sm text-muted">
+          You're not part of any Studies yet — open a Scriptorium to join a group Study, or start a solo one above.
+        </p>
+      )}
     </div>
   );
 }
@@ -89,25 +110,29 @@ function MyStudiesList({ onOpen, refreshKey }) {
 function CreateStudyModal({ onClose, onCreated, defaultScriptoriumId }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [kind, setKind] = useState(defaultScriptoriumId ? 'group' : 'solo');
-  const [scriptoriumId, setScriptoriumId] = useState(defaultScriptoriumId || '');
   const [myScriptoriums, setMyScriptoriums] = useState([]);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Only ever fetched to resolve defaultScriptoriumId to a display
+  // name for the read-only "Creating in:" label below — there's no
+  // dropdown anymore, since a group Study is only ever created FROM
+  // its Scriptorium (defaultScriptoriumId always set in that case),
+  // never picked from a list here.
   useEffect(() => {
+    if (!defaultScriptoriumId) return;
     api
       .listMyScriptoriums()
       .then(setMyScriptoriums)
       .catch(() => {});
-  }, []);
+  }, [defaultScriptoriumId]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      const created = await api.createStudy({ title, description, scriptoriumId: kind === 'group' ? scriptoriumId : null });
+      const created = await api.createStudy({ title, description, scriptoriumId: defaultScriptoriumId || null });
       onCreated(created.id);
     } catch (e) {
       setError(e.message);
@@ -144,47 +169,15 @@ function CreateStudyModal({ onClose, onCreated, defaultScriptoriumId }) {
               className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Type</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setKind('solo')}
-                className={`flex-1 rounded border px-3 py-2 text-xs ${kind === 'solo' ? 'border-brass bg-brass/20 text-brass' : 'border-rule text-muted'}`}
-              >
-                Solo — just for me
-              </button>
-              <button
-                type="button"
-                onClick={() => setKind('group')}
-                className={`flex-1 rounded border px-3 py-2 text-xs ${kind === 'group' ? 'border-brass bg-brass/20 text-brass' : 'border-rule text-muted'}`}
-              >
-                Group — with a Scriptorium
-              </button>
-            </div>
-          </div>
-          {kind === 'group' && (
-            <div>
-              <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Scriptorium</label>
-              <select
-                value={scriptoriumId}
-                onChange={(e) => setScriptoriumId(e.target.value)}
-                className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
-              >
-                <option value="">Select a Scriptorium…</option>
-                {myScriptoriums.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              {myScriptoriums.length === 0 && <p className="mt-1 text-xs text-muted">You're not in any Scriptoriums yet.</p>}
-            </div>
+          {defaultScriptoriumId && (
+            <p className="text-xs text-muted">
+              Creating in: <span className="text-parchment">{myScriptoriums.find((s) => s.id === defaultScriptoriumId)?.name || '…'}</span>
+            </p>
           )}
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             type="submit"
-            disabled={submitting || (kind === 'group' && !scriptoriumId)}
+            disabled={submitting}
             className="w-full rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50"
           >
             {submitting ? 'creating…' : 'create'}

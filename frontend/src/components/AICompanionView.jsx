@@ -211,9 +211,10 @@ function ToolButton({ label, description, onClick, disabled }) {
   );
 }
 
-export default function AICompanionView({ isLoggedIn }) {
+export default function AICompanionView({ isLoggedIn, pendingOverviewRequest, pendingPhraseStudyRequest }) {
   const [askQuestionRequest, setAskQuestionRequest] = useState(null);
   const [overviewRequest, setOverviewRequest] = useState(null);
+  const [phraseStudyRequest, setPhraseStudyRequest] = useState(null);
   const [resumeSessionRequest, setResumeSessionRequest] = useState(null);
   const [activeModal, setActiveModal] = useState(null); // 'ask' | 'study' | 'compare' | null
   const [recentSessions, setRecentSessions] = useState([]);
@@ -235,6 +236,30 @@ export default function AICompanionView({ isLoggedIn }) {
     setActiveModal(null);
     setOverviewRequest({ module, reference, nonce: Date.now() });
   }
+
+  // Deep-link from another view (e.g. "ask AI Companion about this
+  // passage" from a Study lesson) — feeds the exact same mechanism as
+  // picking "Study a Passage" from the Tools panel and filling in the
+  // form by hand; this is just a shortcut into it, not a separate path.
+  useEffect(() => {
+    if (!pendingOverviewRequest) return;
+    handleStudyPassage({ module: pendingOverviewRequest.module, reference: pendingOverviewRequest.reference });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOverviewRequest?.nonce]);
+
+  // Same shortcut-into-existing-plumbing pattern, for "study this
+  // phrase" triggered from a Study lesson's passage view.
+  useEffect(() => {
+    if (!pendingPhraseStudyRequest) return;
+    setActiveModal(null);
+    setPhraseStudyRequest({
+      phrase: pendingPhraseStudyRequest.phrase,
+      module: pendingPhraseStudyRequest.module,
+      strongsSequence: pendingPhraseStudyRequest.strongsSequence,
+      nonce: Date.now(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPhraseStudyRequest?.nonce]);
 
   function handleAskQuestion({ module, reference, question }) {
     setActiveModal(null);
@@ -261,7 +286,7 @@ export default function AICompanionView({ isLoggedIn }) {
           sources={[]}
           overviewRequest={overviewRequest}
           wordStudyRequest={null}
-          phraseStudyRequest={null}
+          phraseStudyRequest={phraseStudyRequest}
           askQuestionRequest={askQuestionRequest}
           resumeSessionRequest={resumeSessionRequest}
           isLoggedIn={isLoggedIn}

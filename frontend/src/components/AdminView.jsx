@@ -164,22 +164,79 @@ function UsersTab() {
 
 function ModulesTab() {
   const [type, setType] = useState('BIBLE');
-  const [modules, setModules] = useState([]);
+  const [repos, setRepos] = useState([]);
+  const [selectedRepo, setSelectedRepo] = useState('');
+  const [available, setAvailable] = useState([]);
+  const [installed, setInstalled] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [installing, setInstalling] = useState(null);
+  const [removing, setRemoving] = useState(null);
   const [toggling, setToggling] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadNote, setUploadNote] = useState(null);
 
+  // listModuleVisibility already returns everything needed for the
+  // "Installed" column — name, description, and availableToUsers — so
+  // there's no separate listInstalledModules call here the way the
+  // old standalone Module Manager needed; this merges what used to be
+  // two different module screens into one.
   function refresh() {
     setLoading(true);
     setError(null);
     api
       .listModuleVisibility(type)
-      .then(setModules)
+      .then(setInstalled)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }
 
-  useEffect(refresh, [type]);
+  useEffect(() => {
+    api.listRepositories().then(setRepos).catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    setAvailable([]);
+    if (selectedRepo) {
+      api.listAvailableModules(selectedRepo, type).then(setAvailable).catch((e) => setError(e.message));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type]);
+
+  useEffect(() => {
+    if (!selectedRepo) return;
+    api.listAvailableModules(selectedRepo, type).then(setAvailable).catch((e) => setError(e.message));
+  }, [selectedRepo, type]);
+
+  async function handleInstall(moduleCode) {
+    setInstalling(moduleCode);
+    setError(null);
+    try {
+      await api.installModule(selectedRepo, moduleCode);
+      refresh();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setInstalling(null);
+    }
+  }
+
+  async function handleRemove(moduleCode) {
+    if (!confirm(`Remove ${moduleCode}? This deletes the installed files — it would need to be reinstalled to use again.`)) {
+      return;
+    }
+    setRemoving(moduleCode);
+    setError(null);
+    try {
+      await api.removeModule(moduleCode);
+      refresh();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setRemoving(null);
+    }
+  }
 
   async function handleToggle(moduleCode, current) {
     setToggling(moduleCode);
@@ -190,6 +247,28 @@ function ModulesTab() {
       setError(e.message);
     } finally {
       setToggling(null);
+    }
+  }
+
+  async function handleUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    setUploadNote(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/modules/upload', { method: 'POST', body: form });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Upload failed');
+      setUploadNote(body.note || 'Installed.');
+      refresh();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+      e.target.value = '';
     }
   }
 
@@ -209,34 +288,91 @@ function ModulesTab() {
         ))}
       </div>
 
-      {loading && <p className="text-sm text-muted">Loading…</p>}
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      <div className="mb-4 flex items-center gap-3">
+        <label className="cursor-pointer rounded border border-dashed border-rule px-3 py-1.5 text-xs text-verdigris hover:border-verdigris hover:text-brass">
+          {uploading ? 'uploading…' : '⇪ Upload a module .zip manually'}
+          <input type="file" accept=".zip" className="hidden" onChange={handleUpload} disabled={uploading} />
+        </label>
+        {uploadNote && <p className="text-xs text-muted">{uploadNote}</p>}
+      </div>
 
-      {!loading && !error && (
-        <div className="overflow-hidden rounded-md border border-rule">
-          {modules.map((m) => (
-            <div key={m.name} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">
-              <div>
-                <div className="text-parchment">{m.description || m.name}</div>
-                <div className="font-mono text-xs text-muted">{m.name}</div>
+      {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-xs uppercase tracking-wide text-muted">Browse &amp; install</label>
+          <select
+            value={selectedRepo}
+            onChange={(e) => setSelectedRepo(e.target.value)}
+            className="mb-3 w-full rounded-md border border-rule bg-ink px-3 py-2 text-sm"
+          >
+            <option value="">Select a repository…</option>
+            {repos.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          <div className="overflow-hidden rounded-md border border-rule">
+            {available.map((m) => (
+              <div key={m.name} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">
+                <div>
+                  <div className="text-parchment">{m.description || m.name}</div>
+                  <div className="font-mono text-xs text-muted">{m.name}</div>
+                </div>
+                <button
+                  disabled={installing === m.name}
+                  onClick={() => handleInstall(m.name)}
+                  className="rounded bg-verdigris/80 px-2 py-1 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
+                >
+                  {installing === m.name ? 'installing…' : 'install'}
+                </button>
               </div>
-              <button
-                disabled={toggling === m.name}
-                onClick={() => handleToggle(m.name, m.availableToUsers)}
-                className={`rounded border px-2 py-1 text-xs disabled:opacity-50 ${
-                  m.availableToUsers
-                    ? 'border-verdigris text-verdigris hover:border-red-400 hover:text-red-400'
-                    : 'border-rule text-muted hover:border-brass hover:text-brass'
-                }`}
-                title={m.availableToUsers ? 'Visible to users — click to hide' : 'Hidden from users — click to show'}
-              >
-                {toggling === m.name ? '…' : m.availableToUsers ? 'available' : 'hidden'}
-              </button>
-            </div>
-          ))}
-          {modules.length === 0 && <p className="p-3 text-sm text-muted">No modules installed of this type.</p>}
+            ))}
+            {selectedRepo && available.length === 0 && <p className="p-3 text-sm text-muted">No modules of this type found in this repository.</p>}
+            {!selectedRepo && <p className="p-3 text-sm text-muted">Pick a repository to browse what's available.</p>}
+          </div>
         </div>
-      )}
+
+        <div>
+          <label className="mb-2 block text-xs uppercase tracking-wide text-muted">Installed</label>
+          {loading && <p className="text-sm text-muted">Loading…</p>}
+          {!loading && (
+            <div className="overflow-hidden rounded-md border border-rule">
+              {installed.map((m) => (
+                <div key={m.name} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-parchment">{m.description || m.name}</div>
+                    <div className="font-mono text-xs text-muted">{m.name}</div>
+                  </div>
+                  <div className="ml-2 flex shrink-0 gap-1">
+                    <button
+                      disabled={toggling === m.name}
+                      onClick={() => handleToggle(m.name, m.availableToUsers)}
+                      className={`rounded border px-2 py-1 text-xs disabled:opacity-50 ${
+                        m.availableToUsers
+                          ? 'border-verdigris text-verdigris hover:border-red-400 hover:text-red-400'
+                          : 'border-rule text-muted hover:border-brass hover:text-brass'
+                      }`}
+                      title={m.availableToUsers ? 'Visible to users — click to hide' : 'Hidden from users — click to show'}
+                    >
+                      {toggling === m.name ? '…' : m.availableToUsers ? 'available' : 'hidden'}
+                    </button>
+                    <button
+                      disabled={removing === m.name}
+                      onClick={() => handleRemove(m.name)}
+                      className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                    >
+                      {removing === m.name ? 'removing…' : 'remove'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {installed.length === 0 && <p className="p-3 text-sm text-muted">No modules installed of this type.</p>}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
