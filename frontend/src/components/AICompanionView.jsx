@@ -211,7 +211,13 @@ function ToolButton({ label, description, onClick, disabled }) {
   );
 }
 
-export default function AICompanionView({ isLoggedIn, pendingOverviewRequest, pendingPhraseStudyRequest }) {
+export default function AICompanionView({
+  isLoggedIn,
+  pendingOverviewRequest,
+  onOverviewRequestConsumed,
+  pendingPhraseStudyRequest,
+  onPhraseStudyRequestConsumed,
+}) {
   const [askQuestionRequest, setAskQuestionRequest] = useState(null);
   const [overviewRequest, setOverviewRequest] = useState(null);
   const [phraseStudyRequest, setPhraseStudyRequest] = useState(null);
@@ -241,14 +247,26 @@ export default function AICompanionView({ isLoggedIn, pendingOverviewRequest, pe
   // passage" from a Study lesson) — feeds the exact same mechanism as
   // picking "Study a Passage" from the Tools panel and filling in the
   // form by hand; this is just a shortcut into it, not a separate path.
+  //
+  // Explicitly clears the pending request in AppShell once consumed
+  // (onOverviewRequestConsumed), rather than relying on the nonce
+  // comparison alone — this view unmounts every time you navigate away
+  // from it, so without an explicit clear, navigating back would give
+  // a brand-new component instance a stale-but-still-non-null pending
+  // request sitting in AppShell's state, with no memory of having
+  // already handled that nonce — silently re-asking the same question
+  // against the LLM a second time instead of just showing the answer
+  // already given.
   useEffect(() => {
     if (!pendingOverviewRequest) return;
     handleStudyPassage({ module: pendingOverviewRequest.module, reference: pendingOverviewRequest.reference });
+    onOverviewRequestConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingOverviewRequest?.nonce]);
 
   // Same shortcut-into-existing-plumbing pattern, for "study this
-  // phrase" triggered from a Study lesson's passage view.
+  // phrase" triggered from a Study lesson's passage view — and the
+  // same reason for explicitly clearing once consumed.
   useEffect(() => {
     if (!pendingPhraseStudyRequest) return;
     setActiveModal(null);
@@ -258,6 +276,7 @@ export default function AICompanionView({ isLoggedIn, pendingOverviewRequest, pe
       strongsSequence: pendingPhraseStudyRequest.strongsSequence,
       nonce: Date.now(),
     });
+    onPhraseStudyRequestConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingPhraseStudyRequest?.nonce]);
 

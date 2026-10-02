@@ -21,7 +21,7 @@ import { simplifyForTopicalSearch } from '../utils/searchStem.js';
  * copies of auth state that could drift out of sync with the one in
  * AppShell (logging out via one copy wouldn't update the other).
  */
-export default function StudyMode({ auth, onNavigateToLibrary, pendingBibleOpen, defaultBibleModule }) {
+export default function StudyMode({ auth, onNavigateToLibrary, pendingBibleOpen, onBibleOpenConsumed, defaultBibleModule }) {
   const [focusedReference, setFocusedReference] = useState('John 3:16');
   const [navHistory, setNavHistory] = useState({ entries: ['John 3:16'], index: 0 });
   const bible = useTabbedWindow([{ id: 'bible-0', module: '', title: 'Bible' }]);
@@ -69,6 +69,27 @@ export default function StudyMode({ auth, onNavigateToLibrary, pendingBibleOpen,
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.loading, auth.setupRequired]);
+
+  // Deep-link from another view (e.g. "open in Passages" from a Study
+  // lesson) — always opens a genuinely NEW tab rather than reusing or
+  // replacing the current one, so whatever was already open stays
+  // exactly as it was. Watches the nonce, not the raw module/reference,
+  // since a second request for the identical passage should still open
+  // a second tab, not silently no-op against an unchanged value.
+  //
+  // Explicitly clears the pending request in AppShell once consumed
+  // (onBibleOpenConsumed) — this view stays mounted permanently (see
+  // AppShell's visibility-toggle wrapper), so it isn't strictly at risk
+  // of re-firing against a stale nonce the way a view that unmounts
+  // would be, but clearing it anyway keeps this consistent with how
+  // every other pending-request consumer in the app now behaves.
+  useEffect(() => {
+    if (!pendingBibleOpen) return;
+    navigateFocus(pendingBibleOpen.reference);
+    bible.addTab(pendingBibleOpen.module, pendingBibleOpen.module);
+    onBibleOpenConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingBibleOpen?.nonce]);
 
   const openSources = [
     ...bible.tabs.map((t) => ({ module: t.module, reference: focusedReference, kind: 'bible', title: t.title })),
