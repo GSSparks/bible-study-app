@@ -254,8 +254,8 @@ studiesRouter.get('/:id/resources', async (req, res, next) => {
 
 studiesRouter.post('/:id/resources', async (req, res, next) => {
   try {
-    const { type, label, moduleCode, url, order } = req.body;
-    res.status(201).json(await addResource(req.params.id, req.user.id, { type, label, moduleCode, url, order }));
+    const { type, label, moduleCode, url, body, order } = req.body;
+    res.status(201).json(await addResource(req.params.id, req.user.id, { type, label, moduleCode, url, body, order }));
   } catch (err) {
     next(err);
   }

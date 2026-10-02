@@ -551,12 +551,13 @@ export async function generateLessonDrafts(studyId, callerId, { topic, weekCount
   });
 }
 
-const VALID_RESOURCE_TYPES = ['commentary', 'link'];
+const VALID_RESOURCE_TYPES = ['commentary', 'link', 'note'];
 const MAX_LABEL_LENGTH = 80;
+const MAX_NOTE_BODY_LENGTH = 5000;
 
-function validateResourceInput({ type, label, moduleCode, url }) {
+function validateResourceInput({ type, label, moduleCode, url, body }) {
   if (!VALID_RESOURCE_TYPES.includes(type)) {
-    const err = new Error('type must be "commentary" or "link".');
+    const err = new Error('type must be "commentary", "link", or "note".');
     err.status = 400;
     throw err;
   }
@@ -580,15 +581,31 @@ function validateResourceInput({ type, label, moduleCode, url }) {
     err.status = 400;
     throw err;
   }
+  if (type === 'note') {
+    if (!body || !body.trim()) {
+      const err = new Error('body is required for a note resource.');
+      err.status = 400;
+      throw err;
+    }
+    if (body.length > MAX_NOTE_BODY_LENGTH) {
+      const err = new Error(`Note must be ${MAX_NOTE_BODY_LENGTH} characters or fewer.`);
+      err.status = 400;
+      throw err;
+    }
+  }
 }
 
 /** Leader-curated only (owner-only, same as lesson authoring) — this
  *  is deliberately a short, deliberate list the leader picks, not
  *  "every installed commentary module", matching the mockup's
- *  "+ Add Resource" framing. */
-export async function addResource(studyId, callerId, { type, label, moduleCode, url, order }) {
+ *  "+ Add Resource" framing. "note" is a fourth resource shape
+ *  alongside commentary/link — free text written directly, rather than
+ *  pointing at external/SWORD content, so other participants get a
+ *  shared library of the leader's own notes as part of the study's
+ *  resources, not just links elsewhere. */
+export async function addResource(studyId, callerId, { type, label, moduleCode, url, body, order }) {
   await assertOwnerOfStudy(studyId, callerId);
-  validateResourceInput({ type, label, moduleCode, url });
+  validateResourceInput({ type, label, moduleCode, url, body });
   return prisma.studyResource.create({
     data: {
       studyId,
@@ -596,6 +613,7 @@ export async function addResource(studyId, callerId, { type, label, moduleCode, 
       label: label.trim(),
       moduleCode: type === 'commentary' ? moduleCode : null,
       url: type === 'link' ? url.trim() : null,
+      body: type === 'note' ? body.trim() : null,
       order: order ?? 0,
     },
   });
@@ -644,6 +662,10 @@ export async function getResourceContent(resourceId, lessonId, viewerId) {
 
   if (resource.type === 'link') {
     return { type: 'link', label: resource.label, url: resource.url };
+  }
+
+  if (resource.type === 'note') {
+    return { type: 'note', label: resource.label, text: resource.body };
   }
 
   if (!lesson.reference) {

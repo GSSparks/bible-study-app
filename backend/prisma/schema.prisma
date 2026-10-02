@@ -62,13 +62,15 @@ model Document {
 }
 
 model StudySession {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reference String?
-  messages  Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reference       String?
+  module          String?
+  messages        Json
+  contextSnapshot Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([userId])
   @@index([reference])
@@ -350,10 +352,11 @@ model StudyResource {
   id         String   @id @default(cuid())
   studyId    String
   study      Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  type       String   // "commentary" | "link"
+  type       String   // "commentary" | "link" | "note"
   label      String   // footer tab display text, e.g. "Commentary: Clarke" or "Bible Project: John"
   moduleCode String?  // required for type="commentary"
   url        String?  // required for type="link"
+  body       String?  // required for type="note" — free text, written directly rather than pointing at external content
   order      Int      @default(0)
   createdAt  DateTime @default(now())
 
