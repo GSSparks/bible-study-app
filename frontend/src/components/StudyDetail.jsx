@@ -46,7 +46,7 @@ function ProgressRing({ percent, size = 64 }) {
   );
 }
 
-export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
+export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, backLabel = 'Studies' }) {
   const [study, setStudy] = useState(null);
   const [lessons, setLessons] = useState([]);
   const [progress, setProgress] = useState(null);
@@ -146,7 +146,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
     <div className="flex h-full flex-col overflow-hidden">
       <div className="shrink-0 border-b border-rule p-4 lg:p-6">
         <button onClick={onBack} className="mb-2 text-xs text-muted hover:text-parchment">
-          ‹ Studies {study.title ? `› ${study.title}` : ''}
+          ‹ {backLabel} {study.title ? `› ${study.title}` : ''}
         </button>
         <div className="mb-2 flex items-start justify-between gap-3">
           <h2 className="font-display text-xl text-parchment lg:text-2xl">{study.title}</h2>
@@ -451,33 +451,45 @@ function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onA
             />
           ),
         },
-        ...resources.map((r) =>
-          r.type === 'link'
-            ? {
-                id: r.id,
-                label: r.label,
-                content: (
-                  <a href={r.url} target="_blank" rel="noreferrer" className="text-sm text-brass hover:underline">
-                    Open {r.label} ↗
-                  </a>
-                ),
-              }
-            : {
-                id: r.id,
-                label: r.label,
-                content: (
-                  <PassageQuickView
-                    initialModule={r.moduleCode}
-                    initialReference={activeLesson.reference}
-                    resetKey={activeLesson.id}
-                    moduleType="COMMENTARY"
-                    onFocusNote={focusNote}
-                    onAskAiCompanionAbout={onAskAiCompanionAbout}
-                    onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
-                  />
-                ),
-              }
-        ),
+        ...resources.map((r) => {
+          if (r.type === 'link') {
+            return {
+              id: r.id,
+              label: r.label,
+              content: (
+                <a href={r.url} target="_blank" rel="noreferrer" className="text-sm text-brass hover:underline">
+                  Open {r.label} ↗
+                </a>
+              ),
+            };
+          }
+          if (r.type === 'note') {
+            // The leader's own free-text note — already have the full
+            // content right on the resource record itself, no fetch
+            // needed at all, unlike commentary (which has to look up
+            // real module text for whatever passage is active).
+            return {
+              id: r.id,
+              label: r.label,
+              content: <p className="whitespace-pre-wrap text-sm text-parchment/90">{r.body}</p>,
+            };
+          }
+          return {
+            id: r.id,
+            label: r.label,
+            content: (
+              <PassageQuickView
+                initialModule={r.moduleCode}
+                initialReference={activeLesson.reference}
+                resetKey={activeLesson.id}
+                moduleType="COMMENTARY"
+                onFocusNote={focusNote}
+                onAskAiCompanionAbout={onAskAiCompanionAbout}
+                onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+              />
+            ),
+          };
+        }),
       ]
     : [];
 
@@ -1195,6 +1207,7 @@ function AddResourceModal({ studyId, onClose, onAdded }) {
   const [label, setLabel] = useState('');
   const [moduleCode, setModuleCode] = useState('');
   const [url, setUrl] = useState('');
+  const [body, setBody] = useState('');
   const [commentaryModules, setCommentaryModules] = useState([]);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -1219,6 +1232,7 @@ function AddResourceModal({ studyId, onClose, onAdded }) {
         label,
         moduleCode: type === 'commentary' ? moduleCode : null,
         url: type === 'link' ? url : null,
+        body: type === 'note' ? body : null,
       });
       onAdded();
     } catch (e) {
@@ -1255,6 +1269,13 @@ function AddResourceModal({ studyId, onClose, onAdded }) {
               >
                 External Link
               </button>
+              <button
+                type="button"
+                onClick={() => setType('note')}
+                className={`flex-1 rounded border px-3 py-2 text-xs ${type === 'note' ? 'border-brass bg-brass/20 text-brass' : 'border-rule text-muted'}`}
+              >
+                My Note
+              </button>
             </div>
           </div>
           <div>
@@ -1262,12 +1283,12 @@ function AddResourceModal({ studyId, onClose, onAdded }) {
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder={type === 'commentary' ? 'Commentary: Clarke' : 'Bible Project: John'}
+              placeholder={type === 'commentary' ? 'Commentary: Clarke' : type === 'link' ? 'Bible Project: John' : 'On the Vine metaphor'}
               autoFocus
               className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
             />
           </div>
-          {type === 'commentary' ? (
+          {type === 'commentary' && (
             <div>
               <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Commentary Module</label>
               <select
@@ -1283,7 +1304,8 @@ function AddResourceModal({ studyId, onClose, onAdded }) {
               </select>
               {commentaryModules.length === 0 && <p className="mt-1 text-xs text-muted">No commentary modules installed yet.</p>}
             </div>
-          ) : (
+          )}
+          {type === 'link' && (
             <div>
               <label className="mb-1 block text-xs uppercase tracking-wide text-muted">URL</label>
               <input
@@ -1294,10 +1316,29 @@ function AddResourceModal({ studyId, onClose, onAdded }) {
               />
             </div>
           )}
+          {type === 'note' && (
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Note</label>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={5}
+                maxLength={5000}
+                placeholder="Write your own thoughts here — visible to everyone in the study, as part of its resources."
+                className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
+              />
+            </div>
+          )}
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             type="submit"
-            disabled={submitting || !label.trim() || (type === 'commentary' ? !moduleCode : !url.trim())}
+            disabled={
+              submitting ||
+              !label.trim() ||
+              (type === 'commentary' && !moduleCode) ||
+              (type === 'link' && !url.trim()) ||
+              (type === 'note' && !body.trim())
+            }
             className="w-full rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50"
           >
             {submitting ? 'adding…' : 'add resource'}
@@ -1356,4 +1397,4 @@ function EditStudyModal({ study, onClose, onSaved }) {
   );
 }
 
-export { DiscussionTab, GenerateStudyModal, ContentTab, StudySidebar, ProgressRing, LessonContent };
+export { DiscussionTab, GenerateStudyModal, ContentTab, StudySidebar, ProgressRing, LessonContent, AddResourceModal };

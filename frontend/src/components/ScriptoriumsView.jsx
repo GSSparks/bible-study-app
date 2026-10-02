@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 import PostFeed from './PostFeed.jsx';
+import ScriptoriumStudiesTab from './ScriptoriumStudiesTab.jsx';
+import StudyDetail from './StudyDetail.jsx';
 
 const TABS = [
   { key: 'discover', label: 'Discover' },
@@ -9,7 +11,7 @@ const TABS = [
   { key: 'invites', label: 'Invites' },
 ];
 
-export default function ScriptoriumsView({ currentUserId }) {
+export default function ScriptoriumsView({ currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
   const [view, setView] = useState('list'); // 'list' | 'detail'
   const [selectedId, setSelectedId] = useState(null);
   const [tab, setTab] = useState('discover');
@@ -29,7 +31,16 @@ export default function ScriptoriumsView({ currentUserId }) {
   }
 
   if (view === 'detail' && selectedId) {
-    return <ScriptoriumDetail id={selectedId} onBack={backToList} currentUserId={currentUserId} />;
+    return (
+      <ScriptoriumDetail
+        id={selectedId}
+        onBack={backToList}
+        currentUserId={currentUserId}
+        onOpenInPassages={onOpenInPassages}
+        onAskAiCompanionAbout={onAskAiCompanionAbout}
+        onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+      />
+    );
   }
 
   return (
@@ -476,7 +487,8 @@ function InviteModal({ scriptoriumId, existingMemberIds, onClose }) {
   );
 }
 
-function ScriptoriumDetail({ id, onBack, currentUserId }) {
+function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
+  const [openStudyId, setOpenStudyId] = useState(null);
   const [scriptorium, setScriptorium] = useState(null);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -486,7 +498,7 @@ function ScriptoriumDetail({ id, onBack, currentUserId }) {
   const [leaving, setLeaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [removingId, setRemovingId] = useState(null);
-  const [section, setSection] = useState('wall'); // 'wall' | 'members'
+  const [section, setSection] = useState('wall'); // 'wall' | 'members' | 'studies'
   const [wallPosts, setWallPosts] = useState([]);
   const [wallLoading, setWallLoading] = useState(true);
   const [wallError, setWallError] = useState(null);
@@ -556,6 +568,20 @@ function ScriptoriumDetail({ id, onBack, currentUserId }) {
   if (error && !scriptorium) return <p className="p-6 text-sm text-red-400">{error}</p>;
   if (!scriptorium) return null;
 
+  if (openStudyId) {
+    return (
+      <StudyDetail
+        studyId={openStudyId}
+        currentUserId={currentUserId}
+        onBack={() => setOpenStudyId(null)}
+        backLabel={scriptorium.name}
+        onOpenInPassages={onOpenInPassages}
+        onAskAiCompanionAbout={onAskAiCompanionAbout}
+        onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+      />
+    );
+  }
+
   const isOwner = scriptorium.myRole === 'owner';
   const isMember = scriptorium.isMember;
 
@@ -624,6 +650,12 @@ function ScriptoriumDetail({ id, onBack, currentUserId }) {
         >
           Members ({members.length})
         </button>
+        <button
+          onClick={() => setSection('studies')}
+          className={`pb-2 ${section === 'studies' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+        >
+          Studies
+        </button>
       </div>
 
       {section === 'wall' && (
@@ -661,6 +693,8 @@ function ScriptoriumDetail({ id, onBack, currentUserId }) {
         </div>
       )}
 
+      {section === 'studies' && <ScriptoriumStudiesTab scriptoriumId={id} isMember={isMember} onOpenStudy={setOpenStudyId} />}
+
       {showInviteModal && (
         <InviteModal scriptoriumId={id} existingMemberIds={new Set(members.map((m) => m.id))} onClose={() => setShowInviteModal(false)} />
       )}
@@ -677,3 +711,4 @@ function ScriptoriumDetail({ id, onBack, currentUserId }) {
     </div>
   );
 }
+export { ScriptoriumDetail };
