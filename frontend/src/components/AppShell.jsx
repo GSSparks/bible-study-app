@@ -113,6 +113,17 @@ export default function AppShell({ auth }) {
   // no-op. Same pattern StudyMode/StudyAssistant already use internally
   // for their own request props (overviewRequest, wordStudyRequest,
   // etc.) — this just extends it one level up, across views.
+  //
+  // Each consumer clears its own pending request once handled (via the
+  // clear* functions below), not just relies on the nonce comparison —
+  // Passages stays permanently mounted so nonce-based dedup alone was
+  // enough there, but AI Companion is still conditionally rendered
+  // (unmounted every time you navigate away from it). Without an
+  // explicit clear, a stale pending request sitting in this state would
+  // still be here — non-null, with its old nonce — the next time AI
+  // Companion remounts, and a *fresh* component instance has no memory
+  // of already having handled that nonce, so it would silently re-fire
+  // the same question against the LLM a second time.
   const [pendingBibleOpen, setPendingBibleOpen] = useState(null);
   const [pendingAiOverview, setPendingAiOverview] = useState(null);
   const [pendingPhraseStudy, setPendingPhraseStudy] = useState(null);
@@ -215,6 +226,7 @@ export default function AppShell({ auth }) {
             auth={auth}
             onNavigateToLibrary={() => setActiveView('library')}
             pendingBibleOpen={pendingBibleOpen}
+            onBibleOpenConsumed={() => setPendingBibleOpen(null)}
             defaultBibleModule={defaultBibleModule}
           />
         </div>
@@ -229,11 +241,24 @@ export default function AppShell({ auth }) {
         {activeView === 'admin' && <AdminView />}
         {activeView === 'home' && <HomeView currentUserId={auth.user?.id} />}
         {activeView === 'fellows' && <FellowsView currentUserId={auth.user?.id} />}
-        {activeView === 'scriptoriums' && <ScriptoriumsView currentUserId={auth.user?.id} />}
+        {activeView === 'scriptoriums' && (
+          <ScriptoriumsView
+            currentUserId={auth.user?.id}
+            onOpenInPassages={openInPassages}
+            onAskAiCompanionAbout={askAiCompanionAbout}
+            onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
+          />
+        )}
         {activeView === 'profile' && <ProfileWallView currentUserId={auth.user?.id} />}
         {activeView === 'library' && <LibraryView isLoggedIn={Boolean(auth.user)} />}
         {activeView === 'ai-companion' && (
-          <AICompanionView isLoggedIn={Boolean(auth.user)} pendingOverviewRequest={pendingAiOverview} pendingPhraseStudyRequest={pendingPhraseStudy} />
+          <AICompanionView
+            isLoggedIn={Boolean(auth.user)}
+            pendingOverviewRequest={pendingAiOverview}
+            onOverviewRequestConsumed={() => setPendingAiOverview(null)}
+            pendingPhraseStudyRequest={pendingPhraseStudy}
+            onPhraseStudyRequestConsumed={() => setPendingPhraseStudy(null)}
+          />
         )}
         {activeView === 'studies' && (
           <StudiesView
