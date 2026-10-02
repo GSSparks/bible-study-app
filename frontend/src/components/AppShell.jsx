@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Home, BookOpen, Box, FileText, Library as LibraryIcon, Sparkles, Bell, MessageCircle, Users, UserCircle, Settings as SettingsIcon, Shield } from 'lucide-react';
-import StudyMode from './StudyMode.jsx';
+import CellView from './CellView.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
 import AdminView from './AdminView.jsx';
@@ -33,7 +33,7 @@ import { api } from '../api/client.js';
 const NAV_GROUPS = [
   [
     { key: 'home', label: 'Home', Icon: Home, requiresAuth: true },
-    { key: 'passages', label: 'Passages', Icon: BookOpen },
+    { key: 'cell', label: 'Cell', Icon: BookOpen },
     {
       key: 'scriptoriums',
       label: 'Scriptoriums',
@@ -72,7 +72,7 @@ const NAV_GROUPS = [
 ];
 
 export default function AppShell({ auth }) {
-  const [activeView, setActiveView] = useState('passages');
+  const [activeView, setActiveView] = useState('cell');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   // 'My Scriptorium' as the initial value matches the backend's own
@@ -131,7 +131,7 @@ export default function AppShell({ auth }) {
 
   function openInPassages(module, reference) {
     setPendingBibleOpen({ module, reference, nonce: Date.now() });
-    setActiveView('passages');
+    setActiveView('cell');
   }
 
   function askAiCompanionAbout(module, reference) {
@@ -227,13 +227,15 @@ export default function AppShell({ auth }) {
             "keep it mounted, toggle a class" pattern MainLayout already
             uses internally for its own open tabs — this just applies it
             one level up, to the whole reading session. */}
-        <div className={activeView === 'passages' ? 'h-full' : 'hidden'}>
-          <StudyMode
+        <div className={activeView === 'cell' ? 'h-full' : 'hidden'}>
+          <CellView
             auth={auth}
             onNavigateToLibrary={() => setActiveView('library')}
             pendingBibleOpen={pendingBibleOpen}
             onBibleOpenConsumed={() => setPendingBibleOpen(null)}
             defaultBibleModule={defaultBibleModule}
+            onAskAiCompanionAbout={askAiCompanionAbout}
+            onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
           />
         </div>
         {activeView === 'settings' && (
@@ -282,7 +284,7 @@ export default function AppShell({ auth }) {
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
           />
         )}
-        {activeView !== 'passages' &&
+        {activeView !== 'cell' &&
           activeView !== 'settings' &&
           activeView !== 'admin' &&
           activeView !== 'fellows' &&

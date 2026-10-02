@@ -192,6 +192,23 @@ export default function ReaderPane({
     setSelectedRange(null);
   }
 
+  function handleCopySelection() {
+    if (!selectedRange) return;
+    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
+    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
+    const ref = getSelectedReference();
+    const tempEl = document.createElement('div');
+    const text = verses
+      .slice(lo, hi + 1)
+      .map((v) => {
+        tempEl.innerHTML = v.content;
+        return `${v.verseNr} ${tempEl.textContent.trim()}`;
+      })
+      .join(' ');
+    navigator.clipboard?.writeText(`${ref}\n${text}`).catch(() => {});
+    setSelectedRange(null);
+  }
+
   function handleContentClick(e) {
     const footnoteEl = e.target.closest('.footnote-marker');
     if (footnoteEl) {
@@ -388,7 +405,6 @@ export default function ReaderPane({
       )}
 
       {selectedRange &&
-        onAskAboutPassage &&
         createPortal(
           <>
             <div className="fixed inset-0 z-30" onClick={() => setSelectedRange(null)} />
@@ -398,11 +414,20 @@ export default function ReaderPane({
             >
               <span className="px-1 font-mono text-xs text-muted">{getSelectedReference()}</span>
               <button
-                onClick={handleAskAboutSelection}
-                className="rounded bg-brass px-2 py-1 text-xs font-medium text-ink hover:bg-brass/90"
+                onClick={handleCopySelection}
+                className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
+                title="Copy verse text to clipboard"
               >
-                Ask about this →
+                Copy
               </button>
+              {onAskAboutPassage && (
+                <button
+                  onClick={handleAskAboutSelection}
+                  className="rounded bg-brass px-2 py-1 text-xs font-medium text-ink hover:bg-brass/90"
+                >
+                  Ask about this →
+                </button>
+              )}
               <button
                 onClick={() => setSelectedRange(null)}
                 className="rounded px-1.5 py-1 text-xs text-muted hover:text-parchment"
