@@ -4,3 +4,4 @@ dist/
 *.log
 backend/public/
 images/
+.claude-account
