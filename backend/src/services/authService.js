@@ -162,6 +162,36 @@ export async function verifyLogin({ username, password }) {
   return { id: user.id, username: user.username, role: user.role };
 }
 
+const MAX_DISPLAY_NAME_LENGTH = 50;
+const MAX_BIO_LENGTH = 300;
+
+export async function updateProfile({ userId, displayName, bio }) {
+  const data = {};
+  if (displayName !== undefined) {
+    const trimmed = displayName?.trim() || null;
+    if (trimmed && trimmed.length > MAX_DISPLAY_NAME_LENGTH) {
+      const err = new Error(`Display name must be ${MAX_DISPLAY_NAME_LENGTH} characters or fewer.`);
+      err.status = 400;
+      throw err;
+    }
+    data.displayName = trimmed;
+  }
+  if (bio !== undefined) {
+    const trimmed = bio?.trim() || null;
+    if (trimmed && trimmed.length > MAX_BIO_LENGTH) {
+      const err = new Error(`Bio must be ${MAX_BIO_LENGTH} characters or fewer.`);
+      err.status = 400;
+      throw err;
+    }
+    data.bio = trimmed;
+  }
+  return prisma.user.update({
+    where: { id: userId },
+    data,
+    select: { id: true, username: true, role: true, displayName: true, bio: true },
+  });
+}
+
 /** Lets a logged-in user change their own password. Requires the
  *  current password as confirmation — without that, anyone who found
  *  an already-logged-in session (a shared or unlocked device, say)

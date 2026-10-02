@@ -17,7 +17,7 @@ function validateBody(body, maxLength, label) {
   }
 }
 
-const authorSelect = { select: { id: true, username: true } };
+const authorSelect = { select: { id: true, username: true, displayName: true } };
 const postInclude = {
   author: authorSelect,
   comments: { include: { author: authorSelect }, orderBy: { createdAt: 'asc' } },
@@ -57,9 +57,10 @@ export async function createPost({ authorId, scriptoriumId, body }) {
  *  non-Fellow shouldn't be able to distinguish "this wall has no
  *  visible posts" from "you're not allowed to see this wall at all". */
 export async function getWall(usernameOrOwnerId, viewerId, { byUsername = true } = {}) {
+  const ownerSelect = { select: { id: true, username: true, displayName: true, bio: true, createdAt: true } };
   const owner = byUsername
-    ? await prisma.user.findUnique({ where: { username: usernameOrOwnerId } })
-    : await prisma.user.findUnique({ where: { id: usernameOrOwnerId } });
+    ? await prisma.user.findUnique({ where: { username: usernameOrOwnerId }, ...ownerSelect })
+    : await prisma.user.findUnique({ where: { id: usernameOrOwnerId }, ...ownerSelect });
   if (!owner) {
     const err = new Error('User not found.');
     err.status = 404;
@@ -78,7 +79,7 @@ export async function getWall(usernameOrOwnerId, viewerId, { byUsername = true }
     include: postInclude,
     orderBy: { createdAt: 'desc' },
   });
-  return { owner: { id: owner.id, username: owner.username }, posts };
+  return { owner: { id: owner.id, username: owner.username, displayName: owner.displayName, bio: owner.bio }, posts };
 }
 
 /** Reuses getScriptorium's own visibility check entirely rather than

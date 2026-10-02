@@ -7,7 +7,7 @@ import AdminView from './AdminView.jsx';
 import FellowsView from './FellowsView.jsx';
 import ScriptoriumsView from './ScriptoriumsView.jsx';
 import HomeView from './HomeView.jsx';
-import ProfileWallView from './ProfileWallView.jsx';
+import ChronicleView from './ChronicleView.jsx';
 import LibraryView from './LibraryView.jsx';
 import AICompanionView from './AICompanionView.jsx';
 import StudiesView from './StudiesView.jsx';
@@ -61,8 +61,8 @@ const NAV_GROUPS = [
     { key: 'messages', label: 'Messages', Icon: MessageCircle, requiresAuth: true, description: 'Direct messages with your Fellows.' },
     { key: 'fellows', label: 'Fellows', Icon: Users, requiresAuth: true },
     {
-      key: 'profile',
-      label: 'Profile',
+      key: 'chronicle',
+      label: 'My Chronicle',
       Icon: UserCircle,
       requiresAuth: true,
     },
@@ -127,6 +127,7 @@ export default function AppShell({ auth }) {
   const [pendingBibleOpen, setPendingBibleOpen] = useState(null);
   const [pendingAiOverview, setPendingAiOverview] = useState(null);
   const [pendingPhraseStudy, setPendingPhraseStudy] = useState(null);
+  const [profileUsername, setProfileUsername] = useState(null);
 
   function openInPassages(module, reference) {
     setPendingBibleOpen({ module, reference, nonce: Date.now() });
@@ -136,6 +137,11 @@ export default function AppShell({ auth }) {
   function askAiCompanionAbout(module, reference) {
     setPendingAiOverview({ module, reference, nonce: Date.now() });
     setActiveView('ai-companion');
+  }
+
+  function viewProfile(username) {
+    setProfileUsername(username === auth.user?.username ? null : username);
+    setActiveView('chronicle');
   }
 
   function askAiCompanionPhraseStudy(phrase, module, strongsSequence) {
@@ -239,7 +245,7 @@ export default function AppShell({ auth }) {
           />
         )}
         {activeView === 'admin' && <AdminView />}
-        {activeView === 'home' && <HomeView currentUserId={auth.user?.id} />}
+        {activeView === 'home' && <HomeView currentUserId={auth.user?.id} onViewProfile={viewProfile} />}
         {activeView === 'fellows' && <FellowsView currentUserId={auth.user?.id} />}
         {activeView === 'scriptoriums' && (
           <ScriptoriumsView
@@ -249,7 +255,15 @@ export default function AppShell({ auth }) {
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
           />
         )}
-        {activeView === 'profile' && <ProfileWallView currentUserId={auth.user?.id} />}
+        {activeView === 'chronicle' && (
+          <ChronicleView
+            username={profileUsername}
+            currentUserId={auth.user?.id}
+            currentUsername={auth.user?.username}
+            onBack={profileUsername ? () => setProfileUsername(null) : null}
+            onViewProfile={viewProfile}
+          />
+        )}
         {activeView === 'library' && <LibraryView isLoggedIn={Boolean(auth.user)} />}
         {activeView === 'ai-companion' && (
           <AICompanionView
@@ -277,7 +291,7 @@ export default function AppShell({ auth }) {
           activeView !== 'ai-companion' &&
           activeView !== 'studies' &&
           activeView !== 'home' &&
-          activeView !== 'profile' && (
+          activeView !== 'chronicle' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
         )}
       </main>

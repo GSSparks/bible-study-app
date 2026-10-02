@@ -9,7 +9,7 @@ import Avatar from './Avatar.jsx';
  * call after a mutation) rather than this component owning an opaque
  * fetcher — keeps each of the three call sites' own fetch logic
  * visible and ordinary instead of hidden behind an abstraction. */
-export default function PostFeed({ posts, loading, error, canPost, scriptoriumId, currentUserId, onRefresh }) {
+export default function PostFeed({ posts, loading, error, canPost, scriptoriumId, currentUserId, onRefresh, onViewProfile }) {
   const [composerText, setComposerText] = useState('');
   const [posting, setPosting] = useState(false);
   const [localError, setLocalError] = useState(null);
@@ -74,6 +74,7 @@ export default function PostFeed({ posts, loading, error, canPost, scriptoriumId
             currentUserId={currentUserId}
             onDeleted={() => handleDeletePost(post.id)}
             onCommentAdded={onRefresh}
+            onViewProfile={onViewProfile}
           />
         ))}
         {!loading && posts.length === 0 && <p className="text-sm text-muted">Nothing here yet.</p>}
@@ -82,7 +83,7 @@ export default function PostFeed({ posts, loading, error, canPost, scriptoriumId
   );
 }
 
-function PostCard({ post, currentUserId, onDeleted, onCommentAdded }) {
+function PostCard({ post, currentUserId, onDeleted, onCommentAdded, onViewProfile }) {
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -110,7 +111,12 @@ function PostCard({ post, currentUserId, onDeleted, onCommentAdded }) {
         <div className="flex items-center gap-2">
           <Avatar username={post.author.username} size={28} />
           <div>
-            <div className="text-sm text-parchment">{post.author.username}</div>
+            <button
+              onClick={() => onViewProfile?.(post.author.username)}
+              className={`text-sm text-parchment ${onViewProfile ? 'hover:text-brass' : ''}`}
+            >
+              {post.author.displayName || post.author.username}
+            </button>
             {post.scriptorium && <div className="text-xs text-muted">in {post.scriptorium.name}</div>}
           </div>
         </div>

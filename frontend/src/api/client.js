@@ -65,6 +65,10 @@ export const api = {
   askPhraseStudy: (payload) => request('/phrase-study/ask', { method: 'POST', body: JSON.stringify(payload) }),
   savePersonalModule: (payload) => request('/personal-modules/save', { method: 'POST', body: JSON.stringify(payload) }),
 
+  // User profiles
+  getUserProfile: (username) => request(`/users/${encodeURIComponent(username)}`),
+  updateMyProfile: (payload) => request('/auth/me', { method: 'PATCH', body: JSON.stringify(payload) }),
+
   // Auth
   bootstrapStatus: () => request('/auth/bootstrap-status'),
   me: () => request('/auth/me'),

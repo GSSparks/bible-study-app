@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { isBootstrapNeeded, bootstrapAdmin, verifyLogin, createUser, changePassword, listUsers } from '../services/authService.js';
+import { isBootstrapNeeded, bootstrapAdmin, verifyLogin, createUser, changePassword, listUsers, updateProfile } from '../services/authService.js';
 import { requireAdmin, requireLogin } from '../middleware/auth.js';
 
 export const authRouter = Router();
@@ -74,6 +74,16 @@ authRouter.post('/logout', (req, res, next) => {
 
 authRouter.get('/me', (req, res) => {
   res.json({ user: req.user || null });
+});
+
+authRouter.patch('/me', requireLogin, async (req, res, next) => {
+  try {
+    const { displayName, bio } = req.body;
+    const user = await updateProfile({ userId: req.user.id, displayName, bio });
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Same rate-limit reasoning as login: even though this requires the

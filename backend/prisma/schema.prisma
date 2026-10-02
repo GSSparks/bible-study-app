@@ -110,6 +110,8 @@ model User {
   role           String    @default("user")
   createdAt      DateTime  @default(now())
   lastLoginAt    DateTime?
+  displayName    String?
+  bio            String?
 
   notes           Note[]
   highlights      Highlight[]

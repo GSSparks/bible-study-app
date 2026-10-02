@@ -26,6 +26,7 @@ import { connectionsRouter } from './routes/connections.js';
 import { scriptoriumsRouter } from './routes/scriptoriums.js';
 import { wallRouter } from './routes/wall.js';
 import { studiesRouter } from './routes/studies.js';
+import { usersRouter } from './routes/users.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND_DIST = path.join(__dirname, '..', 'public');
@@ -105,6 +106,7 @@ app.use('/api/connections', connectionsRouter);
 app.use('/api/scriptoriums', scriptoriumsRouter);
 app.use('/api/wall', wallRouter);
 app.use('/api/studies', studiesRouter);
+app.use('/api/users', usersRouter);
 
 // Serve the built React app for everything else (SPA fallback)
 app.use(express.static(FRONTEND_DIST));
