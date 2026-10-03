@@ -204,10 +204,7 @@ export default function AppShell({ auth }) {
                 return (
                   <button
                     key={item.key}
-                    onClick={() => {
-                      if (item.key === 'studies') navigateToStudiesList();
-                      else navigate(item.key);
-                    }}
+                    onClick={() => navigate(item.key)}
                     className={`flex w-full items-center gap-3 px-5 py-2 text-left text-sm ${
                       active ? 'border-r-2 border-brass bg-panel text-brass' : 'text-muted hover:bg-panel hover:text-parchment'
                     }`}
@@ -310,7 +307,7 @@ export default function AppShell({ auth }) {
           />
         )}
         {activeView === 'library' && <LibraryView isLoggedIn={Boolean(auth.user)} />}
-        {activeView === 'ai-companion' && (
+        <div className={activeView === 'ai-companion' ? 'h-full' : 'hidden'}>
           <AICompanionView
             isLoggedIn={Boolean(auth.user)}
             username={auth.user?.displayName || auth.user?.username}
@@ -319,7 +316,7 @@ export default function AppShell({ auth }) {
             pendingPhraseStudyRequest={pendingPhraseStudy}
             onPhraseStudyRequestConsumed={() => setPendingPhraseStudy(null)}
           />
-        )}
+        </div>
         <div className={activeView === 'studies' ? 'h-full' : 'hidden'}>
           <StudiesView
             currentUserId={auth.user?.id}
