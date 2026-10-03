@@ -4,7 +4,7 @@ import '@uiw/react-markdown-preview/markdown.css';
 export default function RichContent({ children, className = '', colorMode = 'dark' }) {
   if (!children?.trim()) return null;
   return (
-    <div data-color-mode={colorMode} className={className}>
+    <div data-color-mode={colorMode} className={className} style={{ '--color-canvas-default': 'transparent' }}>
       <MDEditor.Markdown source={children} />
     </div>
   );
