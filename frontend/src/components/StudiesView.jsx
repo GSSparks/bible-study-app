@@ -91,9 +91,9 @@ function MyStudiesList({ onOpen, refreshKey }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {studies.map((s) => (
-        <button key={s.id} onClick={() => onOpen(s.id)} className="rounded-md border border-rule bg-panel p-4 text-left hover:border-brass">
-          <div className="mb-1 font-display text-base text-parchment">{s.title}</div>
-          <div className="text-xs text-muted">
+        <button key={s.id} onClick={() => onOpen(s.id)} className="rounded-lg border border-rule bg-panel p-5 text-left transition-colors hover:border-brass/60">
+          <div className="mb-1.5 font-display text-lg text-parchment">{s.title}</div>
+          <div className="text-xs uppercase tracking-wide text-muted">
             {s.scriptoriumId ? 'group study' : 'solo study'} · {s.myRole}
           </div>
         </button>

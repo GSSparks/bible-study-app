@@ -122,27 +122,30 @@ function DiscoverTab({ onOpen, refreshKey }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {scriptoriums.map((s) => (
-        <div key={s.id} className="rounded-md border border-rule bg-panel p-4">
-          <button onClick={() => onOpen(s.id)} className="mb-1 block text-left font-display text-base text-parchment hover:text-brass">
+        <div key={s.id} className="flex flex-col rounded-lg border border-rule bg-panel p-5 transition-colors hover:border-brass/50">
+          <button onClick={() => onOpen(s.id)} className="mb-1 block text-left font-display text-lg text-parchment hover:text-brass">
             {s.name}
           </button>
-          {s.description && <p className="mb-3 text-xs text-muted">{s.description}</p>}
-          {s.isMember ? (
-            <button
-              onClick={() => onOpen(s.id)}
-              className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
-            >
-              open
-            </button>
-          ) : (
-            <button
-              disabled={joining === s.id}
-              onClick={() => handleJoin(s.id)}
-              className="rounded bg-verdigris/80 px-2 py-1 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
-            >
-              {joining === s.id ? 'joining…' : 'join'}
-            </button>
-          )}
+          {s.description && <p className="mb-4 flex-1 text-xs leading-relaxed text-muted">{s.description}</p>}
+          {!s.description && <div className="flex-1" />}
+          <div className="mt-2">
+            {s.isMember ? (
+              <button
+                onClick={() => onOpen(s.id)}
+                className="rounded-md border border-rule px-3 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment"
+              >
+                open
+              </button>
+            ) : (
+              <button
+                disabled={joining === s.id}
+                onClick={() => handleJoin(s.id)}
+                className="rounded-md bg-verdigris/80 px-3 py-1.5 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
+              >
+                {joining === s.id ? 'joining…' : 'join'}
+              </button>
+            )}
+          </div>
         </div>
       ))}
       {scriptoriums.length === 0 && <p className="text-sm text-muted">No public Scriptoriums yet — be the first to create one.</p>}
@@ -170,9 +173,9 @@ function MineTab({ onOpen, refreshKey }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {scriptoriums.map((s) => (
-        <button key={s.id} onClick={() => onOpen(s.id)} className="rounded-md border border-rule bg-panel p-4 text-left hover:border-brass">
-          <div className="mb-1 font-display text-base text-parchment">{s.name}</div>
-          <div className="text-xs text-muted">
+        <button key={s.id} onClick={() => onOpen(s.id)} className="rounded-lg border border-rule bg-panel p-5 text-left transition-colors hover:border-brass/60 hover:bg-panel">
+          <div className="mb-1.5 font-display text-lg text-parchment">{s.name}</div>
+          <div className="text-xs uppercase tracking-wide text-muted">
             {s.visibility} · {s.myRole}
           </div>
         </button>

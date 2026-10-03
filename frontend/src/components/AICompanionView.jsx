@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { MessageCircle, BookOpen, Tag, ArrowLeftRight } from 'lucide-react';
 import StudyAssistant from './StudyAssistant.jsx';
 import { api } from '../api/client.js';
 
@@ -196,23 +197,33 @@ function CompareModal({ onClose }) {
   );
 }
 
-function ToolButton({ label, description, onClick, disabled }) {
+function ToolButton({ icon: Icon, label, description, onClick, disabled }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`block w-full rounded-md border px-3 py-2 text-left ${
-        disabled ? 'cursor-default border-rule opacity-50' : 'border-rule hover:border-brass'
+      className={`flex w-full items-start gap-3 rounded-lg border px-3 py-3 text-left transition-colors ${
+        disabled
+          ? 'cursor-default border-rule opacity-40'
+          : 'border-rule hover:border-brass/60 hover:bg-panel'
       }`}
     >
-      <div className="text-sm text-parchment">{label}</div>
-      <div className="text-xs text-muted">{description}</div>
+      {Icon && (
+        <span className={`mt-0.5 shrink-0 ${disabled ? 'text-muted' : 'text-brass/70'}`}>
+          <Icon size={15} strokeWidth={1.8} />
+        </span>
+      )}
+      <div>
+        <div className="text-sm text-parchment">{label}</div>
+        <div className="text-xs text-muted">{description}</div>
+      </div>
     </button>
   );
 }
 
 export default function AICompanionView({
   isLoggedIn,
+  username,
   pendingOverviewRequest,
   onOverviewRequestConsumed,
   pendingPhraseStudyRequest,
@@ -313,29 +324,43 @@ export default function AICompanionView({
         />
       </div>
 
-      <aside className="w-72 shrink-0 overflow-y-auto p-4">
-        <h3 className="mb-3 text-xs uppercase tracking-wide text-muted">Tools</h3>
-        <div className="mb-6 space-y-2">
-          <ToolButton label="Ask a Question" description="Get answers from Scripture" onClick={() => setActiveModal('ask')} />
-          <ToolButton label="Study a Passage" description="Explore context and commentary" onClick={() => setActiveModal('study')} />
-          <ToolButton label="Topical Study" description="Coming soon" disabled />
-          <ToolButton label="Compare Translations" description="See how translations differ" onClick={() => setActiveModal('compare')} />
+      <aside className="flex w-72 shrink-0 flex-col overflow-y-auto border-l border-rule">
+        {/* Greeting header */}
+        <div className="border-b border-rule px-5 py-6">
+          {username ? (
+            <>
+              <p className="font-display text-2xl text-parchment">Hello, {username}.</p>
+              <p className="mt-1 text-xs text-muted">What would you like to study today?</p>
+            </>
+          ) : (
+            <p className="font-display text-xl text-parchment">AI Companion</p>
+          )}
         </div>
 
-        <h3 className="mb-3 text-xs uppercase tracking-wide text-muted">Recent Conversations</h3>
-        {loadingSessions && <p className="text-xs text-muted">Loading…</p>}
-        <div className="space-y-1">
-          {recentSessions.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => handleResume(s)}
-              className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-parchment/90 hover:bg-panel hover:text-brass"
-              title={s.reference || 'Chat'}
-            >
-              {s.reference || 'Chat'}
-            </button>
-          ))}
-          {!loadingSessions && recentSessions.length === 0 && <p className="text-xs text-muted">No conversations yet.</p>}
+        <div className="flex-1 overflow-y-auto p-4">
+          <p className="mb-3 text-xs uppercase tracking-wide text-muted">Tools</p>
+          <div className="mb-6 space-y-2">
+            <ToolButton icon={MessageCircle} label="Ask a Question" description="Get answers from Scripture" onClick={() => setActiveModal('ask')} />
+            <ToolButton icon={BookOpen} label="Study a Passage" description="Explore context and commentary" onClick={() => setActiveModal('study')} />
+            <ToolButton icon={Tag} label="Topical Study" description="Coming soon" disabled />
+            <ToolButton icon={ArrowLeftRight} label="Compare Translations" description="See how translations differ" onClick={() => setActiveModal('compare')} />
+          </div>
+
+          <p className="mb-3 text-xs uppercase tracking-wide text-muted">Recent Conversations</p>
+          {loadingSessions && <p className="text-xs text-muted">Loading…</p>}
+          <div className="space-y-1">
+            {recentSessions.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => handleResume(s)}
+                className="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-parchment/90 hover:bg-panel hover:text-brass"
+                title={s.reference || 'Chat'}
+              >
+                {s.reference || 'Chat'}
+              </button>
+            ))}
+            {!loadingSessions && recentSessions.length === 0 && <p className="text-xs text-muted">No conversations yet.</p>}
+          </div>
         </div>
       </aside>
 

@@ -264,6 +264,7 @@ export default function AppShell({ auth }) {
         {activeView === 'ai-companion' && (
           <AICompanionView
             isLoggedIn={Boolean(auth.user)}
+            username={auth.user?.displayName || auth.user?.username}
             pendingOverviewRequest={pendingAiOverview}
             onOverviewRequestConsumed={() => setPendingAiOverview(null)}
             pendingPhraseStudyRequest={pendingPhraseStudy}
