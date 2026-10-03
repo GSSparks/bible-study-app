@@ -722,16 +722,16 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
   const [savingNote, setSavingNote] = useState(false);
   const [showEditLessonModal, setShowEditLessonModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editingBody, setEditingBody] = useState(false);
+  const [pendingBody, setPendingBody] = useState('');
+  const [savingBody, setSavingBody] = useState(false);
+  const [bodyError, setBodyError] = useState(null);
 
   useEffect(() => {
     setPassage(null);
     setPassageError(null);
+    setEditingBody(false);
     if (lesson.module && lesson.reference) {
-      // Real response shape: { module, reference, verses: [{ verseNr,
-      // content, titles, ... }] } — content is processed HTML (Strong's
-      // links, cross-reference markup), stripped to plain text below
-      // since this is a quick-reference display, not the full
-      // interactive reader.
       api
         .getPassage(lesson.module, lesson.reference)
         .then((res) => setPassage(res.verses || []))
@@ -773,6 +773,26 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
     }
   }
 
+  async function saveBody() {
+    setSavingBody(true);
+    setBodyError(null);
+    try {
+      await api.updateStudyLesson(lesson.id, {
+        order: lesson.order,
+        title: lesson.title,
+        module: lesson.module || null,
+        reference: lesson.reference || null,
+        body: pendingBody || null,
+      });
+      onLessonsChanged();
+      setEditingBody(false);
+    } catch (e) {
+      setBodyError(e.message);
+    } finally {
+      setSavingBody(false);
+    }
+  }
+
   async function handleDeleteLesson() {
     if (!confirm(`Delete "${lesson.title}"? This also removes its discussion and progress records — this can't be undone.`)) {
       return;
@@ -785,57 +805,55 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
       alert(e.message);
       setDeleting(false);
     }
-    // No finally-reset of `deleting` on success — this component is
-    // about to unmount once the lesson list refreshes and activeLesson
-    // moves on, so there's nothing left to reset.
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border border-rule bg-panel p-4">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="font-display text-base text-parchment">
-            {lesson.reference || 'No reference set'} {lesson.module && <span className="text-xs text-muted">| {lesson.module}</span>}
+    <div className="space-y-3">
+
+      {/* Passage */}
+      <div className="rounded-xl border border-pageBorder bg-page p-5">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <h3 className="font-display text-lg leading-snug text-pageText">
+            {lesson.reference || 'No passage set'}
+            {lesson.module && <span className="ml-2 text-sm font-normal text-pageMuted">{lesson.module}</span>}
           </h3>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-3 text-xs">
             {lesson.reference && lesson.module && (
               <>
                 <button
                   onClick={() => onOpenInPassages?.(lesson.module, lesson.reference)}
-                  className="text-xs text-muted hover:text-brass"
-                  title="Open this passage in Passages for a deeper look — Strong's numbers, cross-references, your notes"
+                  className="text-pageMuted hover:text-pageAccent"
                 >
                   open in Passages →
                 </button>
                 <button
                   onClick={() => onAskAiCompanionAbout?.(lesson.module, lesson.reference)}
-                  className="text-xs text-muted hover:text-brass"
-                  title="Ask AI Companion about this passage"
+                  className="text-pageMuted hover:text-pageAccent"
                 >
-                  ask AI Companion →
+                  ask AI →
                 </button>
               </>
             )}
             {isOwner && (
-              <div className="flex shrink-0 gap-2 border-l border-rule pl-2">
-                <button onClick={() => setShowEditLessonModal(true)} className="text-xs text-muted hover:text-parchment">
-                  edit
+              <div className="flex gap-2 border-l border-pageBorder pl-3">
+                <button onClick={() => setShowEditLessonModal(true)} className="text-pageMuted hover:text-pageText">
+                  edit lesson
                 </button>
-                <button onClick={handleDeleteLesson} disabled={deleting} className="text-xs text-muted hover:text-red-400 disabled:opacity-50">
+                <button onClick={handleDeleteLesson} disabled={deleting} className="text-pageMuted hover:text-red-500 disabled:opacity-50">
                   {deleting ? 'deleting…' : 'delete'}
                 </button>
               </div>
             )}
           </div>
         </div>
-        {passageError && <p className="text-sm text-red-400">{passageError}</p>}
-        {!lesson.reference && <p className="text-sm text-muted">The leader hasn't set a passage for this lesson yet.</p>}
-        {lesson.reference && !passage && !passageError && <p className="text-sm text-muted">Loading passage…</p>}
+        {passageError && <p className="text-sm text-red-500">{passageError}</p>}
+        {!lesson.reference && <p className="text-sm italic text-pageMuted">No passage set for this lesson yet.</p>}
+        {lesson.reference && !passage && !passageError && <p className="text-sm text-pageMuted">Loading…</p>}
         {passage && (
-          <p className="whitespace-pre-wrap text-sm text-parchment/90">
+          <p className="font-display leading-loose text-pageText">
             {passage.map((v) => (
               <span key={v.verseNr}>
-                <sup className="mr-1 text-xs text-muted">{v.verseNr}</sup>
+                <sup className="mr-0.5 text-xs text-pageMuted">{v.verseNr}</sup>
                 {stripHtml(v.content)}{' '}
               </span>
             ))}
@@ -843,25 +861,70 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
         )}
       </div>
 
-      {lesson.body && (
-        <div className="rounded-md border border-rule bg-panel p-4">
-          <h4 className="mb-2 text-xs uppercase tracking-wide text-muted">Study Notes (from the leader)</h4>
-          <RichContent className="text-sm">{lesson.body}</RichContent>
+      {/* Study notes — click-to-edit in place for the owner */}
+      {(lesson.body || isOwner) && (
+        <div className="rounded-xl border border-pageBorder bg-page p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-widest text-pageMuted">Study Notes</h4>
+            {isOwner && !editingBody && (
+              <button
+                onClick={() => { setPendingBody(lesson.body || ''); setEditingBody(true); }}
+                className="text-xs text-pageMuted hover:text-pageAccent"
+              >
+                {lesson.body ? 'edit' : '+ add notes'}
+              </button>
+            )}
+          </div>
+          {editingBody ? (
+            <>
+              <RichEditor value={pendingBody} onChange={setPendingBody} height={260} colorMode="light" />
+              {bodyError && <p className="mt-1 text-xs text-red-500">{bodyError}</p>}
+              <div className="mt-2 flex justify-end gap-2">
+                <button
+                  onClick={() => { setEditingBody(false); setBodyError(null); }}
+                  className="text-xs text-pageMuted hover:text-pageText"
+                >
+                  cancel
+                </button>
+                <button
+                  onClick={saveBody}
+                  disabled={savingBody}
+                  className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
+                >
+                  {savingBody ? 'saving…' : 'save'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div
+              onClick={isOwner ? () => { setPendingBody(lesson.body || ''); setEditingBody(true); } : undefined}
+              className={isOwner ? 'cursor-text' : ''}
+            >
+              {lesson.body ? (
+                <RichContent colorMode="light">{lesson.body}</RichContent>
+              ) : (
+                <p className="text-sm italic text-pageMuted">Click to add study notes for this lesson…</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      <div className="rounded-md border border-rule bg-panel p-4">
-        <h4 className="mb-2 text-xs uppercase tracking-wide text-muted">Your Personal Note</h4>
+      {/* Personal note */}
+      <div className="rounded-xl border border-pageBorder bg-page p-5">
+        <h4 className="mb-3 text-xs font-semibold uppercase tracking-widest text-pageMuted">Your Personal Note</h4>
         {noteLoading ? (
-          <p className="text-sm text-muted">Loading…</p>
+          <p className="text-sm text-pageMuted">Loading…</p>
         ) : (
           <>
-            <RichEditor value={noteText} onChange={setNoteText} height={220} />
+            <div ref={noteTextareaRef}>
+              <RichEditor value={noteText} onChange={setNoteText} height={220} colorMode="light" />
+            </div>
             <div className="mt-2 flex justify-end">
               <button
                 onClick={saveNote}
                 disabled={savingNote}
-                className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
+                className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
               >
                 {savingNote ? 'saving…' : 'save note'}
               </button>
