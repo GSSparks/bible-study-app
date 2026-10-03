@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, Users, FileText, PenLine } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import { api } from '../api/client.js';
 import PostFeed from './PostFeed.jsx';
 import Avatar from './Avatar.jsx';
@@ -38,10 +38,10 @@ export default function HomeView({ currentUserId, currentUsername, onViewProfile
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-5xl px-6 py-6">
-        <div className="flex items-start gap-5">
+        <div className="flex flex-col items-start gap-5 lg:flex-row">
 
           {/* ── Left column ─────────────────────────────────── */}
-          <div className="w-64 shrink-0 space-y-3">
+          <div className="w-full space-y-3 lg:w-64 lg:shrink-0">
 
             {/* Profile card */}
             <div className="rounded-xl border border-rule bg-panel">

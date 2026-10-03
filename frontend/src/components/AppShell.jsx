@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Home, BookOpen, Box, FileText, Library as LibraryIcon, Sparkles, Bell, MessageCircle, UserCircle, Settings as SettingsIcon, Shield } from 'lucide-react';
+import { Home, BookOpen, Box, FileText, Library as LibraryIcon, Sparkles, Bell, MessageCircle, UserCircle, Settings as SettingsIcon, Shield, Menu } from 'lucide-react';
 import CellView from './CellView.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
@@ -65,6 +65,7 @@ const NAV_GROUPS = [
 
 export default function AppShell({ auth }) {
   const [activeView, setActiveView] = useState('cell');
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   // 'My Scriptorium' as the initial value matches the backend's own
@@ -123,34 +124,39 @@ export default function AppShell({ auth }) {
   const [pendingStudyList, setPendingStudyList] = useState(null);
   const [profileUsername, setProfileUsername] = useState(null);
 
+  function navigate(key) {
+    setActiveView(key);
+    setDrawerOpen(false);
+  }
+
   function openInPassages(module, reference) {
     setPendingBibleOpen({ module, reference, nonce: Date.now() });
-    setActiveView('cell');
+    navigate('cell');
   }
 
   function askAiCompanionAbout(module, reference) {
     setPendingAiOverview({ module, reference, nonce: Date.now() });
-    setActiveView('ai-companion');
+    navigate('ai-companion');
   }
 
   function viewProfile(username) {
     setProfileUsername(username === auth.user?.username ? null : username);
-    setActiveView('chronicle');
+    navigate('chronicle');
   }
 
   function askAiCompanionPhraseStudy(phrase, module, strongsSequence) {
     setPendingPhraseStudy({ phrase, module, strongsSequence, nonce: Date.now() });
-    setActiveView('ai-companion');
+    navigate('ai-companion');
   }
 
   function openStudy(id) {
     setPendingStudyOpen({ id, nonce: Date.now() });
-    setActiveView('studies');
+    navigate('studies');
   }
 
   function navigateToStudiesList() {
     setPendingStudyList({ nonce: Date.now() });
-    setActiveView('studies');
+    navigate('studies');
   }
 
   useEffect(() => {
@@ -174,7 +180,16 @@ export default function AppShell({ auth }) {
 
   return (
     <div className="flex h-screen min-h-0 bg-ink text-parchment">
-      <aside className="flex w-56 shrink-0 flex-col border-r border-rule">
+      {/* Mobile backdrop */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-ink/70 lg:hidden"
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — fixed overlay on mobile, static column on lg+ */}
+      <aside className={`fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col border-r border-rule bg-ink transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 lg:z-auto ${drawerOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="flex items-center gap-2 border-b border-rule px-5 py-4">
           <img src="/logo.png" alt="" className="h-8 w-8 rounded-md" />
           <span className="font-display text-lg tracking-wide">{brandName}</span>
@@ -191,7 +206,7 @@ export default function AppShell({ auth }) {
                     key={item.key}
                     onClick={() => {
                       if (item.key === 'studies') navigateToStudiesList();
-                      else setActiveView(item.key);
+                      else navigate(item.key);
                     }}
                     className={`flex w-full items-center gap-3 px-5 py-2 text-left text-sm ${
                       active ? 'border-r-2 border-brass bg-panel text-brass' : 'text-muted hover:bg-panel hover:text-parchment'
@@ -210,7 +225,7 @@ export default function AppShell({ auth }) {
           {auth.user ? (
             <UserMenu
               username={auth.user.username}
-              items={[{ label: 'Settings', onClick: () => setActiveView('settings') }]}
+              items={[{ label: 'Settings', onClick: () => { navigate('settings'); } }]}
               onLogout={() => auth.logout()}
             />
           ) : (
@@ -223,6 +238,20 @@ export default function AppShell({ auth }) {
           )}
         </div>
       </aside>
+
+      {/* Main area — flex-col so the mobile top bar sits above the view */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Mobile top bar */}
+        <div className="flex shrink-0 items-center border-b border-rule px-4 py-3 lg:hidden">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="text-muted hover:text-parchment"
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
+          <span className="ml-3 font-display text-lg tracking-wide">{brandName}</span>
+        </div>
 
       <main className="min-h-0 flex-1 overflow-hidden">
         {/* Deliberately always mounted, visibility toggled rather than
@@ -315,6 +344,7 @@ export default function AppShell({ auth }) {
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
         )}
       </main>
+      </div>
 
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} onLogin={auth.login} />}
       {showChangePasswordModal && <ChangePasswordModal onClose={() => setShowChangePasswordModal(false)} />}
