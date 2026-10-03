@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import Avatar from './Avatar.jsx';
 
 /** The avatar-triggered account menu. Deliberately takes `items` as a
  * plain [{ label, onClick }] array rather than hardcoding menu entries
@@ -28,8 +27,11 @@ export default function UserMenu({ username, items = [], onLogout }) {
 
   return (
     <div className="relative">
-      <button onClick={toggle} className="block rounded-full" title={username}>
-        <Avatar username={username} size={32} />
+      <button
+        onClick={toggle}
+        className="w-full rounded px-2 py-1.5 text-left text-sm text-muted hover:bg-panel hover:text-parchment"
+      >
+        {username}
       </button>
 
       {open &&

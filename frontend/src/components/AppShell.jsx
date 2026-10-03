@@ -186,7 +186,7 @@ export default function AppShell({ auth }) {
 
       {/* Sidebar — fixed overlay on mobile, static column on lg+ */}
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col border-r border-rule bg-ink transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 lg:z-auto ${drawerOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="flex items-center gap-2 border-b border-rule px-5 py-4">
+        <div className="flex items-center gap-2 px-5 py-4">
           <img src="/logo.png" alt="" className="h-8 w-8 rounded-md" />
           <span className="font-display text-lg tracking-wide">{brandName}</span>
         </div>
@@ -214,7 +214,7 @@ export default function AppShell({ auth }) {
           ))}
         </nav>
 
-        <div className="border-t border-rule p-3">
+        <div className="p-3">
           {auth.user ? (
             <UserMenu
               username={auth.user.username}

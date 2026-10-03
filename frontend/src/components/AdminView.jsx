@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 
-const TABS = ['Users', 'Modules', 'Metrics', 'Branding'];
+const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding'];
 const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT'];
 
 function formatBytes(bytes) {
@@ -36,6 +36,8 @@ export default function AdminView() {
         </div>
         {tab === 'Users' && <UsersTab />}
         {tab === 'Modules' && <ModulesTab />}
+        {tab === 'Posts' && <PostsTab />}
+        {tab === 'Media' && <MediaTab />}
         {tab === 'Metrics' && <MetricsTab />}
         {tab === 'Branding' && <BrandingTab />}
       </div>
@@ -372,6 +374,140 @@ function ModulesTab() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PostsTab() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+
+  function refresh() {
+    setLoading(true);
+    api.listAdminPosts()
+      .then(setPosts)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }
+  useEffect(refresh, []);
+
+  async function handleDelete(id) {
+    if (!confirm('Delete this post and all its comments?')) return;
+    setDeleting(id);
+    try {
+      await api.deleteAdminPost(id);
+      setPosts((prev) => prev.filter((p) => p.id !== id));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  if (loading) return <p className="text-sm text-muted">Loading…</p>;
+  if (error) return <p className="text-sm text-red-400">{error}</p>;
+
+  return (
+    <div>
+      <p className="mb-4 text-xs text-muted">{posts.length} post{posts.length === 1 ? '' : 's'}</p>
+      <div className="overflow-hidden rounded-md border border-rule">
+        {posts.map((p) => (
+          <div key={p.id} className="flex items-start gap-3 border-b border-rule px-4 py-3 last:border-0">
+            <div className="min-w-0 flex-1">
+              <div className="mb-0.5 flex items-center gap-2 text-xs text-muted">
+                <span className="text-parchment">{p.author.username}</span>
+                <span>·</span>
+                <span>{formatDate(p.createdAt)}</span>
+                {p._count.comments > 0 && <span>· {p._count.comments} comment{p._count.comments === 1 ? '' : 's'}</span>}
+                {Array.isArray(p.mediaUrls) && p.mediaUrls.length > 0 && <span>· {p.mediaUrls.length} media</span>}
+              </div>
+              <p className="line-clamp-2 text-sm text-parchment/80">{p.body}</p>
+            </div>
+            <button
+              disabled={deleting === p.id}
+              onClick={() => handleDelete(p.id)}
+              className="shrink-0 rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+            >
+              {deleting === p.id ? '…' : 'delete'}
+            </button>
+          </div>
+        ))}
+        {posts.length === 0 && <p className="p-4 text-sm text-muted">No posts yet.</p>}
+      </div>
+    </div>
+  );
+}
+
+const MEDIA_TYPE_LABELS = {
+  avatar: 'Avatar',
+  userBanner: 'User banner',
+  scriptoriumBanner: 'Scriptorium banner',
+  postMedia: 'Post image',
+};
+
+function MediaTab() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [removing, setRemoving] = useState(null);
+
+  function refresh() {
+    setLoading(true);
+    api.listAdminMedia()
+      .then(setItems)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }
+  useEffect(refresh, []);
+
+  async function handleRemove(item) {
+    if (!confirm(`Remove this ${MEDIA_TYPE_LABELS[item.type]?.toLowerCase() ?? 'file'} for ${item.ownerName}?`)) return;
+    const key = item.url;
+    setRemoving(key);
+    try {
+      await api.deleteAdminMedia({ type: item.type, ownerId: item.ownerId, url: item.url });
+      setItems((prev) => prev.filter((i) => !(i.url === item.url && i.ownerId === item.ownerId)));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setRemoving(null);
+    }
+  }
+
+  if (loading) return <p className="text-sm text-muted">Loading…</p>;
+  if (error) return <p className="text-sm text-red-400">{error}</p>;
+
+  return (
+    <div>
+      <p className="mb-4 text-xs text-muted">{items.length} uploaded file{items.length === 1 ? '' : 's'}</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {items.map((item) => (
+          <div key={`${item.type}-${item.ownerId}-${item.url}`} className="overflow-hidden rounded-md border border-rule bg-panel">
+            <div className="relative aspect-video bg-ink">
+              <img
+                src={item.url}
+                alt=""
+                className="h-full w-full object-cover"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            </div>
+            <div className="p-2">
+              <div className="truncate text-xs text-parchment">{item.ownerName}</div>
+              <div className="text-xs text-muted">{MEDIA_TYPE_LABELS[item.type] ?? item.type}</div>
+              <button
+                disabled={removing === item.url}
+                onClick={() => handleRemove(item)}
+                className="mt-1.5 w-full rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+              >
+                {removing === item.url ? '…' : 'remove'}
+              </button>
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && <p className="col-span-full text-sm text-muted">No uploaded media yet.</p>}
       </div>
     </div>
   );

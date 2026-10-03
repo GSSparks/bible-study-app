@@ -88,6 +88,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ availableToUsers }),
     }),
+  listAdminPosts: () => request('/admin/posts'),
+  deleteAdminPost: (id) => request(`/admin/posts/${id}`, { method: 'DELETE' }),
+  listAdminMedia: () => request('/admin/media'),
+  deleteAdminMedia: (data) => request('/admin/media', { method: 'DELETE', body: JSON.stringify(data) }),
 
   // Branding
   getBranding: () => request('/branding'),
