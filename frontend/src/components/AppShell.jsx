@@ -40,13 +40,7 @@ const NAV_GROUPS = [
       Icon: Box,
       requiresAuth: true,
     },
-    {
-      key: 'studies',
-      label: 'Studies',
-      Icon: FileText,
-      requiresAuth: true,
-      description: 'Structured, multi-session studies — for a Scriptorium or on your own. Planned for Phase 2.',
-    },
+    { key: 'studies', label: 'Studies', Icon: FileText, requiresAuth: true },
     { key: 'library', label: 'Library', Icon: LibraryIcon },
     { key: 'ai-companion', label: 'AI Companion', Icon: Sparkles },
   ],
@@ -276,14 +270,14 @@ export default function AppShell({ auth }) {
             onPhraseStudyRequestConsumed={() => setPendingPhraseStudy(null)}
           />
         )}
-        {activeView === 'studies' && (
+        <div className={activeView === 'studies' ? 'h-full' : 'hidden'}>
           <StudiesView
             currentUserId={auth.user?.id}
             onOpenInPassages={openInPassages}
             onAskAiCompanionAbout={askAiCompanionAbout}
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
           />
-        )}
+        </div>
         {activeView !== 'cell' &&
           activeView !== 'settings' &&
           activeView !== 'admin' &&

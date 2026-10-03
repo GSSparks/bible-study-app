@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
@@ -26,6 +27,8 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
   const [loadingEntry, setLoadingEntry] = useState(false);
   const [error, setError] = useState(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const filterInputRef = useRef(null);
 
   useEffect(() => {
     if (!module) return;
@@ -85,6 +88,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
       setMode('keys');
       setSelectedKey(null);
       setFilter(initialFilter);
+      setShowDropdown(true);
     }
   }, [initialFilter]);
 
@@ -105,6 +109,12 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
     const f = filter.toLowerCase();
     return keys.filter((k) => k.toLowerCase().includes(f)).slice(0, 500);
   }, [keys, filter]);
+
+  function pickKey(k) {
+    setSelectedKey(k);
+    setShowDropdown(false);
+    setFilter('');
+  }
 
   function handleContentClick(e) {
     const dictXrefEl = e.target.closest('.dict-xref');
@@ -166,36 +176,60 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <div className="flex w-56 flex-col border-r border-rule">
-        <input
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter entries…"
-          className="border-b border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:outline-none"
-        />
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {loadingKeys && <p className="p-3 text-sm text-muted">Loading entries…</p>}
-          {filteredKeys.map((k) => (
-            <button
-              key={k}
-              onClick={() => setSelectedKey(k)}
-              className={`block w-full truncate px-3 py-1.5 text-left text-sm ${
-                selectedKey === k ? 'bg-verdigris/20 text-brass' : 'text-parchment/90 hover:bg-panel'
-              }`}
-            >
-              {k}
-            </button>
-          ))}
-          {!loadingKeys && keys.length > 500 && filter.trim() === '' && (
-            <p className="p-3 text-xs text-muted">Showing first 500 — type to filter the rest.</p>
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Compact entry picker header */}
+      <div className="relative shrink-0 border-b border-rule bg-ink px-3 py-2">
+        <div
+          className="flex cursor-text items-center gap-2 rounded border border-rule bg-page/30 px-3 py-1.5"
+          onClick={() => { setShowDropdown(true); filterInputRef.current?.focus(); }}
+        >
+          <input
+            ref={filterInputRef}
+            value={filter}
+            onChange={(e) => { setFilter(e.target.value); setShowDropdown(true); }}
+            onFocus={() => setShowDropdown(true)}
+            placeholder={selectedKey || 'Search entries…'}
+            className="min-w-0 flex-1 bg-transparent text-sm text-parchment placeholder:text-muted focus:outline-none"
+          />
+          {selectedKey && !showDropdown && (
+            <span className="shrink-0 text-xs text-muted">{selectedKey}</span>
           )}
+          <ChevronDown size={14} className={`shrink-0 text-muted transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
         </div>
+
+        {showDropdown && (
+          <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 z-10" onClick={() => { setShowDropdown(false); setFilter(''); }} />
+            {/* Dropdown list */}
+            <div className="absolute left-3 right-3 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded border border-rule bg-ink shadow-lg">
+              {loadingKeys && <p className="px-3 py-2 text-xs text-muted">Loading…</p>}
+              {!loadingKeys && filteredKeys.length === 0 && (
+                <p className="px-3 py-2 text-xs text-muted">No matches.</p>
+              )}
+              {filteredKeys.map((k) => (
+                <button
+                  key={k}
+                  onMouseDown={(e) => { e.preventDefault(); pickKey(k); }}
+                  className={`block w-full truncate px-3 py-1.5 text-left text-sm ${
+                    selectedKey === k ? 'bg-verdigris/20 text-brass' : 'text-parchment/90 hover:bg-panel'
+                  }`}
+                >
+                  {k}
+                </button>
+              ))}
+              {!loadingKeys && keys.length > 500 && filter.trim() === '' && (
+                <p className="px-3 py-2 text-xs text-muted">Showing first 500 — type to filter.</p>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
+      {/* Entry content */}
       <div className="min-h-0 flex-1 overflow-y-auto bg-page px-6 py-6 text-pageText">
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {!selectedKey && <p className="text-pageMuted">Pick an entry on the left.</p>}
+        {!selectedKey && <p className="text-pageMuted">Search or browse entries above.</p>}
         {loadingEntry && <p className="text-pageMuted">Loading…</p>}
         {selectedKey && !loadingEntry && (
           <SelectableNoteRegion
