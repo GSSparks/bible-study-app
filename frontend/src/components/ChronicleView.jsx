@@ -19,6 +19,10 @@ export default function ChronicleView({ username, currentUserId, currentUsername
   const [error, setError] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const bannerInputRef = useRef(null);
+  const avatarInputRef = useRef(null);
 
   function loadProfile() {
     if (!targetUsername) return;
@@ -92,11 +96,6 @@ export default function ChronicleView({ username, currentUserId, currentUsername
   const displayName = user.displayName || user.username;
   const joinedDate = new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
   const bannerColor = getAvatarColor(user.username);
-
-  const bannerInputRef = useRef(null);
-  const avatarInputRef = useRef(null);
-  const [uploadingBanner, setUploadingBanner] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   async function handleBannerChange(e) {
     const file = e.target.files?.[0];
