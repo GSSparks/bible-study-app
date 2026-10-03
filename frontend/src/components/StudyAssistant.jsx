@@ -162,14 +162,16 @@ export default function StudyAssistant({
     const id = addConversation('chat', title, { module, reference });
     updateConversation(id, { loading: true, loadingLabel: 'Thinking…' });
     try {
-      const context = await api.buildContext({
-        sources: [{ module, reference, kind: 'bible', title: module }],
-        includeAllCommentaries: true,
-        includeWordStudies: true,
-      });
+      const context = module && reference
+        ? await api.buildContext({
+            sources: [{ module, reference, kind: 'bible', title: module }],
+            includeAllCommentaries: true,
+            includeWordStudies: true,
+          })
+        : { passages: [], notes: [] };
       const userMessage = { role: 'user', content: question };
       updateConversation(id, { messages: [userMessage] });
-      const res = await api.askAssistant({ context, messages: [userMessage] });
+      const res = await api.askAssistant({ context, messages: [userMessage], title });
       updateConversation(id, {
         messages: [userMessage, { role: 'assistant', content: res.reply }],
         sessionId: res.sessionId,
@@ -189,7 +191,7 @@ export default function StudyAssistant({
    * server-side rather than starting a new one. */
   function resumeSession(session) {
     if (!session) return;
-    const title = session.reference ? `${session.reference} (resumed)` : 'Resumed chat';
+    const title = session.title || (session.reference ? `${session.reference} (resumed)` : 'Resumed chat');
     const id = addConversation('chat', title, { module: session.module, reference: session.reference });
     updateConversation(id, { messages: session.messages || [], sessionId: session.id });
   }
@@ -316,15 +318,13 @@ export default function StudyAssistant({
         : conv.meta.module && conv.meta.reference
         ? [{ module: conv.meta.module, reference: conv.meta.reference, kind: 'bible', title: conv.meta.module }]
         : [];
-    if (effectiveSources.length === 0) return;
     const nextMessages = [...conv.messages, { role: 'user', content: input.trim() }];
     updateConversation(convId, { messages: nextMessages, loading: true, loadingLabel: 'Thinking…', error: null });
     setInput('');
     try {
-      const context = await api.buildContext({
-        sources: effectiveSources,
-        noteIds: conv.attachedNotes.map((n) => n.id),
-      });
+      const context = effectiveSources.length > 0
+        ? await api.buildContext({ sources: effectiveSources, noteIds: conv.attachedNotes.map((n) => n.id) })
+        : { passages: [], notes: [] };
       const res = await api.askAssistant({ context, messages: nextMessages, sessionId: conv.sessionId });
       updateConversation(convId, (c) => ({
         messages: [...c.messages, { role: 'assistant', content: res.reply }],

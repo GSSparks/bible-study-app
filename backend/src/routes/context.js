@@ -39,10 +39,10 @@ contextRouter.post('/build', async (req, res, next) => {
 });
 
 // POST /api/context/ask
-// { context, messages: [{ role: 'user', content: '...' }], sessionId? }
+// { context, messages: [{ role: 'user', content: '...' }], sessionId?, title? }
 contextRouter.post('/ask', async (req, res, next) => {
   try {
-    const { context, messages, sessionId } = req.body;
+    const { context, messages, sessionId, title } = req.body;
     if (!context || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'context and messages[] are required' });
     }
@@ -76,6 +76,7 @@ contextRouter.post('/ask', async (req, res, next) => {
           userId: req.user.id,
           reference: firstPassage?.reference || null,
           module: firstPassage?.module || null,
+          title: title || null,
           messages: updatedMessages,
           contextSnapshot: context,
         },

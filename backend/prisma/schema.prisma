@@ -67,6 +67,7 @@ model StudySession {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   reference       String?
   module          String?
+  title           String?
   messages        Json
   contextSnapshot Json?
   createdAt       DateTime @default(now())
