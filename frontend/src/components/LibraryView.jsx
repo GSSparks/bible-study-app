@@ -15,7 +15,8 @@ export default function LibraryView({ isLoggedIn }) {
   const [tab, setTab] = useState('Notes');
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full justify-center overflow-hidden">
+      <div className="flex h-full w-full max-w-5xl flex-col">
       <div className="flex border-b border-rule px-6 pt-4">
         {TABS.map((t) => (
           <button
@@ -35,6 +36,7 @@ export default function LibraryView({ isLoggedIn }) {
           <Library />
         </div>
       </div>
+      </div>{/* end max-w-5xl */}
     </div>
   );
 }

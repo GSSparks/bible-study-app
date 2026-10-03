@@ -311,7 +311,7 @@ export default function AICompanionView({
 
   return (
     <div className="flex h-full min-h-0">
-      <div className="min-h-0 flex-1 border-r border-rule">
+      <div className="min-h-0 flex-1">
         <StudyAssistant
           sources={[]}
           overviewRequest={overviewRequest}
@@ -324,7 +324,7 @@ export default function AICompanionView({
         />
       </div>
 
-      <aside className="flex w-72 shrink-0 flex-col overflow-y-auto border-l border-rule">
+      <aside className="flex w-72 shrink-0 flex-col overflow-y-auto">
         {/* Greeting header */}
         <div className="border-b border-rule px-5 py-6">
           {username ? (

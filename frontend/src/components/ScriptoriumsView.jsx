@@ -46,30 +46,30 @@ export default function ScriptoriumsView({ currentUserId, onOpenInPassages, onAs
   }
 
   return (
-    <div className="flex h-full flex-col p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-display text-2xl text-parchment">Scriptoriums</h2>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
-        >
-          + create a Scriptorium
-        </button>
-      </div>
-
-      <div className="mb-6 flex border-b border-rule">
-        {TABS.map((t) => (
+    <div className="h-full overflow-y-auto px-6 py-6">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-2xl text-parchment">Scriptoriums</h2>
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-4 py-2 text-sm ${tab === t.key ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+            onClick={() => setShowCreateModal(true)}
+            className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
           >
-            {t.label}
+            + create a Scriptorium
           </button>
-        ))}
-      </div>
+        </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mb-6 flex border-b border-rule">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-4 py-2 text-sm ${tab === t.key ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         {tab === 'discover' && <DiscoverTab onOpen={openDetail} refreshKey={refreshKey} />}
         {tab === 'mine' && <MineTab onOpen={openDetail} refreshKey={refreshKey} />}
         {tab === 'invites' && <InvitesTab refreshKey={refreshKey} onChange={bump} />}

@@ -125,6 +125,7 @@ export default function ChronicleView({ username, currentUserId, currentUsername
 
   return (
     <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-5xl">
       {/* Hero banner */}
       <div className="relative h-36 shrink-0 bg-ink">
         <div className="absolute inset-0 overflow-hidden">
@@ -261,6 +262,8 @@ export default function ChronicleView({ username, currentUserId, currentUsername
           <FellowsTab onViewProfile={onViewProfile} />
         )}
       </div>
+
+      </div>{/* end max-w-5xl */}
 
       {showEditModal && (
         <EditProfileModal

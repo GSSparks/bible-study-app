@@ -46,26 +46,21 @@ export default function StudiesView({ currentUserId, onOpenInPassages, onAskAiCo
   }
 
   return (
-    <div className="flex h-full flex-col p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-2xl text-parchment">Studies</h2>
-          {/* Group Studies belong to, and are only ever created within,
-              their Scriptorium — this page is a dashboard of everything
-              you're part of across all of them. Solo Studies have no
-              Scriptorium to live in, so this is their one and only home,
-              creation included. */}
-          <p className="text-xs text-muted">Your Studies, across every Scriptorium, plus any solo Studies of your own.</p>
+    <div className="h-full overflow-y-auto px-6 py-6">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-2xl text-parchment">Studies</h2>
+            <p className="text-xs text-muted">Your Studies, across every Scriptorium, plus any solo Studies of your own.</p>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
+          >
+            + start a solo study
+          </button>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
-        >
-          + start a solo study
-        </button>
-      </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
         <MyStudiesList onOpen={openDetail} refreshKey={refreshKey} />
       </div>
 
