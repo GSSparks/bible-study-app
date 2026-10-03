@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import StudyDetail from './StudyDetail.jsx';
 
-export default function StudiesView({ currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, pendingStudyOpen, onStudyOpenConsumed }) {
+export default function StudiesView({ currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, pendingStudyOpen, onStudyOpenConsumed, pendingStudyList, onStudyListConsumed }) {
   const [view, setView] = useState('list'); // 'list' | 'detail'
   const [selectedId, setSelectedId] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -19,6 +19,12 @@ export default function StudiesView({ currentUserId, onOpenInPassages, onAskAiCo
     openDetail(pendingStudyOpen.id);
     onStudyOpenConsumed?.();
   }, [pendingStudyOpen?.nonce]);
+
+  useEffect(() => {
+    if (!pendingStudyList) return;
+    backToList();
+    onStudyListConsumed?.();
+  }, [pendingStudyList?.nonce]);
 
   function backToList() {
     setView('list');

@@ -120,6 +120,7 @@ export default function AppShell({ auth }) {
   const [pendingAiOverview, setPendingAiOverview] = useState(null);
   const [pendingPhraseStudy, setPendingPhraseStudy] = useState(null);
   const [pendingStudyOpen, setPendingStudyOpen] = useState(null);
+  const [pendingStudyList, setPendingStudyList] = useState(null);
   const [profileUsername, setProfileUsername] = useState(null);
 
   function openInPassages(module, reference) {
@@ -144,6 +145,11 @@ export default function AppShell({ auth }) {
 
   function openStudy(id) {
     setPendingStudyOpen({ id, nonce: Date.now() });
+    setActiveView('studies');
+  }
+
+  function navigateToStudiesList() {
+    setPendingStudyList({ nonce: Date.now() });
     setActiveView('studies');
   }
 
@@ -183,7 +189,10 @@ export default function AppShell({ auth }) {
                 return (
                   <button
                     key={item.key}
-                    onClick={() => setActiveView(item.key)}
+                    onClick={() => {
+                      if (item.key === 'studies') navigateToStudiesList();
+                      else setActiveView(item.key);
+                    }}
                     className={`flex w-full items-center gap-3 px-5 py-2 text-left text-sm ${
                       active ? 'border-r-2 border-brass bg-panel text-brass' : 'text-muted hover:bg-panel hover:text-parchment'
                     }`}
@@ -250,7 +259,7 @@ export default function AppShell({ auth }) {
             currentUserId={auth.user?.id}
             currentUsername={auth.user?.username}
             onViewProfile={viewProfile}
-            onNavigateToStudies={() => setActiveView('studies')}
+            onNavigateToStudies={navigateToStudiesList}
             onOpenStudy={openStudy}
           />
         )}
@@ -290,6 +299,8 @@ export default function AppShell({ auth }) {
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
             pendingStudyOpen={pendingStudyOpen}
             onStudyOpenConsumed={() => setPendingStudyOpen(null)}
+            pendingStudyList={pendingStudyList}
+            onStudyListConsumed={() => setPendingStudyList(null)}
           />
         </div>
         {activeView !== 'cell' &&
