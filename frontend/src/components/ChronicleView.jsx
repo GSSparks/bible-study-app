@@ -3,6 +3,7 @@ import { Pencil, UserPlus, Check, Clock } from 'lucide-react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 import PostFeed from './PostFeed.jsx';
+import { getAvatarColor } from '../utils/avatar.js';
 
 export default function ChronicleView({ username, currentUserId, currentUsername, onBack, onViewProfile }) {
   const isOwnProfile = !username || username === currentUsername;
@@ -95,62 +96,75 @@ export default function ChronicleView({ username, currentUserId, currentUsername
   const { user, stats, connectionStatus } = profile;
   const displayName = user.displayName || user.username;
   const joinedDate = new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+  const bannerColor = getAvatarColor(user.username);
 
   return (
     <div className="h-full overflow-y-auto">
-      {!isOwnProfile && (
-        <div className="sticky top-0 z-10 border-b border-rule bg-ink/95 px-6 py-2 backdrop-blur">
-          <button onClick={onBack} className="text-xs text-muted hover:text-parchment">
+      {/* Hero banner */}
+      <div className="relative h-36 shrink-0 overflow-hidden bg-ink">
+        <div
+          className="absolute inset-0"
+          style={{ background: `radial-gradient(ellipse at 20% 70%, ${bannerColor}55 0%, transparent 60%)` }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: `radial-gradient(ellipse at 80% 30%, ${bannerColor}20 0%, transparent 55%)` }}
+        />
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-ink to-transparent" />
+
+        {!isOwnProfile && (
+          <button
+            onClick={onBack}
+            className="absolute left-6 top-4 z-10 text-xs text-parchment/60 hover:text-parchment"
+          >
             ‹ My Chronicle
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Profile header */}
-      <div className="border-b border-rule px-6 py-8">
-        <div className="flex items-start gap-5">
-          <Avatar username={user.username} size={80} />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="font-display text-2xl text-parchment">{displayName}</h2>
-                {user.displayName && <p className="text-sm text-muted">@{user.username}</p>}
-                <p className="mt-0.5 text-xs text-muted">Member since {joinedDate}</p>
-              </div>
-              {isOwnProfile ? (
-                <button
-                  onClick={() => setShowEditModal(true)}
-                  className="flex items-center gap-1.5 rounded border border-rule px-3 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment"
-                >
-                  <Pencil size={12} />
-                  Edit Chronicle
-                </button>
-              ) : (
-                <ConnectionButton
-                  status={connectionStatus}
-                  loading={actionLoading}
-                  onAction={handleConnectionAction}
-                  onDecline={handleDeclineRequest}
-                />
-              )}
-            </div>
-            <div className="mt-3">
-              {user.bio ? (
-                <p className="text-sm leading-relaxed text-parchment/80">{user.bio}</p>
-              ) : isOwnProfile ? (
-                <button
-                  onClick={() => setShowEditModal(true)}
-                  className="text-sm italic text-muted hover:text-parchment"
-                >
-                  Add a word about yourself…
-                </button>
-              ) : null}
-            </div>
+      {/* Profile header — avatar overlaps banner */}
+      <div className="border-b border-rule px-6 pb-6">
+        <div className="-mt-10 mb-4 flex items-end justify-between">
+          <Avatar username={user.username} size={80} className="ring-4 ring-ink" />
+          <div className="pb-1">
+            {isOwnProfile ? (
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="flex items-center gap-1.5 rounded-md border border-rule px-3 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment"
+              >
+                <Pencil size={12} />
+                Edit
+              </button>
+            ) : (
+              <ConnectionButton
+                status={connectionStatus}
+                loading={actionLoading}
+                onAction={handleConnectionAction}
+                onDecline={handleDeclineRequest}
+              />
+            )}
           </div>
         </div>
 
+        <h2 className="font-display text-2xl text-parchment">{displayName}</h2>
+        {user.displayName && <p className="mt-0.5 text-sm text-muted">@{user.username}</p>}
+        <p className="mt-0.5 text-xs text-muted">Member since {joinedDate}</p>
+
+        <div className="mt-3">
+          {user.bio ? (
+            <p className="text-sm leading-relaxed text-parchment/80">{user.bio}</p>
+          ) : isOwnProfile ? (
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="text-sm italic text-muted hover:text-parchment"
+            >
+              Add a word about yourself…
+            </button>
+          ) : null}
+        </div>
+
         {/* Stats band */}
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-5 flex flex-wrap gap-3">
           <StatCard value={stats.postCount} label="Entries" />
           <StatCard value={stats.fellowCount} label="Fellows" />
           {isOwnProfile && stats.noteCount !== null && (

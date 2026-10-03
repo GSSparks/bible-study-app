@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
+import { getAvatarColor } from '../utils/avatar.js';
 import PostFeed from './PostFeed.jsx';
 import ScriptoriumStudiesTab from './ScriptoriumStudiesTab.jsx';
 import StudyDetail from './StudyDetail.jsx';
@@ -587,32 +588,46 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
 
   const isOwner = scriptorium.myRole === 'owner';
   const isMember = scriptorium.isMember;
+  const bannerColor = getAvatarColor(scriptorium.name);
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-6">
-      <button onClick={onBack} className="mb-4 self-start text-xs text-muted hover:text-parchment">
-        ‹ back to Scriptoriums
-      </button>
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Hero banner */}
+      <div className="relative h-48 shrink-0 overflow-hidden bg-ink">
+        {/* Atmospheric colour glow */}
+        <div
+          className="absolute inset-0"
+          style={{ background: `radial-gradient(ellipse at 25% 65%, ${bannerColor}55 0%, transparent 65%)` }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: `radial-gradient(ellipse at 75% 30%, ${bannerColor}20 0%, transparent 55%)` }}
+        />
+        {/* Bottom fade for legibility */}
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-ink to-transparent" />
 
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="font-display text-2xl text-parchment">{scriptorium.name}</h2>
-          <p className="text-xs uppercase tracking-wide text-muted">{scriptorium.visibility}</p>
-          {scriptorium.description && <p className="mt-2 max-w-xl text-sm text-muted">{scriptorium.description}</p>}
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
+        {/* Back button */}
+        <button
+          onClick={onBack}
+          className="absolute left-6 top-4 z-10 text-xs text-parchment/60 hover:text-parchment"
+        >
+          ‹ Scriptoriums
+        </button>
+
+        {/* Action buttons */}
+        <div className="absolute right-6 top-3 z-10 flex flex-wrap gap-2">
           {isMember && (
             <button
               onClick={() => setShowInviteModal(true)}
-              className="rounded border border-rule px-3 py-1.5 text-xs hover:border-brass hover:text-parchment"
+              className="rounded-md border border-parchment/20 bg-ink/50 px-3 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment"
             >
-              invite a Fellow
+              invite
             </button>
           )}
           {isOwner && (
             <button
               onClick={() => setShowEditModal(true)}
-              className="rounded border border-rule px-3 py-1.5 text-xs hover:border-brass hover:text-parchment"
+              className="rounded-md border border-parchment/20 bg-ink/50 px-3 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment"
             >
               edit
             </button>
@@ -621,7 +636,7 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
             <button
               disabled={leaving}
               onClick={handleLeave}
-              className="rounded border border-rule px-3 py-1.5 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+              className="rounded-md border border-parchment/20 bg-ink/50 px-3 py-1.5 text-xs text-parchment/60 backdrop-blur-sm hover:border-red-400 hover:text-red-400 disabled:opacity-50"
             >
               {leaving ? '…' : 'leave'}
             </button>
@@ -630,73 +645,87 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
             <button
               disabled={deleting}
               onClick={handleDelete}
-              className="rounded border border-red-900 px-3 py-1.5 text-xs text-red-400 hover:border-red-400 disabled:opacity-50"
+              className="rounded-md border border-red-900/50 bg-ink/50 px-3 py-1.5 text-xs text-red-400/80 backdrop-blur-sm hover:border-red-400 hover:text-red-400 disabled:opacity-50"
             >
               {deleting ? '…' : 'delete'}
             </button>
           )}
         </div>
-      </div>
 
-      {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
-
-      <div className="mb-4 flex gap-4 border-b border-rule text-sm">
-        <button
-          onClick={() => setSection('wall')}
-          className={`pb-2 ${section === 'wall' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
-        >
-          Wall
-        </button>
-        <button
-          onClick={() => setSection('members')}
-          className={`pb-2 ${section === 'members' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
-        >
-          Members ({members.length})
-        </button>
-        <button
-          onClick={() => setSection('studies')}
-          className={`pb-2 ${section === 'studies' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
-        >
-          Studies
-        </button>
-      </div>
-
-      {section === 'wall' && (
-        <PostFeed
-          posts={wallPosts}
-          loading={wallLoading}
-          error={wallError}
-          canPost={isMember}
-          scriptoriumId={id}
-          currentUserId={currentUserId}
-          onRefresh={refreshWall}
-        />
-      )}
-
-      {section === 'members' && (
-        <div className="overflow-hidden rounded-md border border-rule">
-          {members.map((m) => (
-            <div key={m.membershipId} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">
-              <div className="flex items-center gap-2">
-                <Avatar username={m.username} size={24} />
-                <span className="text-parchment">{m.username}</span>
-                {m.role === 'owner' && <span className="text-xs text-brass">owner</span>}
-              </div>
-              {isOwner && m.role !== 'owner' && (
-                <button
-                  disabled={removingId === m.membershipId}
-                  onClick={() => handleRemoveMember(m.membershipId)}
-                  className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
-                >
-                  {removingId === m.membershipId ? '…' : 'remove'}
-                </button>
-              )}
-            </div>
-          ))}
+        {/* Title overlay */}
+        <div className="absolute bottom-0 left-0 z-10 px-6 pb-4">
+          <h2 className="font-display text-3xl text-parchment">{scriptorium.name}</h2>
+          <p className="mt-0.5 text-xs uppercase tracking-wider text-parchment/40">{scriptorium.visibility}</p>
         </div>
-      )}
+      </div>
 
-      {section === 'studies' && <ScriptoriumStudiesTab scriptoriumId={id} isMember={isMember} onOpenStudy={setOpenStudyId} />}
+      {/* Scrollable content */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="px-6 py-4">
+          {scriptorium.description && (
+            <p className="mb-4 max-w-xl text-sm leading-relaxed text-muted">{scriptorium.description}</p>
+          )}
+          {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
+
+          <div className="mb-4 flex gap-4 border-b border-rule text-sm">
+            <button
+              onClick={() => setSection('wall')}
+              className={`pb-2 ${section === 'wall' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+            >
+              Wall
+            </button>
+            <button
+              onClick={() => setSection('members')}
+              className={`pb-2 ${section === 'members' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+            >
+              Members ({members.length})
+            </button>
+            <button
+              onClick={() => setSection('studies')}
+              className={`pb-2 ${section === 'studies' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+            >
+              Studies
+            </button>
+          </div>
+
+          {section === 'wall' && (
+            <PostFeed
+              posts={wallPosts}
+              loading={wallLoading}
+              error={wallError}
+              canPost={isMember}
+              scriptoriumId={id}
+              currentUserId={currentUserId}
+              onRefresh={refreshWall}
+            />
+          )}
+
+          {section === 'members' && (
+            <div className="overflow-hidden rounded-lg border border-rule">
+              {members.map((m) => (
+                <div key={m.membershipId} className="flex items-center justify-between border-b border-rule px-4 py-2.5 text-sm last:border-0">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar username={m.username} size={28} />
+                    <span className="text-parchment">{m.username}</span>
+                    {m.role === 'owner' && <span className="text-xs text-brass">owner</span>}
+                  </div>
+                  {isOwner && m.role !== 'owner' && (
+                    <button
+                      disabled={removingId === m.membershipId}
+                      onClick={() => handleRemoveMember(m.membershipId)}
+                      className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                    >
+                      {removingId === m.membershipId ? '…' : 'remove'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {section === 'studies' && <ScriptoriumStudiesTab scriptoriumId={id} isMember={isMember} onOpenStudy={setOpenStudyId} />}
+        </div>
+      </div>
 
       {showInviteModal && (
         <InviteModal scriptoriumId={id} existingMemberIds={new Set(members.map((m) => m.id))} onClose={() => setShowInviteModal(false)} />
