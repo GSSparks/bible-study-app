@@ -5,7 +5,7 @@ import PostFeed from './PostFeed.jsx';
 import Avatar from './Avatar.jsx';
 import { getAvatarColor } from '../utils/avatar.js';
 
-export default function HomeView({ currentUserId, currentUsername, onViewProfile, onNavigateToStudies }) {
+export default function HomeView({ currentUserId, currentUsername, onViewProfile, onNavigateToStudies, onOpenStudy }) {
   const [profile, setProfile] = useState(null);
   const [studies, setStudies] = useState([]);
   const [posts, setPosts] = useState([]);
@@ -113,7 +113,11 @@ export default function HomeView({ currentUserId, currentUsername, onViewProfile
                   <p className="px-4 py-4 text-xs text-muted">No active studies.</p>
                 )}
                 {activeStudies.slice(0, 5).map((s) => (
-                  <div key={s.id} className="flex items-start gap-2.5 px-4 py-3">
+                  <button
+                    key={s.id}
+                    onClick={() => onOpenStudy?.(s.id)}
+                    className="flex w-full items-start gap-2.5 px-4 py-3 text-left hover:bg-ink/30"
+                  >
                     <BookOpen size={14} className="mt-0.5 shrink-0 text-brass/70" />
                     <div className="min-w-0">
                       <p className="truncate text-xs font-medium text-parchment">{s.title}</p>
@@ -121,7 +125,7 @@ export default function HomeView({ currentUserId, currentUsername, onViewProfile
                         {s.scriptoriumId ? 'Group' : 'Solo'} · {s.myRole}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>

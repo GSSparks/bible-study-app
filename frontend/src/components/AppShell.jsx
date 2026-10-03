@@ -119,6 +119,7 @@ export default function AppShell({ auth }) {
   const [pendingBibleOpen, setPendingBibleOpen] = useState(null);
   const [pendingAiOverview, setPendingAiOverview] = useState(null);
   const [pendingPhraseStudy, setPendingPhraseStudy] = useState(null);
+  const [pendingStudyOpen, setPendingStudyOpen] = useState(null);
   const [profileUsername, setProfileUsername] = useState(null);
 
   function openInPassages(module, reference) {
@@ -139,6 +140,11 @@ export default function AppShell({ auth }) {
   function askAiCompanionPhraseStudy(phrase, module, strongsSequence) {
     setPendingPhraseStudy({ phrase, module, strongsSequence, nonce: Date.now() });
     setActiveView('ai-companion');
+  }
+
+  function openStudy(id) {
+    setPendingStudyOpen({ id, nonce: Date.now() });
+    setActiveView('studies');
   }
 
   useEffect(() => {
@@ -245,6 +251,7 @@ export default function AppShell({ auth }) {
             currentUsername={auth.user?.username}
             onViewProfile={viewProfile}
             onNavigateToStudies={() => setActiveView('studies')}
+            onOpenStudy={openStudy}
           />
         )}
         {activeView === 'scriptoriums' && (
@@ -281,6 +288,8 @@ export default function AppShell({ auth }) {
             onOpenInPassages={openInPassages}
             onAskAiCompanionAbout={askAiCompanionAbout}
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
+            pendingStudyOpen={pendingStudyOpen}
+            onStudyOpenConsumed={() => setPendingStudyOpen(null)}
           />
         </div>
         {activeView !== 'cell' &&
