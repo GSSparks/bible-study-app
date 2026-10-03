@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, BookOpen, Box, FileText, Library as LibraryIcon, Sparkles, Bell, MessageCircle, UserCircle, Settings as SettingsIcon, Shield, Menu } from 'lucide-react';
 import CellView from './CellView.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
@@ -64,7 +65,18 @@ const NAV_GROUPS = [
 ];
 
 export default function AppShell({ auth }) {
-  const [activeView, setActiveView] = useState('cell');
+  const location = useLocation();
+  const routerNavigate = useNavigate();
+
+  // Derive view + sub-param from URL rather than tracking in state.
+  // pathParts[0] is the view key (e.g. "chronicle", "studies");
+  // pathParts[1] is the sub-param when present (username, studyId).
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const activeView = pathParts[0] || 'cell';
+  const locationSub = pathParts[1] ?? null;
+  const profileUsername = activeView === 'chronicle' ? locationSub : null;
+  const urlStudyId = activeView === 'studies' ? locationSub : null;
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
@@ -96,36 +108,16 @@ export default function AppShell({ auth }) {
     }
   }
 
-  // Cross-view deep links — e.g. "open this passage in Passages" or
-  // "ask AI Companion about this passage" from a Study lesson. Each is
-  // a one-shot {module, reference, nonce} request: the nonce (rather
-  // than the raw module/reference) is what the receiving view actually
-  // watches, since it changes on every single request even when the
-  // module/reference are identical to the last one — a plain value
-  // comparison would silently swallow "open the same verse again" as a
-  // no-op. Same pattern StudyMode/StudyAssistant already use internally
-  // for their own request props (overviewRequest, wordStudyRequest,
-  // etc.) — this just extends it one level up, across views.
-  //
-  // Each consumer clears its own pending request once handled (via the
-  // clear* functions below), not just relies on the nonce comparison —
-  // Passages stays permanently mounted so nonce-based dedup alone was
-  // enough there, but AI Companion is still conditionally rendered
-  // (unmounted every time you navigate away from it). Without an
-  // explicit clear, a stale pending request sitting in this state would
-  // still be here — non-null, with its old nonce — the next time AI
-  // Companion remounts, and a *fresh* component instance has no memory
-  // of already having handled that nonce, so it would silently re-fire
-  // the same question against the LLM a second time.
+  // Cross-view deep links for CellView and AI Companion remain nonce-
+  // based because those views don't have URL sub-params — the passage
+  // open request and AI question are transient actions, not shareable
+  // addresses. Studies deep-links now go through the URL instead.
   const [pendingBibleOpen, setPendingBibleOpen] = useState(null);
   const [pendingAiOverview, setPendingAiOverview] = useState(null);
   const [pendingPhraseStudy, setPendingPhraseStudy] = useState(null);
-  const [pendingStudyOpen, setPendingStudyOpen] = useState(null);
-  const [pendingStudyList, setPendingStudyList] = useState(null);
-  const [profileUsername, setProfileUsername] = useState(null);
 
   function navigate(key) {
-    setActiveView(key);
+    routerNavigate('/' + key);
     setDrawerOpen(false);
   }
 
@@ -140,8 +132,12 @@ export default function AppShell({ auth }) {
   }
 
   function viewProfile(username) {
-    setProfileUsername(username === auth.user?.username ? null : username);
-    navigate('chronicle');
+    if (username === auth.user?.username) {
+      routerNavigate('/chronicle');
+    } else {
+      routerNavigate('/chronicle/' + encodeURIComponent(username));
+    }
+    setDrawerOpen(false);
   }
 
   function askAiCompanionPhraseStudy(phrase, module, strongsSequence) {
@@ -150,13 +146,13 @@ export default function AppShell({ auth }) {
   }
 
   function openStudy(id) {
-    setPendingStudyOpen({ id, nonce: Date.now() });
-    navigate('studies');
+    routerNavigate('/studies/' + id);
+    setDrawerOpen(false);
   }
 
   function navigateToStudiesList() {
-    setPendingStudyList({ nonce: Date.now() });
-    navigate('studies');
+    routerNavigate('/studies');
+    setDrawerOpen(false);
   }
 
   useEffect(() => {
@@ -263,7 +259,7 @@ export default function AppShell({ auth }) {
         <div className={activeView === 'cell' ? 'h-full' : 'hidden'}>
           <CellView
             auth={auth}
-            onNavigateToLibrary={() => setActiveView('library')}
+            onNavigateToLibrary={() => navigate('library')}
             pendingBibleOpen={pendingBibleOpen}
             onBibleOpenConsumed={() => setPendingBibleOpen(null)}
             defaultBibleModule={defaultBibleModule}
@@ -302,7 +298,7 @@ export default function AppShell({ auth }) {
             username={profileUsername}
             currentUserId={auth.user?.id}
             currentUsername={auth.user?.username}
-            onBack={profileUsername ? () => setProfileUsername(null) : null}
+            onBack={profileUsername ? () => navigate('chronicle') : null}
             onViewProfile={viewProfile}
           />
         )}
@@ -320,13 +316,12 @@ export default function AppShell({ auth }) {
         <div className={activeView === 'studies' ? 'h-full' : 'hidden'}>
           <StudiesView
             currentUserId={auth.user?.id}
+            urlStudyId={urlStudyId}
+            onOpenStudy={(id) => { routerNavigate('/studies/' + id); setDrawerOpen(false); }}
+            onBackToList={() => routerNavigate('/studies')}
             onOpenInPassages={openInPassages}
             onAskAiCompanionAbout={askAiCompanionAbout}
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
-            pendingStudyOpen={pendingStudyOpen}
-            onStudyOpenConsumed={() => setPendingStudyOpen(null)}
-            pendingStudyList={pendingStudyList}
-            onStudyListConsumed={() => setPendingStudyList(null)}
           />
         </div>
         {activeView !== 'cell' &&

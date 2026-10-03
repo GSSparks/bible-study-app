@@ -1,43 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { api } from '../api/client.js';
 import StudyDetail from './StudyDetail.jsx';
 
-export default function StudiesView({ currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, pendingStudyOpen, onStudyOpenConsumed, pendingStudyList, onStudyListConsumed }) {
-  const [view, setView] = useState('list'); // 'list' | 'detail'
-  const [selectedId, setSelectedId] = useState(null);
+export default function StudiesView({ currentUserId, urlStudyId, onOpenStudy, onBackToList, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = () => setRefreshKey((k) => k + 1);
 
-  function openDetail(id) {
-    setSelectedId(id);
-    setView('detail');
-  }
-
-  useEffect(() => {
-    if (!pendingStudyOpen) return;
-    openDetail(pendingStudyOpen.id);
-    onStudyOpenConsumed?.();
-  }, [pendingStudyOpen?.nonce]);
-
-  useEffect(() => {
-    if (!pendingStudyList) return;
-    backToList();
-    onStudyListConsumed?.();
-  }, [pendingStudyList?.nonce]);
-
-  function backToList() {
-    setView('list');
-    setSelectedId(null);
-    bump(); // in case membership/lessons changed while in detail
-  }
-
-  if (view === 'detail' && selectedId) {
+  if (urlStudyId) {
     return (
       <StudyDetail
-        studyId={selectedId}
+        studyId={urlStudyId}
         currentUserId={currentUserId}
-        onBack={backToList}
+        onBack={() => { bump(); onBackToList(); }}
         onOpenInPassages={onOpenInPassages}
         onAskAiCompanionAbout={onAskAiCompanionAbout}
         onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
@@ -61,7 +36,7 @@ export default function StudiesView({ currentUserId, onOpenInPassages, onAskAiCo
           </button>
         </div>
 
-        <MyStudiesList onOpen={openDetail} refreshKey={refreshKey} />
+        <MyStudiesList onOpen={onOpenStudy} refreshKey={refreshKey} />
       </div>
 
       {showCreateModal && (
@@ -69,8 +44,7 @@ export default function StudiesView({ currentUserId, onOpenInPassages, onAskAiCo
           onClose={() => setShowCreateModal(false)}
           onCreated={(id) => {
             setShowCreateModal(false);
-            bump();
-            openDetail(id);
+            onOpenStudy(id);
           }}
         />
       )}
