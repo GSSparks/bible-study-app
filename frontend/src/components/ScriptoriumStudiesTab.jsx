@@ -1,13 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
-import { CreateStudyModal } from './StudiesView.jsx';
 
-/** A new third section alongside Wall/Members inside ScriptoriumDetail
- * — mirrors the mockup's "Active Studies" sidebar list, scoped to
- * this Scriptorium. Any member can create a study within it (matches
- * the same "any member can contribute" pattern already used for
- * invites and wall posts), not just the Scriptorium's owner.
- */
 export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenStudy }) {
   const [studies, setStudies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +26,7 @@ export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenS
             onClick={() => setShowCreateModal(true)}
             className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
           >
-            + create a study
+            + new study
           </button>
         </div>
       )}
@@ -46,21 +39,20 @@ export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenS
           <button
             key={s.id}
             onClick={() => onOpenStudy(s.id)}
-            className="block w-full rounded-md border border-rule bg-panel p-3 text-left hover:border-brass"
+            className="block w-full rounded-md border border-rule bg-panel p-4 text-left transition-colors hover:border-brass/60"
           >
             <div className="font-display text-sm text-parchment">{s.title}</div>
-            {s.description && <div className="text-xs text-muted">{s.description}</div>}
+            {s.description && <div className="mt-0.5 text-xs text-muted">{s.description}</div>}
           </button>
         ))}
-        {!loading && studies.length === 0 && <p className="text-sm text-muted">No studies in this Scriptorium yet.</p>}
+        {!loading && studies.length === 0 && (
+          <p className="text-sm text-muted">No studies in this Scriptorium yet.</p>
+        )}
       </div>
 
       {showCreateModal && (
-        // Reuses the same CreateStudyModal built for the global Studies
-        // page, pre-filled with this Scriptorium so the leader doesn't
-        // have to pick it again from a dropdown.
         <CreateStudyModal
-          defaultScriptoriumId={scriptoriumId}
+          scriptoriumId={scriptoriumId}
           onClose={() => setShowCreateModal(false)}
           onCreated={(id) => {
             setShowCreateModal(false);
@@ -69,6 +61,67 @@ export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenS
           }}
         />
       )}
+    </div>
+  );
+}
+
+function CreateStudyModal({ scriptoriumId, onClose, onCreated }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const created = await api.createStudy({ title, description, scriptoriumId });
+      onCreated(created.id);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-lg">New Study</h2>
+          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">close</button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Title</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+              className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Description (optional)</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
+            />
+          </div>
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting || !title.trim()}
+            className="w-full rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50"
+          >
+            {submitting ? 'creating…' : 'create'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

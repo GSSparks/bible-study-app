@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Camera, Search } from 'lucide-react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 import { getAvatarColor } from '../utils/avatar.js';
@@ -7,36 +8,18 @@ import PostFeed from './PostFeed.jsx';
 import ScriptoriumStudiesTab from './ScriptoriumStudiesTab.jsx';
 import StudyDetail from './StudyDetail.jsx';
 
-const TABS = [
-  { key: 'discover', label: 'Discover' },
-  { key: 'mine', label: 'My Scriptoriums' },
-  { key: 'invites', label: 'Invites' },
-];
-
-export default function ScriptoriumsView({ currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
-  const [view, setView] = useState('list'); // 'list' | 'detail'
-  const [selectedId, setSelectedId] = useState(null);
-  const [tab, setTab] = useState('discover');
+export default function ScriptoriumsView({ currentUserId, urlScriptoriumId, urlStudyId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
+  const routerNavigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = () => setRefreshKey((k) => k + 1);
 
-  function openDetail(id) {
-    setSelectedId(id);
-    setView('detail');
-  }
-
-  function backToList() {
-    setView('list');
-    setSelectedId(null);
-    bump(); // in case membership changed while in detail (joined/left/deleted)
-  }
-
-  if (view === 'detail' && selectedId) {
+  if (urlScriptoriumId) {
     return (
       <ScriptoriumDetail
-        id={selectedId}
-        onBack={backToList}
+        id={urlScriptoriumId}
+        urlStudyId={urlStudyId}
+        onBack={() => { bump(); routerNavigate('/scriptoriums'); }}
         currentUserId={currentUserId}
         onOpenInPassages={onOpenInPassages}
         onAskAiCompanionAbout={onAskAiCompanionAbout}
@@ -48,31 +31,11 @@ export default function ScriptoriumsView({ currentUserId, onOpenInPassages, onAs
   return (
     <div className="h-full overflow-y-auto px-6 py-6">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-2xl text-parchment">Scriptoriums</h2>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
-          >
-            + create a Scriptorium
-          </button>
-        </div>
-
-        <div className="mb-6 flex border-b border-rule">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-4 py-2 text-sm ${tab === t.key ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'discover' && <DiscoverTab onOpen={openDetail} refreshKey={refreshKey} />}
-        {tab === 'mine' && <MineTab onOpen={openDetail} refreshKey={refreshKey} />}
-        {tab === 'invites' && <InvitesTab refreshKey={refreshKey} onChange={bump} />}
+        <ScriptoriumsList
+          onOpen={(id) => routerNavigate('/scriptoriums/' + id)}
+          refreshKey={refreshKey}
+          onRequestCreate={() => setShowCreateModal(true)}
+        />
       </div>
 
       {showCreateModal && (
@@ -81,7 +44,7 @@ export default function ScriptoriumsView({ currentUserId, onOpenInPassages, onAs
           onCreated={(id) => {
             setShowCreateModal(false);
             bump();
-            openDetail(id);
+            routerNavigate('/scriptoriums/' + id);
           }}
         />
       )}
@@ -89,127 +52,57 @@ export default function ScriptoriumsView({ currentUserId, onOpenInPassages, onAs
   );
 }
 
-function DiscoverTab({ onOpen, refreshKey }) {
-  const [scriptoriums, setScriptoriums] = useState([]);
+function ScriptoriumsList({ onOpen, refreshKey, onRequestCreate }) {
+  const [mine, setMine] = useState([]);
+  const [publicList, setPublicList] = useState([]);
+  const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState('');
   const [joining, setJoining] = useState(null);
+  const [busy, setBusy] = useState(null);
 
   function refresh() {
     setLoading(true);
-    api
-      .listPublicScriptoriums()
-      .then(setScriptoriums)
+    Promise.all([
+      api.listMyScriptoriums(),
+      api.listPublicScriptoriums(),
+      api.listScriptoriumInvites(),
+    ])
+      .then(([m, p, i]) => { setMine(m); setPublicList(p); setInvites(i); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }
 
   useEffect(refresh, [refreshKey]);
+
+  const q = search.toLowerCase();
+  const myIds = new Set(mine.map((s) => s.id));
+
+  const filteredMine = mine.filter(
+    (s) => !q || s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q)
+  );
+  const filteredBrowse = publicList
+    .filter((s) => !myIds.has(s.id))
+    .filter((s) => !q || s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q));
 
   async function handleJoin(id) {
     setJoining(id);
     try {
       await api.joinScriptorium(id);
       refresh();
+      onOpen(id);
     } catch (e) {
       setError(e.message);
-    } finally {
       setJoining(null);
     }
   }
 
-  if (loading) return <p className="text-sm text-muted">Loading…</p>;
-  if (error) return <p className="text-sm text-red-400">{error}</p>;
-
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {scriptoriums.map((s) => (
-        <div key={s.id} className="flex flex-col rounded-lg border border-rule bg-panel p-5 transition-colors hover:border-brass/50">
-          <button onClick={() => onOpen(s.id)} className="mb-1 block text-left font-display text-lg text-parchment hover:text-brass">
-            {s.name}
-          </button>
-          {s.description && <p className="mb-4 flex-1 text-xs leading-relaxed text-muted">{s.description}</p>}
-          {!s.description && <div className="flex-1" />}
-          <div className="mt-2">
-            {s.isMember ? (
-              <button
-                onClick={() => onOpen(s.id)}
-                className="rounded-md border border-rule px-3 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment"
-              >
-                open
-              </button>
-            ) : (
-              <button
-                disabled={joining === s.id}
-                onClick={() => handleJoin(s.id)}
-                className="rounded-md bg-verdigris/80 px-3 py-1.5 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
-              >
-                {joining === s.id ? 'joining…' : 'join'}
-              </button>
-            )}
-          </div>
-        </div>
-      ))}
-      {scriptoriums.length === 0 && <p className="text-sm text-muted">No public Scriptoriums yet — be the first to create one.</p>}
-    </div>
-  );
-}
-
-function MineTab({ onOpen, refreshKey }) {
-  const [scriptoriums, setScriptoriums] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    setLoading(true);
-    api
-      .listMyScriptoriums()
-      .then(setScriptoriums)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [refreshKey]);
-
-  if (loading) return <p className="text-sm text-muted">Loading…</p>;
-  if (error) return <p className="text-sm text-red-400">{error}</p>;
-
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {scriptoriums.map((s) => (
-        <button key={s.id} onClick={() => onOpen(s.id)} className="rounded-lg border border-rule bg-panel p-5 text-left transition-colors hover:border-brass/60 hover:bg-panel">
-          <div className="mb-1.5 font-display text-lg text-parchment">{s.name}</div>
-          <div className="text-xs uppercase tracking-wide text-muted">
-            {s.visibility} · {s.myRole}
-          </div>
-        </button>
-      ))}
-      {scriptoriums.length === 0 && <p className="text-sm text-muted">You're not part of any Scriptoriums yet.</p>}
-    </div>
-  );
-}
-
-function InvitesTab({ refreshKey, onChange }) {
-  const [invites, setInvites] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(null);
-
-  function refresh() {
-    setLoading(true);
-    api
-      .listScriptoriumInvites()
-      .then(setInvites)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(refresh, [refreshKey]);
-
-  async function handleAccept(inviteId) {
+  async function handleAcceptInvite(inviteId) {
     setBusy(inviteId);
     try {
       await api.acceptScriptoriumInvite(inviteId);
       refresh();
-      onChange();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -217,7 +110,7 @@ function InvitesTab({ refreshKey, onChange }) {
     }
   }
 
-  async function handleDecline(inviteId) {
+  async function handleDeclineInvite(inviteId) {
     setBusy(inviteId);
     try {
       await api.declineScriptoriumInvite(inviteId);
@@ -229,36 +122,132 @@ function InvitesTab({ refreshKey, onChange }) {
     }
   }
 
-  if (loading) return <p className="text-sm text-muted">Loading…</p>;
-  if (error) return <p className="text-sm text-red-400">{error}</p>;
-
   return (
-    <div className="overflow-hidden rounded-md border border-rule">
-      {invites.map((i) => (
-        <div key={i.inviteId} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">
-          <div>
-            <div className="text-parchment">{i.name}</div>
-            <div className="text-xs text-muted">invited by {i.invitedBy}</div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              disabled={busy === i.inviteId}
-              onClick={() => handleAccept(i.inviteId)}
-              className="rounded bg-verdigris/80 px-2 py-1 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
-            >
-              accept
-            </button>
-            <button
-              disabled={busy === i.inviteId}
-              onClick={() => handleDecline(i.inviteId)}
-              className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
-            >
-              decline
-            </button>
+    <div>
+      {/* Search + create */}
+      <div className="mb-6 flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search Scriptoriums…"
+            className="w-full rounded-md border border-rule bg-panel py-2 pl-9 pr-3 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+          />
+        </div>
+        <button
+          onClick={onRequestCreate}
+          className="shrink-0 rounded bg-brass/90 px-3 py-2 text-xs font-medium text-ink hover:bg-brass"
+        >
+          + new
+        </button>
+      </div>
+
+      {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
+      {loading && <p className="text-sm text-muted">Loading…</p>}
+
+      {/* Pending invites */}
+      {!loading && invites.length > 0 && (
+        <div className="mb-8 rounded-lg border border-brass/30 bg-brass/5 p-4">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brass">
+            Pending Invites
+          </p>
+          <div className="space-y-2.5">
+            {invites.map((i) => (
+              <div key={i.inviteId} className="flex items-center justify-between text-sm">
+                <div>
+                  <span className="text-parchment">{i.name}</span>
+                  <span className="ml-2 text-xs text-muted">from {i.invitedBy}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    disabled={busy === i.inviteId}
+                    onClick={() => handleAcceptInvite(i.inviteId)}
+                    className="rounded bg-verdigris/80 px-2.5 py-1 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
+                  >
+                    accept
+                  </button>
+                  <button
+                    disabled={busy === i.inviteId}
+                    onClick={() => handleDeclineInvite(i.inviteId)}
+                    className="rounded border border-rule px-2.5 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                  >
+                    decline
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      ))}
-      {invites.length === 0 && <p className="p-3 text-sm text-muted">No pending invites.</p>}
+      )}
+
+      {!loading && (
+        <>
+          {/* My Scriptoriums */}
+          <section className="mb-8">
+            <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted">My Scriptoriums</h3>
+            {filteredMine.length > 0 ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredMine.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => onOpen(s.id)}
+                    className="rounded-lg border border-rule bg-panel p-5 text-left transition-colors hover:border-brass/60"
+                  >
+                    <div className="mb-1 font-display text-base text-parchment">{s.name}</div>
+                    {s.description && (
+                      <p className="mb-2 line-clamp-2 text-xs leading-relaxed text-muted">{s.description}</p>
+                    )}
+                    <div className="text-xs uppercase tracking-wide text-muted/70">
+                      {s.visibility} · {s.myRole}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">
+                {search
+                  ? 'No matches in your Scriptoriums.'
+                  : "You're not in any Scriptoriums yet — browse below or create your own."}
+              </p>
+            )}
+          </section>
+
+          {/* Browse public */}
+          {(filteredBrowse.length > 0 || (!search && publicList.filter((s) => !myIds.has(s.id)).length > 0)) && (
+            <section>
+              <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Browse</h3>
+              {filteredBrowse.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredBrowse.map((s) => (
+                    <div key={s.id} className="flex flex-col rounded-lg border border-rule bg-panel p-5">
+                      <button
+                        onClick={() => onOpen(s.id)}
+                        className="mb-1 block text-left font-display text-base text-parchment hover:text-brass"
+                      >
+                        {s.name}
+                      </button>
+                      {s.description && (
+                        <p className="mb-3 line-clamp-2 flex-1 text-xs leading-relaxed text-muted">{s.description}</p>
+                      )}
+                      {!s.description && <div className="flex-1" />}
+                      <button
+                        disabled={joining === s.id}
+                        onClick={() => handleJoin(s.id)}
+                        className="mt-2 self-start rounded bg-verdigris/80 px-3 py-1.5 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
+                      >
+                        {joining === s.id ? 'joining…' : 'join'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted">No public Scriptoriums match your search.</p>
+              )}
+            </section>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -314,9 +303,7 @@ function CreateModal({ onClose, onCreated }) {
       <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg">Create a Scriptorium</h2>
-          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
-            close
-          </button>
+          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">close</button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
@@ -346,7 +333,7 @@ function CreateModal({ onClose, onCreated }) {
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !name.trim()}
             className="w-full rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50"
           >
             {submitting ? 'creating…' : 'create'}
@@ -383,9 +370,7 @@ function EditModal({ scriptorium, onClose, onSaved }) {
       <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg">Edit Scriptorium</h2>
-          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
-            close
-          </button>
+          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">close</button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
@@ -433,11 +418,7 @@ function InviteModal({ scriptoriumId, existingMemberIds, onClose }) {
   const [sentTo, setSentTo] = useState(new Set());
 
   useEffect(() => {
-    api
-      .listConnections()
-      .then(setFellows)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+    api.listConnections().then(setFellows).catch((e) => setError(e.message)).finally(() => setLoading(false));
   }, []);
 
   async function handleInvite(username) {
@@ -460,9 +441,7 @@ function InviteModal({ scriptoriumId, existingMemberIds, onClose }) {
       <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg">Invite a Fellow</h2>
-          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
-            close
-          </button>
+          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">close</button>
         </div>
         {loading && <p className="text-sm text-muted">Loading…</p>}
         {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
@@ -492,8 +471,8 @@ function InviteModal({ scriptoriumId, existingMemberIds, onClose }) {
   );
 }
 
-function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
-  const [openStudyId, setOpenStudyId] = useState(null);
+function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
+  const routerNavigate = useNavigate();
   const [scriptorium, setScriptorium] = useState(null);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -503,7 +482,7 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
   const [leaving, setLeaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [removingId, setRemovingId] = useState(null);
-  const [section, setSection] = useState('wall'); // 'wall' | 'members' | 'studies'
+  const [section, setSection] = useState('wall');
   const [wallPosts, setWallPosts] = useState([]);
   const [wallLoading, setWallLoading] = useState(true);
   const [wallError, setWallError] = useState(null);
@@ -515,10 +494,7 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
     setLoading(true);
     setError(null);
     Promise.all([api.getScriptorium(id), api.listScriptoriumMembers(id)])
-      .then(([s, m]) => {
-        setScriptorium(s);
-        setMembers(m);
-      })
+      .then(([s, m]) => { setScriptorium(s); setMembers(m); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }
@@ -526,8 +502,7 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
   function refreshWall() {
     setWallLoading(true);
     setWallError(null);
-    api
-      .getScriptoriumWall(id)
+    api.getScriptoriumWall(id)
       .then((data) => setWallPosts(data.posts))
       .catch((e) => setWallError(e.message))
       .finally(() => setWallLoading(false));
@@ -539,61 +514,22 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
 
   async function handleLeave() {
     setLeaving(true);
-    try {
-      await api.leaveScriptorium(id);
-      onBack();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLeaving(false);
-    }
+    try { await api.leaveScriptorium(id); onBack(); }
+    catch (e) { setError(e.message); setLeaving(false); }
   }
 
   async function handleDelete() {
     setDeleting(true);
-    try {
-      await api.deleteScriptorium(id);
-      onBack();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setDeleting(false);
-    }
+    try { await api.deleteScriptorium(id); onBack(); }
+    catch (e) { setError(e.message); setDeleting(false); }
   }
 
   async function handleRemoveMember(membershipId) {
     setRemovingId(membershipId);
-    try {
-      await api.removeScriptoriumMember(id, membershipId);
-      refresh();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setRemovingId(null);
-    }
+    try { await api.removeScriptoriumMember(id, membershipId); refresh(); }
+    catch (e) { setError(e.message); }
+    finally { setRemovingId(null); }
   }
-
-  if (loading) return <p className="p-6 text-sm text-muted">Loading…</p>;
-  if (error && !scriptorium) return <p className="p-6 text-sm text-red-400">{error}</p>;
-  if (!scriptorium) return null;
-
-  if (openStudyId) {
-    return (
-      <StudyDetail
-        studyId={openStudyId}
-        currentUserId={currentUserId}
-        onBack={() => setOpenStudyId(null)}
-        backLabel={scriptorium.name}
-        onOpenInPassages={onOpenInPassages}
-        onAskAiCompanionAbout={onAskAiCompanionAbout}
-        onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
-      />
-    );
-  }
-
-  const isOwner = scriptorium.myRole === 'owner';
-  const isMember = scriptorium.isMember;
-  const bannerColor = getAvatarColor(scriptorium.name);
 
   async function handleBannerChange(e) {
     const file = e.target.files?.[0];
@@ -608,6 +544,30 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
     }
   }
 
+  if (loading) return <p className="p-6 text-sm text-muted">Loading…</p>;
+  if (error && !scriptorium) return <p className="p-6 text-sm text-red-400">{error}</p>;
+  if (!scriptorium) return null;
+
+  // Study detail — nested within this Scriptorium context so we have
+  // the name for the back label without an extra fetch.
+  if (urlStudyId) {
+    return (
+      <StudyDetail
+        studyId={urlStudyId}
+        currentUserId={currentUserId}
+        onBack={() => routerNavigate('/scriptoriums/' + id)}
+        backLabel={scriptorium.name}
+        onOpenInPassages={onOpenInPassages}
+        onAskAiCompanionAbout={onAskAiCompanionAbout}
+        onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+      />
+    );
+  }
+
+  const isOwner = scriptorium.myRole === 'owner';
+  const isMember = scriptorium.isMember;
+  const bannerColor = getAvatarColor(scriptorium.name);
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Hero banner */}
@@ -621,19 +581,13 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
               <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 75% 30%, ${bannerColor}20 0%, transparent 55%)` }} />
             </>
           )}
-          {/* Bottom fade for legibility */}
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-ink to-transparent" />
         </div>
 
-        {/* Back button */}
-        <button
-          onClick={onBack}
-          className="absolute left-6 top-4 z-10 text-xs text-parchment/60 hover:text-parchment"
-        >
+        <button onClick={onBack} className="absolute left-6 top-4 z-10 text-xs text-parchment/60 hover:text-parchment">
           ‹ Scriptoriums
         </button>
 
-        {/* Action buttons */}
         <div className="absolute right-6 top-3 z-10 flex flex-wrap gap-2">
           {isOwner && (
             <>
@@ -684,7 +638,6 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
           )}
         </div>
 
-        {/* Title overlay */}
         <div className="absolute bottom-0 left-0 z-10 px-6 pb-4">
           <h2 className="font-display text-3xl text-parchment">{scriptorium.name}</h2>
           <p className="mt-0.5 text-xs uppercase tracking-wider text-parchment/40">{scriptorium.visibility}</p>
@@ -700,24 +653,15 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
           {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
 
           <div className="mb-4 flex gap-4 border-b border-rule text-sm">
-            <button
-              onClick={() => setSection('wall')}
-              className={`pb-2 ${section === 'wall' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
-            >
-              Wall
-            </button>
-            <button
-              onClick={() => setSection('members')}
-              className={`pb-2 ${section === 'members' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
-            >
-              Members ({members.length})
-            </button>
-            <button
-              onClick={() => setSection('studies')}
-              className={`pb-2 ${section === 'studies' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
-            >
-              Studies
-            </button>
+            {['wall', 'studies', 'members'].map((s) => (
+              <button
+                key={s}
+                onClick={() => setSection(s)}
+                className={`pb-2 capitalize ${section === s ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+              >
+                {s === 'members' ? `Members (${members.length})` : s}
+              </button>
+            ))}
           </div>
 
           {section === 'wall' && (
@@ -755,24 +699,30 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
             </div>
           )}
 
-          {section === 'studies' && <ScriptoriumStudiesTab scriptoriumId={id} isMember={isMember} onOpenStudy={setOpenStudyId} />}
+          {section === 'studies' && (
+            <ScriptoriumStudiesTab
+              scriptoriumId={id}
+              isMember={isMember}
+              onOpenStudy={(studyId) => routerNavigate('/scriptoriums/' + id + '/studies/' + studyId)}
+            />
+          )}
         </div>
       </div>
 
       {showInviteModal && (
-        <InviteModal scriptoriumId={id} existingMemberIds={new Set(members.map((m) => m.id))} onClose={() => setShowInviteModal(false)} />
+        <InviteModal
+          scriptoriumId={id}
+          existingMemberIds={new Set(members.map((m) => m.id))}
+          onClose={() => setShowInviteModal(false)}
+        />
       )}
       {showEditModal && (
         <EditModal
           scriptorium={scriptorium}
           onClose={() => setShowEditModal(false)}
-          onSaved={() => {
-            setShowEditModal(false);
-            refresh();
-          }}
+          onSaved={() => { setShowEditModal(false); refresh(); }}
         />
       )}
     </div>
   );
 }
-export { ScriptoriumDetail };

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Box, FileText, Library as LibraryIcon, Sparkles, Bell, MessageCircle, UserCircle, Settings as SettingsIcon, Shield, Menu } from 'lucide-react';
+import { Home, BookOpen, Box, Library as LibraryIcon, Sparkles, Bell, MessageCircle, UserCircle, Settings as SettingsIcon, Shield, Menu } from 'lucide-react';
 import CellView from './CellView.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
@@ -10,7 +10,6 @@ import HomeView from './HomeView.jsx';
 import ChronicleView from './ChronicleView.jsx';
 import LibraryView from './LibraryView.jsx';
 import AICompanionView from './AICompanionView.jsx';
-import StudiesView from './StudiesView.jsx';
 import LoginModal from './LoginModal.jsx';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
 import UserMenu from './UserMenu.jsx';
@@ -40,7 +39,6 @@ const NAV_GROUPS = [
       Icon: Box,
       requiresAuth: true,
     },
-    { key: 'studies', label: 'Studies', Icon: FileText, requiresAuth: true },
     { key: 'library', label: 'Library', Icon: LibraryIcon },
     { key: 'ai-companion', label: 'AI Companion', Icon: Sparkles },
   ],
@@ -75,7 +73,9 @@ export default function AppShell({ auth }) {
   const activeView = pathParts[0] || 'cell';
   const locationSub = pathParts[1] ?? null;
   const profileUsername = activeView === 'chronicle' ? locationSub : null;
-  const urlStudyId = activeView === 'studies' ? locationSub : null;
+  // /scriptoriums/:scriptoriumId/studies/:studyId
+  const urlScriptoriumId = activeView === 'scriptoriums' ? locationSub : null;
+  const urlStudyId = activeView === 'scriptoriums' && pathParts[2] === 'studies' ? pathParts[3] ?? null : null;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -145,13 +145,17 @@ export default function AppShell({ auth }) {
     navigate('ai-companion');
   }
 
-  function openStudy(id) {
-    routerNavigate('/studies/' + id);
+  function openStudy(scriptoriumId, studyId) {
+    if (scriptoriumId) {
+      routerNavigate('/scriptoriums/' + scriptoriumId + '/studies/' + studyId);
+    } else {
+      routerNavigate('/scriptoriums');
+    }
     setDrawerOpen(false);
   }
 
   function navigateToStudiesList() {
-    routerNavigate('/studies');
+    routerNavigate('/scriptoriums');
     setDrawerOpen(false);
   }
 
@@ -285,14 +289,16 @@ export default function AppShell({ auth }) {
             onOpenStudy={openStudy}
           />
         )}
-        {activeView === 'scriptoriums' && (
+        <div className={activeView === 'scriptoriums' ? 'h-full' : 'hidden'}>
           <ScriptoriumsView
             currentUserId={auth.user?.id}
+            urlScriptoriumId={urlScriptoriumId}
+            urlStudyId={urlStudyId}
             onOpenInPassages={openInPassages}
             onAskAiCompanionAbout={askAiCompanionAbout}
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
           />
-        )}
+        </div>
         {activeView === 'chronicle' && (
           <ChronicleView
             username={profileUsername}
@@ -313,24 +319,12 @@ export default function AppShell({ auth }) {
             onPhraseStudyRequestConsumed={() => setPendingPhraseStudy(null)}
           />
         </div>
-        <div className={activeView === 'studies' ? 'h-full' : 'hidden'}>
-          <StudiesView
-            currentUserId={auth.user?.id}
-            urlStudyId={urlStudyId}
-            onOpenStudy={(id) => { routerNavigate('/studies/' + id); setDrawerOpen(false); }}
-            onBackToList={() => routerNavigate('/studies')}
-            onOpenInPassages={openInPassages}
-            onAskAiCompanionAbout={askAiCompanionAbout}
-            onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
-          />
-        </div>
         {activeView !== 'cell' &&
           activeView !== 'settings' &&
           activeView !== 'admin' &&
           activeView !== 'scriptoriums' &&
           activeView !== 'library' &&
           activeView !== 'ai-companion' &&
-          activeView !== 'studies' &&
           activeView !== 'home' &&
           activeView !== 'chronicle' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />

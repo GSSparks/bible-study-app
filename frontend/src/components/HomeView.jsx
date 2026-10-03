@@ -104,7 +104,7 @@ export default function HomeView({ currentUserId, currentUsername, onViewProfile
                 <p className="text-xs font-medium uppercase tracking-wide text-muted">My Studies</p>
                 {onNavigateToStudies && (
                   <button onClick={onNavigateToStudies} className="text-xs text-muted hover:text-brass">
-                    See all
+                    Scriptoriums
                   </button>
                 )}
               </div>
@@ -115,8 +115,9 @@ export default function HomeView({ currentUserId, currentUsername, onViewProfile
                 {activeStudies.slice(0, 5).map((s) => (
                   <button
                     key={s.id}
-                    onClick={() => onOpenStudy?.(s.id)}
-                    className="flex w-full items-start gap-2.5 px-4 py-3 text-left hover:bg-ink/30"
+                    onClick={() => s.scriptoriumId && onOpenStudy?.(s.scriptoriumId, s.id)}
+                    disabled={!s.scriptoriumId}
+                    className="flex w-full items-start gap-2.5 px-4 py-3 text-left hover:bg-ink/30 disabled:cursor-default disabled:opacity-60"
                   >
                     <BookOpen size={14} className="mt-0.5 shrink-0 text-brass/70" />
                     <div className="min-w-0">
