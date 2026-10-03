@@ -507,6 +507,9 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
   const [wallPosts, setWallPosts] = useState([]);
   const [wallLoading, setWallLoading] = useState(true);
   const [wallError, setWallError] = useState(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState(null);
+  const bannerInputRef = useRef(null);
 
   function refresh() {
     setLoading(true);
@@ -532,6 +535,7 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
 
   useEffect(refresh, [id]);
   useEffect(refreshWall, [id]);
+  useEffect(() => { if (scriptorium) setBannerUrl(scriptorium.bannerUrl || null); }, [scriptorium?.id]);
 
   async function handleLeave() {
     setLeaving(true);
@@ -590,10 +594,6 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
   const isOwner = scriptorium.myRole === 'owner';
   const isMember = scriptorium.isMember;
   const bannerColor = getAvatarColor(scriptorium.name);
-
-  const bannerInputRef = useRef(null);
-  const [uploadingBanner, setUploadingBanner] = useState(false);
-  const [bannerUrl, setBannerUrl] = useState(scriptorium.bannerUrl || null);
 
   async function handleBannerChange(e) {
     const file = e.target.files?.[0];
