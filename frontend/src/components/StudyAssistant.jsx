@@ -62,7 +62,9 @@ export default function StudyAssistant({
   // when there's something open elsewhere (the sources prop) or the
   // active conversation already has its own anchor from being started
   // via a tool (Ask a Question / Study a Passage).
-  const canSend = validSources.length > 0 || Boolean(activeConversation.meta.module && activeConversation.meta.reference);
+  const canSend = validSources.length > 0
+    || Boolean(activeConversation.meta.module && activeConversation.meta.reference)
+    || activeConversation.kind === 'chat';
 
   function updateConversation(id, patch) {
     setConversations((prev) =>
@@ -406,28 +408,27 @@ export default function StudyAssistant({
 
   return (
     <div className="flex h-full flex-col p-4">
-      <div className="mb-2 flex items-center gap-1 overflow-x-auto border-b border-rule pb-2">
+      <div className="flex items-end overflow-x-auto border-b border-rule">
         {conversations.map((c) => (
           <div
             key={c.id}
-            className={`flex shrink-0 items-center rounded text-xs whitespace-nowrap ${
-              c.id === activeConversationId ? 'bg-panel text-brass' : 'text-muted'
+            className={`flex shrink-0 items-center whitespace-nowrap ${
+              c.id === activeConversationId ? '-mb-px border-b-2 border-brass' : ''
             }`}
           >
             <button
               onClick={() => setActiveConversationId(c.id)}
-              className={`max-w-[10rem] truncate px-2 py-1 ${c.id === activeConversationId ? '' : 'hover:text-parchment'}`}
+              className={`max-w-[10rem] truncate px-3 pb-2 pt-2 text-sm ${
+                c.id === activeConversationId ? 'text-parchment' : 'text-muted hover:text-parchment'
+              }`}
               title={c.title}
             >
               {c.title}
             </button>
             {conversations.length > 1 && (
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeConversation(c.id);
-                }}
-                className="px-1.5 py-1 hover:text-red-400"
+                onClick={(e) => { e.stopPropagation(); closeConversation(c.id); }}
+                className="pb-2 pr-2 pt-2 text-xs text-muted hover:text-red-400"
               >
                 ✕
               </button>
@@ -436,22 +437,21 @@ export default function StudyAssistant({
         ))}
         <button
           onClick={() => addConversation('chat', 'Chat')}
-          className="shrink-0 px-2 py-1 text-xs text-muted hover:text-brass"
+          className="shrink-0 px-3 pb-2 pt-2 text-sm text-muted hover:text-brass"
           title="New chat"
         >
           +
         </button>
       </div>
 
-      <p className="mb-2 text-xs text-muted">
-        {validSources.length > 0 ? (
-          <>Context: {validSources.map((s) => `${s.title} ${s.reference}`).join(' · ')}</>
-        ) : activeConversation.meta.module && activeConversation.meta.reference ? (
-          <>Context: {activeConversation.meta.module} {activeConversation.meta.reference}</>
-        ) : (
-          'Open a Bible or commentary window to give the assistant something to work from.'
-        )}
-      </p>
+      {(validSources.length > 0 || (activeConversation.meta.module && activeConversation.meta.reference)) && (
+        <p className="mt-2 text-xs text-muted">
+          Context:{' '}
+          {validSources.length > 0
+            ? validSources.map((s) => `${s.title} ${s.reference}`).join(' · ')
+            : `${activeConversation.meta.module} ${activeConversation.meta.reference}`}
+        </p>
+      )}
 
       <div className="mb-3">
         <button
@@ -548,7 +548,7 @@ export default function StudyAssistant({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
           disabled={!canSend}
-          placeholder={canSend ? 'Ask about what\'s open…' : 'Nothing open yet'}
+          placeholder={canSend ? 'Ask a question…' : 'Open a passage to start chatting'}
           className="flex-1 rounded-md border border-rule bg-ink px-3 py-2 text-sm placeholder:text-muted disabled:opacity-50"
         />
         <button

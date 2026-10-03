@@ -370,7 +370,7 @@ export default function AICompanionView({
         </div>
 
         {/* ── Right sidebar ────────────────────────────────── */}
-        <aside className="flex w-64 shrink-0 flex-col overflow-y-auto border-l border-rule">
+        <aside className="flex w-64 shrink-0 flex-col overflow-y-auto">
           <div className="p-4">
             <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted">Tools</p>
             <div className="space-y-2">
