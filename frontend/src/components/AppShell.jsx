@@ -239,7 +239,14 @@ export default function AppShell({ auth }) {
           />
         )}
         {activeView === 'admin' && <AdminView />}
-        {activeView === 'home' && <HomeView currentUserId={auth.user?.id} onViewProfile={viewProfile} />}
+        {activeView === 'home' && (
+          <HomeView
+            currentUserId={auth.user?.id}
+            currentUsername={auth.user?.username}
+            onViewProfile={viewProfile}
+            onNavigateToStudies={() => setActiveView('studies')}
+          />
+        )}
         {activeView === 'scriptoriums' && (
           <ScriptoriumsView
             currentUserId={auth.user?.id}
