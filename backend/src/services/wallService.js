@@ -17,7 +17,7 @@ function validateBody(body, maxLength, label) {
   }
 }
 
-const authorSelect = { select: { id: true, username: true, displayName: true } };
+const authorSelect = { select: { id: true, username: true, displayName: true, avatarUrl: true } };
 const postInclude = {
   author: authorSelect,
   comments: { include: { author: authorSelect }, orderBy: { createdAt: 'asc' } },
@@ -40,13 +40,18 @@ async function assertCanPostToScriptorium(scriptoriumId, userId) {
   return scriptorium;
 }
 
-export async function createPost({ authorId, scriptoriumId, body }) {
+export async function createPost({ authorId, scriptoriumId, body, mediaUrls }) {
   validateBody(body, MAX_BODY_LENGTH, 'Post');
   if (scriptoriumId) {
     await assertCanPostToScriptorium(scriptoriumId, authorId);
   }
   const post = await prisma.post.create({
-    data: { authorId, scriptoriumId: scriptoriumId || null, body: body.trim() },
+    data: {
+      authorId,
+      scriptoriumId: scriptoriumId || null,
+      body: body.trim(),
+      mediaUrls: mediaUrls?.length ? mediaUrls : undefined,
+    },
   });
   return prisma.post.findUnique({ where: { id: post.id }, include: postInclude });
 }

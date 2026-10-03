@@ -1,0 +1,4 @@
+ALTER TABLE "User" ADD COLUMN "avatarUrl" TEXT;
+ALTER TABLE "User" ADD COLUMN "bannerUrl" TEXT;
+ALTER TABLE "Scriptorium" ADD COLUMN "bannerUrl" TEXT;
+ALTER TABLE "Post" ADD COLUMN "mediaUrls" JSONB;

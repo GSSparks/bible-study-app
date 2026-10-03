@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireLogin } from '../middleware/auth.js';
+import { uploadPostMedia, mimeToType } from '../middleware/upload.js';
 import { createPost, getWall, getScriptoriumWall, getHomeFeed, deletePost, createComment, deleteComment } from '../services/wallService.js';
 
 export const wallRouter = Router();
@@ -41,13 +42,22 @@ wallRouter.get('/scriptorium/:id', async (req, res, next) => {
   }
 });
 
-wallRouter.post('/posts', async (req, res, next) => {
-  try {
-    const { body, scriptoriumId } = req.body;
-    res.status(201).json(await createPost({ authorId: req.user.id, scriptoriumId: scriptoriumId || null, body }));
-  } catch (err) {
-    next(err);
-  }
+wallRouter.post('/posts', (req, res, next) => {
+  uploadPostMedia(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    try {
+      const { body, scriptoriumId } = req.body;
+      const mediaUrls = (req.files || []).map((f) => ({
+        url: `/uploads/posts/${f.filename}`,
+        type: mimeToType(f.mimetype),
+      }));
+      res.status(201).json(
+        await createPost({ authorId: req.user.id, scriptoriumId: scriptoriumId || null, body, mediaUrls })
+      );
+    } catch (err) {
+      next(err);
+    }
+  });
 });
 
 wallRouter.delete('/posts/:id', async (req, res, next) => {

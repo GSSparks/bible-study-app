@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Camera } from 'lucide-react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 import { getAvatarColor } from '../utils/avatar.js';
@@ -590,21 +591,39 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
   const isMember = scriptorium.isMember;
   const bannerColor = getAvatarColor(scriptorium.name);
 
+  const bannerInputRef = useRef(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState(scriptorium.bannerUrl || null);
+
+  async function handleBannerChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBanner(true);
+    try {
+      const { url } = await api.uploadScriptoriumBanner(id, file);
+      setBannerUrl(url);
+    } finally {
+      setUploadingBanner(false);
+      e.target.value = '';
+    }
+  }
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Hero banner */}
-      <div className="relative h-48 shrink-0 overflow-hidden bg-ink">
-        {/* Atmospheric colour glow */}
-        <div
-          className="absolute inset-0"
-          style={{ background: `radial-gradient(ellipse at 25% 65%, ${bannerColor}55 0%, transparent 65%)` }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{ background: `radial-gradient(ellipse at 75% 30%, ${bannerColor}20 0%, transparent 55%)` }}
-        />
-        {/* Bottom fade for legibility */}
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-ink to-transparent" />
+      <div className="relative h-48 shrink-0 bg-ink">
+        <div className="absolute inset-0 overflow-hidden">
+          {bannerUrl ? (
+            <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <>
+              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 25% 65%, ${bannerColor}55 0%, transparent 65%)` }} />
+              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 75% 30%, ${bannerColor}20 0%, transparent 55%)` }} />
+            </>
+          )}
+          {/* Bottom fade for legibility */}
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-ink to-transparent" />
+        </div>
 
         {/* Back button */}
         <button
@@ -616,6 +635,19 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
 
         {/* Action buttons */}
         <div className="absolute right-6 top-3 z-10 flex flex-wrap gap-2">
+          {isOwner && (
+            <>
+              <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
+              <button
+                onClick={() => bannerInputRef.current?.click()}
+                disabled={uploadingBanner}
+                className="flex items-center gap-1.5 rounded-md border border-parchment/20 bg-ink/50 px-2.5 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment disabled:opacity-50"
+              >
+                <Camera size={13} />
+                {uploadingBanner ? 'uploading…' : 'banner'}
+              </button>
+            </>
+          )}
           {isMember && (
             <button
               onClick={() => setShowInviteModal(true)}

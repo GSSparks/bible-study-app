@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { ImagePlus, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 
@@ -23,17 +24,41 @@ function relativeTime(dateStr) {
  * visible and ordinary instead of hidden behind an abstraction. */
 export default function PostFeed({ posts, loading, error, canPost, scriptoriumId, currentUserId, onRefresh, onViewProfile }) {
   const [composerText, setComposerText] = useState('');
+  const [mediaFiles, setMediaFiles] = useState([]);
+  const [mediaPreviews, setMediaPreviews] = useState([]);
   const [posting, setPosting] = useState(false);
   const [localError, setLocalError] = useState(null);
+  const mediaInputRef = useRef(null);
+
+  function handleMediaSelect(e) {
+    const selected = Array.from(e.target.files || []);
+    if (!selected.length) return;
+    const combined = [...mediaFiles, ...selected].slice(0, 4);
+    setMediaFiles(combined);
+    setMediaPreviews(combined.map((f) => ({
+      url: URL.createObjectURL(f),
+      type: f.type.startsWith('video') ? 'video' : 'image',
+    })));
+    e.target.value = '';
+  }
+
+  function removeMedia(index) {
+    URL.revokeObjectURL(mediaPreviews[index].url);
+    setMediaFiles((prev) => prev.filter((_, i) => i !== index));
+    setMediaPreviews((prev) => prev.filter((_, i) => i !== index));
+  }
 
   async function handlePost(e) {
     e.preventDefault();
-    if (!composerText.trim()) return;
+    if (!composerText.trim() && mediaFiles.length === 0) return;
     setPosting(true);
     setLocalError(null);
     try {
-      await api.createPost({ body: composerText, scriptoriumId });
+      await api.createPost({ body: composerText, scriptoriumId, mediaFiles });
       setComposerText('');
+      mediaPreviews.forEach((p) => URL.revokeObjectURL(p.url));
+      setMediaFiles([]);
+      setMediaPreviews([]);
       onRefresh();
     } catch (e) {
       setLocalError(e.message);
@@ -63,10 +88,55 @@ export default function PostFeed({ posts, loading, error, canPost, scriptoriumId
             placeholder="Share a thought…"
             className="w-full rounded-md border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
           />
-          <div className="mt-3 flex justify-end">
+
+          {mediaPreviews.length > 0 && (
+            <div className={`mt-2 grid gap-1.5 ${mediaPreviews.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {mediaPreviews.map((p, i) => (
+                <div key={i} className="relative overflow-hidden rounded-md bg-ink">
+                  {p.type === 'image' ? (
+                    <img src={p.url} alt="" className="max-h-48 w-full object-cover" />
+                  ) : (
+                    <video src={p.url} className="max-h-48 w-full" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeMedia(i)}
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-ink/70 text-parchment hover:bg-ink"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <input
+                ref={mediaInputRef}
+                type="file"
+                accept="image/*,video/mp4,video/webm"
+                multiple
+                className="hidden"
+                onChange={handleMediaSelect}
+              />
+              <button
+                type="button"
+                onClick={() => mediaInputRef.current?.click()}
+                disabled={mediaFiles.length >= 4}
+                className="flex items-center gap-1.5 rounded-md border border-rule px-2.5 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment disabled:opacity-40"
+                title="Add photo or video (max 4)"
+              >
+                <ImagePlus size={14} />
+                Photo / Video
+              </button>
+              {mediaFiles.length > 0 && (
+                <span className="text-xs text-muted">{mediaFiles.length}/4</span>
+              )}
+            </div>
             <button
               type="submit"
-              disabled={posting || !composerText.trim()}
+              disabled={posting || (!composerText.trim() && mediaFiles.length === 0)}
               className="rounded-md bg-brass/90 px-4 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
             >
               {posting ? 'posting…' : 'post'}
@@ -121,7 +191,7 @@ function PostCard({ post, currentUserId, onDeleted, onCommentAdded, onViewProfil
     <div className="rounded-lg border border-rule bg-panel p-5">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="flex items-center gap-3">
-          <Avatar username={post.author.username} size={32} />
+          <Avatar username={post.author.username} avatarUrl={post.author.avatarUrl} size={32} />
           <div>
             <button
               onClick={() => onViewProfile?.(post.author.username)}
@@ -142,13 +212,27 @@ function PostCard({ post, currentUserId, onDeleted, onCommentAdded, onViewProfil
         </div>
       </div>
 
-      <p className="mb-4 whitespace-pre-wrap text-sm leading-relaxed text-parchment/90">{post.body}</p>
+      {post.body && (
+        <p className="mb-4 whitespace-pre-wrap text-sm leading-relaxed text-parchment/90">{post.body}</p>
+      )}
+
+      {post.mediaUrls?.length > 0 && (
+        <div className={`mb-4 grid gap-1 overflow-hidden rounded-lg ${post.mediaUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          {post.mediaUrls.map((m, i) => (
+            m.type === 'image' ? (
+              <img key={i} src={m.url} alt="" className="w-full object-cover" style={{ maxHeight: post.mediaUrls.length === 1 ? '480px' : '240px' }} />
+            ) : (
+              <video key={i} src={m.url} controls className="w-full" style={{ maxHeight: '360px' }} />
+            )
+          ))}
+        </div>
+      )}
 
       {post.comments.length > 0 && (
         <div className="mb-3 space-y-2 border-t border-rule pt-3">
           {post.comments.map((c) => (
             <div key={c.id} className="flex items-start gap-2 text-xs">
-              <Avatar username={c.author.username} size={22} />
+              <Avatar username={c.author.username} avatarUrl={c.author.avatarUrl} size={22} />
               <div className="min-w-0">
                 <span className="font-medium text-parchment">{c.author.username}</span>{' '}
                 <span className="text-parchment/70">{c.body}</span>

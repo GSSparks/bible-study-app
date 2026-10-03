@@ -1,8 +1,9 @@
 const BASE = '/api';
 
 async function request(path, options = {}) {
+  const isFormData = options.body instanceof FormData;
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    ...(isFormData ? {} : { headers: { 'Content-Type': 'application/json' } }),
     ...options,
   });
   if (!res.ok) {
@@ -123,10 +124,33 @@ export const api = {
   getMyWall: () => request('/wall/me'),
   getUserWall: (username) => request(`/wall/user/${encodeURIComponent(username)}`),
   getScriptoriumWall: (id) => request(`/wall/scriptorium/${id}`),
-  createPost: ({ body, scriptoriumId }) => request('/wall/posts', { method: 'POST', body: JSON.stringify({ body, scriptoriumId }) }),
+  createPost: ({ body, scriptoriumId, mediaFiles }) => {
+    const fd = new FormData();
+    fd.append('body', body);
+    if (scriptoriumId) fd.append('scriptoriumId', scriptoriumId);
+    (mediaFiles || []).forEach((f) => fd.append('media', f));
+    return request('/wall/posts', { method: 'POST', body: fd });
+  },
   deletePost: (id) => request(`/wall/posts/${id}`, { method: 'DELETE' }),
   createComment: (postId, body) => request(`/wall/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ body }) }),
   deleteComment: (id) => request(`/wall/comments/${id}`, { method: 'DELETE' }),
+
+  // Media uploads
+  uploadAvatar: (file) => {
+    const fd = new FormData();
+    fd.append('avatar', file);
+    return request('/uploads/avatar', { method: 'POST', body: fd });
+  },
+  uploadUserBanner: (file) => {
+    const fd = new FormData();
+    fd.append('banner', file);
+    return request('/uploads/banner/user', { method: 'POST', body: fd });
+  },
+  uploadScriptoriumBanner: (id, file) => {
+    const fd = new FormData();
+    fd.append('banner', file);
+    return request(`/uploads/banner/scriptorium/${id}`, { method: 'POST', body: fd });
+  },
 
   // Studies
   listMyStudies: () => request('/studies/mine'),

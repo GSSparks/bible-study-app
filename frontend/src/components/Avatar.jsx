@@ -1,13 +1,17 @@
 import { getAvatarColor, getAvatarInitials } from '../utils/avatar.js';
 
-/** A small, deterministic, generated avatar — a colored circle with
- * initials, derived from the username so it's stable across sessions
- * without needing an uploaded photo. Deliberately a plain div, not a
- * button — the current use (clicking to open the account menu) wraps
- * it in one, but this same component is meant to show up in
- * non-clickable contexts later too (a friends list, group member
- * list, wall posts). */
-export default function Avatar({ username, size = 32, className = '' }) {
+export default function Avatar({ username, avatarUrl, size = 32, className = '' }) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={username}
+        title={username}
+        className={`shrink-0 rounded-full object-cover ${className}`}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   const color = getAvatarColor(username);
   const initials = getAvatarInitials(username);
   return (

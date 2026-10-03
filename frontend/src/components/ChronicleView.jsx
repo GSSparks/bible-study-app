@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Pencil, UserPlus, Check, Clock } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Pencil, UserPlus, Check, Clock, Camera } from 'lucide-react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 import PostFeed from './PostFeed.jsx';
@@ -98,37 +98,93 @@ export default function ChronicleView({ username, currentUserId, currentUsername
   const joinedDate = new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
   const bannerColor = getAvatarColor(user.username);
 
+  const bannerInputRef = useRef(null);
+  const avatarInputRef = useRef(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  async function handleBannerChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBanner(true);
+    try {
+      const { url } = await api.uploadUserBanner(file);
+      setProfile((prev) => ({ ...prev, user: { ...prev.user, bannerUrl: url } }));
+    } finally {
+      setUploadingBanner(false);
+      e.target.value = '';
+    }
+  }
+
+  async function handleAvatarChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const { url } = await api.uploadAvatar(file);
+      setProfile((prev) => ({ ...prev, user: { ...prev.user, avatarUrl: url } }));
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = '';
+    }
+  }
+
   return (
     <div className="h-full overflow-y-auto">
-      {/* Hero banner — glow layers clipped, avatar allowed to overflow bottom */}
+      {/* Hero banner */}
       <div className="relative h-36 shrink-0 bg-ink">
-        {/* Glow layers clipped to banner bounds */}
         <div className="absolute inset-0 overflow-hidden">
-          <div
-            className="absolute inset-0"
-            style={{ background: `radial-gradient(ellipse at 20% 70%, ${bannerColor}55 0%, transparent 60%)` }}
-          />
-          <div
-            className="absolute inset-0"
-            style={{ background: `radial-gradient(ellipse at 80% 30%, ${bannerColor}20 0%, transparent 55%)` }}
-          />
+          {user.bannerUrl ? (
+            <img src={user.bannerUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <>
+              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 20% 70%, ${bannerColor}55 0%, transparent 60%)` }} />
+              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 80% 30%, ${bannerColor}20 0%, transparent 55%)` }} />
+            </>
+          )}
           <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-ink to-transparent" />
         </div>
 
         {!isOwnProfile && (
-          <button
-            onClick={onBack}
-            className="absolute left-6 top-4 z-10 text-xs text-parchment/60 hover:text-parchment"
-          >
+          <button onClick={onBack} className="absolute left-6 top-4 z-10 text-xs text-parchment/60 hover:text-parchment">
             ‹ My Chronicle
           </button>
+        )}
+
+        {isOwnProfile && (
+          <>
+            <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
+            <button
+              onClick={() => bannerInputRef.current?.click()}
+              disabled={uploadingBanner}
+              className="absolute right-4 top-4 z-10 flex items-center gap-1.5 rounded-md bg-ink/60 px-2.5 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:bg-ink/80 disabled:opacity-50"
+            >
+              <Camera size={13} />
+              {uploadingBanner ? 'uploading…' : 'change banner'}
+            </button>
+          </>
         )}
       </div>
 
       {/* Profile header — avatar overlaps banner */}
       <div className="border-b border-rule px-6 pb-6">
         <div className="-mt-10 mb-4 flex items-end justify-between">
-          <Avatar username={user.username} size={80} className="relative z-10 ring-4 ring-ink" />
+          <div className="relative">
+            <Avatar username={user.username} avatarUrl={user.avatarUrl} size={80} className="relative z-10 ring-4 ring-ink" />
+            {isOwnProfile && (
+              <>
+                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-ink/50 opacity-0 transition-opacity hover:opacity-100 disabled:opacity-50"
+                  style={{ width: 80, height: 80 }}
+                >
+                  <Camera size={20} className="text-parchment" />
+                </button>
+              </>
+            )}
+          </div>
           <div className="pb-1">
             {isOwnProfile ? (
               <button

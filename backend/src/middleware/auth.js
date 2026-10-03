@@ -12,7 +12,7 @@ export async function attachUser(req, res, next) {
     try {
       const user = await prisma.user.findUnique({
         where: { id: req.session.userId },
-        select: { id: true, username: true, role: true, displayName: true, bio: true },
+        select: { id: true, username: true, role: true, displayName: true, bio: true, avatarUrl: true, bannerUrl: true },
       });
       req.user = user || null;
       if (!user) {
