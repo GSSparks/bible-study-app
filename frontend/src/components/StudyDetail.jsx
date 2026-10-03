@@ -5,6 +5,8 @@ import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 import ResourceFooter from './ResourceFooter.jsx';
 import PassageQuickView from './PassageQuickView.jsx';
+import RichEditor from './RichEditor.jsx';
+import RichContent from './RichContent.jsx';
 
 const TABS = [
   { key: 'content', label: 'Content' },
@@ -517,7 +519,7 @@ function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onA
             return {
               id: r.id,
               label: r.label,
-              content: <p className="whitespace-pre-wrap text-sm text-parchment/90">{r.body}</p>,
+              content: <RichContent className="text-sm">{r.body}</RichContent>,
             };
           }
           return {
@@ -844,7 +846,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
       {lesson.body && (
         <div className="rounded-md border border-rule bg-panel p-4">
           <h4 className="mb-2 text-xs uppercase tracking-wide text-muted">Study Notes (from the leader)</h4>
-          <p className="whitespace-pre-wrap text-sm text-parchment/90">{lesson.body}</p>
+          <RichContent className="text-sm">{lesson.body}</RichContent>
         </div>
       )}
 
@@ -854,14 +856,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
           <p className="text-sm text-muted">Loading…</p>
         ) : (
           <>
-            <textarea
-              ref={noteTextareaRef}
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              rows={4}
-              placeholder="Write your own thoughts on this passage…"
-              className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
-            />
+            <RichEditor value={noteText} onChange={setNoteText} height={220} />
             <div className="mt-2 flex justify-end">
               <button
                 onClick={saveNote}
@@ -949,7 +944,7 @@ function AddLessonModal({ studyId, nextOrder, onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
+      <div className="w-full max-w-lg rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg">Add a Lesson</h2>
           <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
@@ -973,7 +968,7 @@ function AddLessonModal({ studyId, nextOrder, onClose, onCreated }) {
           </div>
           <div>
             <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Your Notes (optional)</label>
-            <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass" />
+            <RichEditor value={body} onChange={setBody} height={180} />
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button type="submit" disabled={submitting} className="w-full rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50">
@@ -1015,7 +1010,7 @@ function EditLessonModal({ lesson, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
+      <div className="w-full max-w-lg rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg">Edit Lesson</h2>
           <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
@@ -1039,7 +1034,7 @@ function EditLessonModal({ lesson, onClose, onSaved }) {
           </div>
           <div>
             <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Your Notes (optional)</label>
-            <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass" />
+            <RichEditor value={body} onChange={setBody} height={180} />
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button type="submit" disabled={submitting} className="w-full rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50">
@@ -1290,7 +1285,7 @@ function AddResourceModal({ studyId, onClose, onAdded }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
+      <div className="w-full max-w-lg rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg">Add a Resource</h2>
           <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
@@ -1365,14 +1360,7 @@ function AddResourceModal({ studyId, onClose, onAdded }) {
           {type === 'note' && (
             <div>
               <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Note</label>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={5}
-                maxLength={5000}
-                placeholder="Write your own thoughts here — visible to everyone in the study, as part of its resources."
-                className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
-              />
+              <RichEditor value={body} onChange={setBody} height={180} />
             </div>
           )}
           {error && <p className="text-sm text-red-400">{error}</p>}
@@ -1417,7 +1405,7 @@ function EditStudyModal({ study, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
+      <div className="w-full max-w-lg rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg">Edit Study</h2>
           <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
@@ -1431,7 +1419,7 @@ function EditStudyModal({ study, onClose, onSaved }) {
           </div>
           <div>
             <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass" />
+            <RichEditor value={description} onChange={setDescription} height={160} />
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button type="submit" disabled={saving} className="w-full rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50">

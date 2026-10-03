@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
+import RichEditor from './RichEditor.jsx';
 
 export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenStudy }) {
   const [studies, setStudies] = useState([]);
@@ -88,7 +89,7 @@ function CreateStudyModal({ scriptoriumId, onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
+      <div className="w-full max-w-lg rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg">New Study</h2>
           <button onClick={onClose} className="text-xs text-muted hover:text-parchment">close</button>
@@ -105,12 +106,7 @@ function CreateStudyModal({ scriptoriumId, onClose, onCreated }) {
           </div>
           <div>
             <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Description (optional)</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
-            />
+            <RichEditor value={description} onChange={setDescription} height={160} />
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
