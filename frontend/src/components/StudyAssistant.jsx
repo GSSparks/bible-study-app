@@ -407,7 +407,7 @@ export default function StudyAssistant({
   }
 
   return (
-    <div className="flex h-full flex-col p-4">
+    <div className="flex h-full flex-col px-5 py-4">
       <div className="flex items-end overflow-x-auto border-b border-rule">
         {conversations.map((c) => (
           <div
@@ -500,64 +500,72 @@ export default function StudyAssistant({
         )}
       </div>
 
-      {activeConversation.error && <p className="mb-2 text-sm text-red-400">{activeConversation.error}</p>}
+      {activeConversation.error && <p className="mb-3 text-sm text-red-400">{activeConversation.error}</p>}
 
-      <div className="mb-3 min-h-0 flex-1 space-y-2 overflow-y-auto">
+      <div className="mb-4 min-h-0 flex-1 space-y-6 overflow-y-auto py-2">
         {activeConversation.messages.map((m, i) => (
-          <div
-            key={i}
-            className={`markdown-body group relative rounded-md px-3 py-2 text-sm ${
-              m.role === 'user' ? 'bg-panel text-parchment' : 'bg-verdigris/20 text-parchment/90'
-            }`}
-          >
-            {m.role === 'assistant' ? <Markdown remarkPlugins={[remarkGfm]}>{m.content}</Markdown> : m.content}
-            {m.role === 'assistant' && (
-              <div className="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100">
-                <button
-                  onClick={() => saveAsNote(m.content, i)}
-                  className="rounded border border-rule bg-panel px-1.5 py-0.5 text-xs text-muted hover:text-brass"
-                  title="Save this reply as a personal note"
-                >
-                  {savedIndex === i ? 'saved ✓' : 'save as note'}
-                </button>
-                {moduleSaveAnchor() && (
+          <div key={i} className={`group flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+            {m.role === 'user' ? (
+              <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-panel px-4 py-2.5 text-sm text-parchment">
+                {m.content}
+              </div>
+            ) : (
+              <div className="w-full">
+                <div className="markdown-body border-l-2 border-brass/30 pl-4 text-sm leading-relaxed text-parchment/90">
+                  <Markdown remarkPlugins={[remarkGfm]}>{m.content}</Markdown>
+                </div>
+                <div className="mt-1.5 flex gap-2 pl-4 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
-                    onClick={() => saveAsModule(m.content, i)}
-                    className="rounded border border-rule bg-panel px-1.5 py-0.5 text-xs text-muted hover:text-brass"
-                    title={
-                      moduleSaveAnchor().type === 'DICT'
-                        ? 'Save as a personal dictionary entry — browsable and searchable like any other dictionary module'
-                        : 'Save as a personal commentary entry — connected to this passage, shown alongside any other commentary'
-                    }
+                    onClick={() => saveAsNote(m.content, i)}
+                    className="text-xs text-muted hover:text-brass"
                   >
-                    {savedModuleIndex === i
-                      ? 'saved ✓'
-                      : `save as ${moduleSaveAnchor().type === 'DICT' ? 'dictionary' : 'commentary'} entry`}
+                    {savedIndex === i ? '✓ saved' : 'save as note'}
                   </button>
-                )}
+                  {moduleSaveAnchor() && (
+                    <button
+                      onClick={() => saveAsModule(m.content, i)}
+                      className="text-xs text-muted hover:text-brass"
+                      title={
+                        moduleSaveAnchor().type === 'DICT'
+                          ? 'Save as a personal dictionary entry'
+                          : 'Save as a personal commentary entry'
+                      }
+                    >
+                      {savedModuleIndex === i
+                        ? '✓ saved'
+                        : `save as ${moduleSaveAnchor().type === 'DICT' ? 'dict entry' : 'commentary'}`}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
         ))}
-        {activeConversation.loading && <p className="px-1 text-xs italic text-muted">{activeConversation.loadingLabel}</p>}
+        {activeConversation.loading && (
+          <div className="flex items-start">
+            <p className="border-l-2 border-brass/20 pl-4 text-xs italic text-muted">{activeConversation.loadingLabel}</p>
+          </div>
+        )}
       </div>
 
-      <div className="flex gap-2">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
-          disabled={!canSend}
-          placeholder={canSend ? 'Ask a question…' : 'Open a passage to start chatting'}
-          className="flex-1 rounded-md border border-rule bg-ink px-3 py-2 text-sm placeholder:text-muted disabled:opacity-50"
-        />
-        <button
-          onClick={send}
-          disabled={!canSend || activeConversation.loading}
-          className="rounded bg-brass/90 px-3 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50"
-        >
-          {activeConversation.loading ? '…' : 'Ask'}
-        </button>
+      <div className="rounded-xl border border-rule bg-panel p-1 focus-within:border-brass/60">
+        <div className="flex items-end gap-2 px-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
+            disabled={!canSend}
+            placeholder={canSend ? 'Ask a question…' : 'Open a passage to start chatting'}
+            className="flex-1 bg-transparent py-2.5 text-sm text-parchment placeholder:text-muted focus:outline-none disabled:opacity-50"
+          />
+          <button
+            onClick={send}
+            disabled={!canSend || activeConversation.loading || !input.trim()}
+            className="mb-1 rounded-lg bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-40"
+          >
+            {activeConversation.loading ? '…' : 'Send'}
+          </button>
+        </div>
       </div>
     </div>
   );
