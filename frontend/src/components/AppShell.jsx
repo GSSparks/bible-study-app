@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Home, BookOpen, Box, FileText, Library as LibraryIcon, Sparkles, Bell, MessageCircle, Users, UserCircle, Settings as SettingsIcon, Shield } from 'lucide-react';
+import { Home, BookOpen, Box, FileText, Library as LibraryIcon, Sparkles, Bell, MessageCircle, UserCircle, Settings as SettingsIcon, Shield } from 'lucide-react';
 import CellView from './CellView.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
 import AdminView from './AdminView.jsx';
-import FellowsView from './FellowsView.jsx';
 import ScriptoriumsView from './ScriptoriumsView.jsx';
 import HomeView from './HomeView.jsx';
 import ChronicleView from './ChronicleView.jsx';
@@ -53,7 +52,6 @@ const NAV_GROUPS = [
       description: "You'll see comments, mentions, and Scriptorium activity here. Fellow requests live in the Fellows page.",
     },
     { key: 'messages', label: 'Messages', Icon: MessageCircle, requiresAuth: true, description: 'Direct messages with your Fellows.' },
-    { key: 'fellows', label: 'Fellows', Icon: Users, requiresAuth: true },
     {
       key: 'chronicle',
       label: 'My Chronicle',
@@ -242,7 +240,6 @@ export default function AppShell({ auth }) {
         )}
         {activeView === 'admin' && <AdminView />}
         {activeView === 'home' && <HomeView currentUserId={auth.user?.id} onViewProfile={viewProfile} />}
-        {activeView === 'fellows' && <FellowsView currentUserId={auth.user?.id} />}
         {activeView === 'scriptoriums' && (
           <ScriptoriumsView
             currentUserId={auth.user?.id}
@@ -282,7 +279,6 @@ export default function AppShell({ auth }) {
         {activeView !== 'cell' &&
           activeView !== 'settings' &&
           activeView !== 'admin' &&
-          activeView !== 'fellows' &&
           activeView !== 'scriptoriums' &&
           activeView !== 'library' &&
           activeView !== 'ai-companion' &&

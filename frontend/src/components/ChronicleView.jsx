@@ -52,13 +52,8 @@ export default function ChronicleView({ username, currentUserId, currentUsername
     if (profile) loadPosts();
   }, [profile?.user?.username]);
 
-  useEffect(() => {
-    if (!isOwnProfile || activeTab !== 'fellows' || fellows !== null) return;
-    api
-      .listConnections()
-      .then(setFellows)
-      .catch(() => setFellows([]));
-  }, [activeTab, isOwnProfile, fellows]);
+  // fellows state now managed inside FellowsTab — kept here only so
+  // re-navigating to the tab doesn't re-fetch unnecessarily.
 
   async function handleConnectionAction() {
     if (!profile || actionLoading) return;
@@ -264,7 +259,7 @@ export default function ChronicleView({ username, currentUserId, currentUsername
           ))}
 
         {activeTab === 'fellows' && isOwnProfile && (
-          <FellowsList fellows={fellows} onViewProfile={onViewProfile} />
+          <FellowsTab onViewProfile={onViewProfile} />
         )}
       </div>
 
@@ -362,28 +357,198 @@ function ConnectionButton({ status, loading, onAction, onDecline }) {
   );
 }
 
-function FellowsList({ fellows, onViewProfile }) {
-  if (fellows === null) return <p className="text-sm text-muted">Loading…</p>;
-  if (fellows.length === 0) {
-    return <p className="text-sm text-muted">No Fellows yet. Find people to connect with in the Fellows view.</p>;
+function FellowsTab({ onViewProfile }) {
+  const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [fellows, setFellows] = useState(null);
+  const [received, setReceived] = useState([]);
+  const [sent, setSent] = useState([]);
+  const [busy, setBusy] = useState(null);
+  const [error, setError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const bump = () => setRefreshKey((k) => k + 1);
+
+  useEffect(() => {
+    Promise.all([api.listConnections(), api.listConnectionRequests(), api.listSentConnectionRequests()])
+      .then(([f, r, s]) => { setFellows(f); setReceived(r); setSent(s); })
+      .catch((e) => setError(e.message));
+  }, [refreshKey]);
+
+  useEffect(() => {
+    if (query.trim().length < 2) { setSearchResults([]); return; }
+    const t = setTimeout(() => {
+      api.searchConnections(query).then(setSearchResults).catch(() => {});
+    }, 200);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  async function handleConnect(username) {
+    setBusy(username);
+    setError(null);
+    try {
+      await api.sendConnectionRequest(username);
+      const fresh = await api.searchConnections(query);
+      setSearchResults(fresh);
+      bump();
+    } catch (e) { setError(e.message); }
+    finally { setBusy(null); }
   }
+
+  async function handleAccept(connectionId) {
+    setBusy(connectionId);
+    try { await api.acceptConnectionRequest(connectionId); bump(); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(null); }
+  }
+
+  async function handleDecline(connectionId) {
+    setBusy(connectionId);
+    try { await api.declineConnectionRequest(connectionId); bump(); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(null); }
+  }
+
+  async function handleRemove(connectionId) {
+    setBusy(connectionId);
+    try { await api.removeConnection(connectionId); bump(); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(null); }
+  }
+
+  const isSearching = query.trim().length >= 2;
+
   return (
-    <div className="space-y-2">
-      {fellows.map((f) => (
-        <button
-          key={f.connectionId}
-          onClick={() => onViewProfile?.(f.username)}
-          className="flex w-full items-center gap-3 rounded-md border border-rule bg-panel p-3 text-left hover:border-brass"
-        >
-          <Avatar username={f.username} size={36} />
+    <div className="space-y-4">
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search for people to connect with…"
+        className="w-full rounded-lg border border-rule bg-ink px-4 py-2.5 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+      />
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {isSearching ? (
+        <div className="overflow-hidden rounded-lg border border-rule">
+          {searchResults.map((p) => (
+            <div key={p.id} className="flex items-center justify-between border-b border-rule px-4 py-3 last:border-0">
+              <div className="flex items-center gap-3">
+                <Avatar username={p.username} avatarUrl={p.avatarUrl} size={32} />
+                <span className="text-sm text-parchment">{p.username}</span>
+              </div>
+              {p.status === 'connected' && <span className="text-xs text-muted">Fellows</span>}
+              {p.status === 'pending_sent' && <span className="text-xs text-muted">Request sent</span>}
+              {p.status === 'pending_received' && <span className="text-xs text-brass">Accept below ↓</span>}
+              {(!p.status || p.status === 'none') && (
+                <button
+                  disabled={busy === p.username}
+                  onClick={() => handleConnect(p.username)}
+                  className="rounded-md bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
+                >
+                  {busy === p.username ? '…' : 'Connect'}
+                </button>
+              )}
+            </div>
+          ))}
+          {searchResults.length === 0 && (
+            <p className="p-4 text-sm text-muted">No one found matching "{query}".</p>
+          )}
+        </div>
+      ) : (
+        <>
+          {received.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wide text-muted">Awaiting your response</p>
+              <div className="overflow-hidden rounded-lg border border-rule">
+                {received.map((r) => (
+                  <div key={r.connectionId} className="flex items-center justify-between border-b border-rule px-4 py-3 last:border-0">
+                    <div className="flex items-center gap-3">
+                      <Avatar username={r.username} size={32} />
+                      <span className="text-sm text-parchment">{r.username}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={busy === r.connectionId}
+                        onClick={() => handleAccept(r.connectionId)}
+                        className="rounded-md bg-verdigris/80 px-3 py-1.5 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        disabled={busy === r.connectionId}
+                        onClick={() => handleDecline(r.connectionId)}
+                        className="rounded-md border border-rule px-3 py-1.5 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {sent.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wide text-muted">Sent — awaiting response</p>
+              <div className="overflow-hidden rounded-lg border border-rule">
+                {sent.map((s) => (
+                  <div key={s.connectionId} className="flex items-center justify-between border-b border-rule px-4 py-3 last:border-0">
+                    <div className="flex items-center gap-3">
+                      <Avatar username={s.username} size={32} />
+                      <span className="text-sm text-parchment">{s.username}</span>
+                    </div>
+                    <button
+                      disabled={busy === s.connectionId}
+                      onClick={() => handleRemove(s.connectionId)}
+                      className="rounded-md border border-rule px-3 py-1.5 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                    >
+                      {busy === s.connectionId ? '…' : 'Cancel'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
-            <p className="text-sm text-parchment">{f.username}</p>
-            <p className="text-xs text-muted">
-              Fellows since {new Date(f.since).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
-            </p>
+            {fellows === null && <p className="text-sm text-muted">Loading…</p>}
+            {fellows?.length === 0 && received.length === 0 && (
+              <p className="text-sm text-muted">No Fellows yet — search above to connect with people.</p>
+            )}
+            {fellows?.length > 0 && (
+              <>
+                <p className="mb-2 text-xs uppercase tracking-wide text-muted">Your Fellows</p>
+                <div className="space-y-2">
+                  {fellows.map((f) => (
+                    <div key={f.connectionId} className="flex items-center justify-between rounded-lg border border-rule bg-panel px-4 py-3">
+                      <button
+                        onClick={() => onViewProfile?.(f.username)}
+                        className="flex items-center gap-3 text-left hover:opacity-80"
+                      >
+                        <Avatar username={f.username} avatarUrl={f.avatarUrl} size={36} />
+                        <div>
+                          <p className="text-sm font-medium text-parchment">{f.username}</p>
+                          <p className="text-xs text-muted">
+                            Fellows since {new Date(f.since).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
+                          </p>
+                        </div>
+                      </button>
+                      <button
+                        disabled={busy === f.connectionId}
+                        onClick={() => handleRemove(f.connectionId)}
+                        className="shrink-0 rounded-md border border-rule px-3 py-1.5 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                      >
+                        {busy === f.connectionId ? '…' : 'Remove'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-        </button>
-      ))}
+        </>
+      )}
     </div>
   );
 }
