@@ -100,17 +100,20 @@ export default function ChronicleView({ username, currentUserId, currentUsername
 
   return (
     <div className="h-full overflow-y-auto">
-      {/* Hero banner */}
-      <div className="relative h-36 shrink-0 overflow-hidden bg-ink">
-        <div
-          className="absolute inset-0"
-          style={{ background: `radial-gradient(ellipse at 20% 70%, ${bannerColor}55 0%, transparent 60%)` }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{ background: `radial-gradient(ellipse at 80% 30%, ${bannerColor}20 0%, transparent 55%)` }}
-        />
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-ink to-transparent" />
+      {/* Hero banner — glow layers clipped, avatar allowed to overflow bottom */}
+      <div className="relative h-36 shrink-0 bg-ink">
+        {/* Glow layers clipped to banner bounds */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div
+            className="absolute inset-0"
+            style={{ background: `radial-gradient(ellipse at 20% 70%, ${bannerColor}55 0%, transparent 60%)` }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{ background: `radial-gradient(ellipse at 80% 30%, ${bannerColor}20 0%, transparent 55%)` }}
+          />
+          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-ink to-transparent" />
+        </div>
 
         {!isOwnProfile && (
           <button
@@ -125,7 +128,7 @@ export default function ChronicleView({ username, currentUserId, currentUsername
       {/* Profile header — avatar overlaps banner */}
       <div className="border-b border-rule px-6 pb-6">
         <div className="-mt-10 mb-4 flex items-end justify-between">
-          <Avatar username={user.username} size={80} className="ring-4 ring-ink" />
+          <Avatar username={user.username} size={80} className="relative z-10 ring-4 ring-ink" />
           <div className="pb-1">
             {isOwnProfile ? (
               <button
