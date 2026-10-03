@@ -44,10 +44,10 @@ export default function HomeView({ currentUserId, currentUsername, onViewProfile
           <div className="w-64 shrink-0 space-y-3">
 
             {/* Profile card */}
-            <div className="overflow-hidden rounded-xl border border-rule bg-panel">
+            <div className="rounded-xl border border-rule bg-panel">
               {/* Mini banner */}
-              <div className="relative h-20">
-                <div className="absolute inset-0 overflow-hidden">
+              <div className="relative h-20 overflow-hidden rounded-t-xl">
+                <div className="absolute inset-0">
                   {user?.bannerUrl ? (
                     <img src={user.bannerUrl} alt="" className="h-full w-full object-cover" />
                   ) : (
