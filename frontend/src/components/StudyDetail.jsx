@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { getAvatarColor } from '../utils/avatar.js';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 import ResourceFooter from './ResourceFooter.jsx';
@@ -117,6 +118,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
   const activeLessonIndex = lessons.findIndex((l) => l.id === activeLessonId);
   const nextLesson = activeLessonIndex >= 0 ? lessons[activeLessonIndex + 1] : lessons[0];
   const isNextComplete = nextLesson && progress?.completedLessonIds?.includes(nextLesson.id);
+  const bannerColor = getAvatarColor(study.title);
 
   const sidebarContent = (
     <StudySidebar
@@ -143,53 +145,54 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="shrink-0 border-b border-rule p-4 lg:p-6">
-        <button onClick={onBack} className="mb-2 text-xs text-muted hover:text-parchment">
-          ‹ {backLabel} {study.title ? `› ${study.title}` : ''}
+    <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden">
+      {/* Hero banner */}
+      <div className="relative h-40 shrink-0 overflow-hidden bg-ink">
+        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 25% 65%, ${bannerColor}55 0%, transparent 65%)` }} />
+        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 75% 30%, ${bannerColor}20 0%, transparent 55%)` }} />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-ink to-transparent" />
+        <button onClick={onBack} className="absolute left-6 top-4 z-10 text-xs text-parchment/60 hover:text-parchment">
+          ‹ {backLabel}
         </button>
-        <div className="mb-2 flex items-start justify-between gap-3">
-          <h2 className="font-display text-xl text-parchment lg:text-2xl">{study.title}</h2>
-          <div className="flex shrink-0 items-center gap-2">
-            {!isParticipant && study.scriptoriumId && (
-              <button onClick={handleJoin} className="rounded bg-verdigris/80 px-3 py-1.5 text-xs text-parchment hover:bg-verdigris">
-                join
-              </button>
-            )}
-            {isOwner && (
-              <button
-                onClick={() => setShowEditStudyModal(true)}
-                className="rounded border border-rule px-3 py-1.5 text-xs hover:border-brass hover:text-parchment"
-              >
-                edit
-              </button>
-            )}
-            {isParticipant && !isOwner && (
-              <button onClick={handleLeave} className="rounded border border-rule px-3 py-1.5 text-xs text-muted hover:border-red-400 hover:text-red-400">
-                leave
-              </button>
-            )}
-            {isOwner && (
-              <button onClick={handleDelete} className="rounded border border-red-900 px-3 py-1.5 text-xs text-red-400 hover:border-red-400">
-                delete
-              </button>
-            )}
-            {/* Mobile-only: opens the same sidebar content as a drawer */}
-            <button
-              onClick={() => setShowMobileSidebar(true)}
-              className="rounded border border-rule px-2 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment lg:hidden"
-              aria-label="Show progress and resources"
-            >
-              ☰
+        <div className="absolute right-6 top-3 z-10 flex flex-wrap gap-2">
+          {!isParticipant && study.scriptoriumId && (
+            <button onClick={handleJoin} className="rounded-md border border-parchment/20 bg-ink/50 px-3 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment">
+              join
             </button>
-          </div>
+          )}
+          {isOwner && (
+            <button onClick={() => setShowEditStudyModal(true)} className="rounded-md border border-parchment/20 bg-ink/50 px-3 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment">
+              edit
+            </button>
+          )}
+          {isParticipant && !isOwner && (
+            <button onClick={handleLeave} className="rounded-md border border-parchment/20 bg-ink/50 px-3 py-1.5 text-xs text-parchment/60 backdrop-blur-sm hover:border-red-400 hover:text-red-400">
+              leave
+            </button>
+          )}
+          {isOwner && (
+            <button onClick={handleDelete} className="rounded-md border border-red-900/50 bg-ink/50 px-3 py-1.5 text-xs text-red-400/80 backdrop-blur-sm hover:border-red-400 hover:text-red-400">
+              delete
+            </button>
+          )}
+          <button
+            onClick={() => setShowMobileSidebar(true)}
+            className="rounded-md border border-parchment/20 bg-ink/50 px-2 py-1.5 text-xs text-muted backdrop-blur-sm hover:border-brass hover:text-parchment lg:hidden"
+            aria-label="Show progress and resources"
+          >
+            ☰
+          </button>
         </div>
-        {study.description && <p className="mb-2 max-w-2xl text-sm text-muted">{study.description}</p>}
-        <p className="mb-3 text-xs uppercase tracking-wide text-muted">
-          {lessons.length} {lessons.length === 1 ? 'lesson' : 'lessons'} · {study.scriptoriumId ? 'group study' : 'solo study'}
-        </p>
-
-        <div className="flex gap-4 border-b border-rule text-sm">
+        <div className="absolute bottom-0 left-0 z-10 px-6 pb-3">
+          <h2 className="font-display text-2xl text-parchment">{study.title}</h2>
+          <p className="mt-0.5 text-xs uppercase tracking-wider text-parchment/40">
+            {lessons.length} {lessons.length === 1 ? 'lesson' : 'lessons'} · {study.scriptoriumId ? 'group study' : 'solo study'}
+          </p>
+        </div>
+      </div>
+      <div className="shrink-0 border-b border-rule px-6 py-3">
+        {study.description && <p className="mb-3 max-w-2xl text-sm text-muted">{study.description}</p>}
+        <div className="flex gap-4 text-sm">
           {TABS.map((t) => (
             <button
               key={t.key}

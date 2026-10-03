@@ -590,7 +590,7 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Hero banner */}
-      <div className="relative h-48 shrink-0 bg-ink">
+      <div className="relative mx-auto h-48 w-full max-w-5xl shrink-0 overflow-hidden bg-ink">
         <div className="absolute inset-0 overflow-hidden">
           {bannerUrl ? (
             <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
