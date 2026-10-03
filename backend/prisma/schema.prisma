@@ -127,6 +127,7 @@ model User {
   scriptoriumMemberships     ScriptoriumMembership[]
   scriptoriumInvitesSent     ScriptoriumInvite[]      @relation("ScriptoriumInvitesSent")
   scriptoriumInvitesReceived ScriptoriumInvite[]      @relation("ScriptoriumInvitesReceived")
+  scriptoriumResources       ScriptoriumResource[]
   posts    Post[]
   comments Comment[]
   studiesCreated         Study[]                  @relation("StudiesCreated")
@@ -176,6 +177,9 @@ model Scriptorium {
   description String?
   visibility  String   @default("private") // "private" | "public" — private: invite-only, hidden from browse for non-members; public: any logged-in user can find and join directly
   bannerUrl   String?
+  tags        String[]
+  about       String?
+  weeklyVerse String?
   ownerId     String
   owner       User     @relation("ScriptoriumsOwned", fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
@@ -184,6 +188,7 @@ model Scriptorium {
   invites     ScriptoriumInvite[]
   posts       Post[]
   studies     Study[]
+  resources   ScriptoriumResource[]
 }
 
 model ScriptoriumMembership {
@@ -285,6 +290,7 @@ model StudyLesson {
   module    String?
   reference String?
   body      String?
+  videoUrl  String?
   createdAt DateTime @default(now())
 
   completions StudyLessonCompletion[]
@@ -369,4 +375,18 @@ model StudyResource {
   createdAt  DateTime @default(now())
 
   @@index([studyId])
+}
+
+model ScriptoriumResource {
+  id            String      @id @default(cuid())
+  scriptoriumId String
+  scriptorium   Scriptorium @relation(fields: [scriptoriumId], references: [id], onDelete: Cascade)
+  label         String
+  url           String
+  addedById     String
+  addedBy       User        @relation(fields: [addedById], references: [id], onDelete: Cascade)
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now())
+
+  @@index([scriptoriumId])
 }

@@ -26,7 +26,7 @@ adminRouter.get('/metrics', async (req, res, next) => {
   }
 });
 
-// GET /api/admin/modules/visibility?type=BIBLE|COMMENTARY|DICT
+// GET /api/admin/modules/visibility?type=BIBLE|COMMENTARY|DICT|DAILY
 // Every installed module of the given type, merged with its current
 // visibility state — modules never explicitly toggled show as
 // available (the implicit default), matching how

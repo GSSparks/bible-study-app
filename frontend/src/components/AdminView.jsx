@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 
 const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding'];
-const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT'];
+const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT', 'DAILY'];
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -173,6 +173,7 @@ function ModulesTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [installing, setInstalling] = useState(null);
+  const [availableSearch, setAvailableSearch] = useState('');
   const [removing, setRemoving] = useState(null);
   const [toggling, setToggling] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -200,6 +201,7 @@ function ModulesTab() {
   useEffect(() => {
     refresh();
     setAvailable([]);
+    setAvailableSearch('');
     if (selectedRepo) {
       api.listAvailableModules(selectedRepo, type).then(setAvailable).catch((e) => setError(e.message));
     }
@@ -208,6 +210,7 @@ function ModulesTab() {
 
   useEffect(() => {
     if (!selectedRepo) return;
+    setAvailableSearch('');
     api.listAvailableModules(selectedRepo, type).then(setAvailable).catch((e) => setError(e.message));
   }, [selectedRepo, type]);
 
@@ -315,24 +318,39 @@ function ModulesTab() {
               </option>
             ))}
           </select>
-          <div className="overflow-hidden rounded-md border border-rule">
-            {available.map((m) => (
-              <div key={m.name} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">
-                <div>
-                  <div className="text-parchment">{m.description || m.name}</div>
-                  <div className="font-mono text-xs text-muted">{m.name}</div>
+          {available.length > 0 && (
+            <input
+              value={availableSearch}
+              onChange={(e) => setAvailableSearch(e.target.value)}
+              placeholder="Filter modules…"
+              className="mb-2 w-full rounded-md border border-rule bg-ink px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+            />
+          )}
+          <div className="max-h-96 overflow-y-auto overflow-x-hidden rounded-md border border-rule">
+            {(() => {
+              const q = availableSearch.toLowerCase();
+              const shown = q
+                ? available.filter((m) => m.name.toLowerCase().includes(q) || (m.description || '').toLowerCase().includes(q))
+                : available;
+              if (!selectedRepo) return <p className="p-3 text-sm text-muted">Pick a repository to browse what's available.</p>;
+              if (available.length === 0) return <p className="p-3 text-sm text-muted">No modules of this type found in this repository.</p>;
+              if (shown.length === 0) return <p className="p-3 text-sm text-muted">No matches for "{availableSearch}".</p>;
+              return shown.map((m) => (
+                <div key={m.name} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">
+                  <div>
+                    <div className="text-parchment">{m.description || m.name}</div>
+                    <div className="font-mono text-xs text-muted">{m.name}</div>
+                  </div>
+                  <button
+                    disabled={installing === m.name}
+                    onClick={() => handleInstall(m.name)}
+                    className="ml-2 shrink-0 rounded bg-verdigris/80 px-2 py-1 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
+                  >
+                    {installing === m.name ? 'installing…' : 'install'}
+                  </button>
                 </div>
-                <button
-                  disabled={installing === m.name}
-                  onClick={() => handleInstall(m.name)}
-                  className="rounded bg-verdigris/80 px-2 py-1 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
-                >
-                  {installing === m.name ? 'installing…' : 'install'}
-                </button>
-              </div>
-            ))}
-            {selectedRepo && available.length === 0 && <p className="p-3 text-sm text-muted">No modules of this type found in this repository.</p>}
-            {!selectedRepo && <p className="p-3 text-sm text-muted">Pick a repository to browse what's available.</p>}
+              ));
+            })()}
           </div>
         </div>
 

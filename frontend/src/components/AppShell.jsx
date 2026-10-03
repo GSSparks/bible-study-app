@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Box, Library as LibraryIcon, Sparkles, Bell, MessageCircle, UserCircle, Settings as SettingsIcon, Shield, Menu } from 'lucide-react';
+import { BookOpen, Box, Library as LibraryIcon, Sparkles, Settings as SettingsIcon, Shield, Menu } from 'lucide-react';
 import CellView from './CellView.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
 import AdminView from './AdminView.jsx';
 import ScriptoriumsView from './ScriptoriumsView.jsx';
-import HomeView from './HomeView.jsx';
-import ChronicleView from './ChronicleView.jsx';
 import LibraryView from './LibraryView.jsx';
 import AICompanionView from './AICompanionView.jsx';
 import LoginModal from './LoginModal.jsx';
@@ -15,48 +13,14 @@ import ChangePasswordModal from './ChangePasswordModal.jsx';
 import UserMenu from './UserMenu.jsx';
 import { api } from '../api/client.js';
 
-// Views with no `description` are ones with a real component below —
-// everything else renders PlaceholderView with this text. `adminOnly`
-// items are filtered out of the nav entirely for non-admins rather
-// than shown-but-blocked, same reasoning as hiding "Manage modules"
-// from non-admins elsewhere in the app. `requiresAuth` items are
-// filtered out for anonymous visitors — no point linking to a page
-// that only says "log in", when the Log in button is already right
-// there at the bottom of this same sidebar.
-//
-// Grouped into two sections matching the mockup — a main-features
-// group and an activity/account group, with a thin divider between
-// them. Groups are arrays here (not objects with a label) since the
-// mockup itself has no visible group headings, just the spacing/
-// divider — nothing to actually render as a label.
 const NAV_GROUPS = [
   [
-    { key: 'home', label: 'Home', Icon: Home, requiresAuth: true },
     { key: 'cell', label: 'Cell', Icon: BookOpen },
-    {
-      key: 'scriptoriums',
-      label: 'Scriptoriums',
-      Icon: Box,
-      requiresAuth: true,
-    },
+    { key: 'scriptoriums', label: 'Scriptoriums', Icon: Box, requiresAuth: true },
     { key: 'library', label: 'Library', Icon: LibraryIcon },
     { key: 'ai-companion', label: 'AI Companion', Icon: Sparkles },
   ],
   [
-    {
-      key: 'notifications',
-      label: 'Notifications',
-      Icon: Bell,
-      requiresAuth: true,
-      description: "You'll see comments, mentions, and Scriptorium activity here. Fellow requests live in the Fellows page.",
-    },
-    { key: 'messages', label: 'Messages', Icon: MessageCircle, requiresAuth: true, description: 'Direct messages with your Fellows.' },
-    {
-      key: 'chronicle',
-      label: 'My Chronicle',
-      Icon: UserCircle,
-      requiresAuth: true,
-    },
     { key: 'settings', label: 'Settings', Icon: SettingsIcon, requiresAuth: true },
     { key: 'admin', label: 'Admin', Icon: Shield, requiresAuth: true, adminOnly: true },
   ],
@@ -67,12 +31,11 @@ export default function AppShell({ auth }) {
   const routerNavigate = useNavigate();
 
   // Derive view + sub-param from URL rather than tracking in state.
-  // pathParts[0] is the view key (e.g. "chronicle", "studies");
+  // pathParts[0] is the view key (e.g. "scriptoriums", "library");
   // pathParts[1] is the sub-param when present (username, studyId).
   const pathParts = location.pathname.split('/').filter(Boolean);
   const activeView = pathParts[0] || 'cell';
   const locationSub = pathParts[1] ?? null;
-  const profileUsername = activeView === 'chronicle' ? locationSub : null;
   // /scriptoriums/:scriptoriumId/studies/:studyId
   const urlScriptoriumId = activeView === 'scriptoriums' ? locationSub : null;
   const urlStudyId = activeView === 'scriptoriums' && pathParts[2] === 'studies' ? pathParts[3] ?? null : null;
@@ -131,32 +94,9 @@ export default function AppShell({ auth }) {
     navigate('ai-companion');
   }
 
-  function viewProfile(username) {
-    if (username === auth.user?.username) {
-      routerNavigate('/chronicle');
-    } else {
-      routerNavigate('/chronicle/' + encodeURIComponent(username));
-    }
-    setDrawerOpen(false);
-  }
-
   function askAiCompanionPhraseStudy(phrase, module, strongsSequence) {
     setPendingPhraseStudy({ phrase, module, strongsSequence, nonce: Date.now() });
     navigate('ai-companion');
-  }
-
-  function openStudy(scriptoriumId, studyId) {
-    if (scriptoriumId) {
-      routerNavigate('/scriptoriums/' + scriptoriumId + '/studies/' + studyId);
-    } else {
-      routerNavigate('/scriptoriums');
-    }
-    setDrawerOpen(false);
-  }
-
-  function navigateToStudiesList() {
-    routerNavigate('/scriptoriums');
-    setDrawerOpen(false);
   }
 
   useEffect(() => {
@@ -280,18 +220,10 @@ export default function AppShell({ auth }) {
           />
         )}
         {activeView === 'admin' && <AdminView />}
-        {activeView === 'home' && (
-          <HomeView
-            currentUserId={auth.user?.id}
-            currentUsername={auth.user?.username}
-            onViewProfile={viewProfile}
-            onNavigateToStudies={navigateToStudiesList}
-            onOpenStudy={openStudy}
-          />
-        )}
         <div className={activeView === 'scriptoriums' ? 'h-full' : 'hidden'}>
           <ScriptoriumsView
             currentUserId={auth.user?.id}
+            currentUserRole={auth.user?.role}
             urlScriptoriumId={urlScriptoriumId}
             urlStudyId={urlStudyId}
             onOpenInPassages={openInPassages}
@@ -299,15 +231,6 @@ export default function AppShell({ auth }) {
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
           />
         </div>
-        {activeView === 'chronicle' && (
-          <ChronicleView
-            username={profileUsername}
-            currentUserId={auth.user?.id}
-            currentUsername={auth.user?.username}
-            onBack={profileUsername ? () => navigate('chronicle') : null}
-            onViewProfile={viewProfile}
-          />
-        )}
         {activeView === 'library' && <LibraryView isLoggedIn={Boolean(auth.user)} />}
         <div className={activeView === 'ai-companion' ? 'h-full' : 'hidden'}>
           <AICompanionView
@@ -324,9 +247,7 @@ export default function AppShell({ auth }) {
           activeView !== 'admin' &&
           activeView !== 'scriptoriums' &&
           activeView !== 'library' &&
-          activeView !== 'ai-companion' &&
-          activeView !== 'home' &&
-          activeView !== 'chronicle' && (
+          activeView !== 'ai-companion' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
         )}
       </main>

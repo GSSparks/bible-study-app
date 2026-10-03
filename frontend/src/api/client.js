@@ -122,6 +122,9 @@ export const api = {
   inviteToScriptorium: (id, username) => request(`/scriptoriums/${id}/invite`, { method: 'POST', body: JSON.stringify({ username }) }),
   acceptScriptoriumInvite: (inviteId) => request(`/scriptoriums/invites/${inviteId}/accept`, { method: 'POST' }),
   declineScriptoriumInvite: (inviteId) => request(`/scriptoriums/invites/${inviteId}/decline`, { method: 'POST' }),
+  listScriptoriumResources: (id) => request(`/scriptoriums/${id}/resources`),
+  addScriptoriumResource: (id, payload) => request(`/scriptoriums/${id}/resources`, { method: 'POST', body: JSON.stringify(payload) }),
+  removeScriptoriumResource: (id, resourceId) => request(`/scriptoriums/${id}/resources/${resourceId}`, { method: 'DELETE' }),
 
   // Wall
   getHomeFeed: () => request('/wall/feed'),
@@ -155,11 +158,20 @@ export const api = {
     fd.append('banner', file);
     return request(`/uploads/banner/scriptorium/${id}`, { method: 'POST', body: fd });
   },
+  generateScriptoriumBanner: (id) => request(`/uploads/banner/ai/scriptorium/${id}`, { method: 'POST' }),
+  generateStudyBanner: (id) => request(`/uploads/banner/ai/study/${id}`, { method: 'POST' }),
+
   uploadStudyBanner: (id, file) => {
     const fd = new FormData();
     fd.append('banner', file);
     return request(`/uploads/banner/study/${id}`, { method: 'POST', body: fd });
   },
+  uploadLessonVideo: (lessonId, file) => {
+    const fd = new FormData();
+    fd.append('video', file);
+    return request(`/uploads/video/lesson/${lessonId}`, { method: 'POST', body: fd });
+  },
+  removeLessonVideo: (lessonId) => request(`/uploads/video/lesson/${lessonId}`, { method: 'DELETE' }),
 
   // Studies
   listMyStudies: () => request('/studies/mine'),
@@ -191,6 +203,11 @@ export const api = {
   deleteStudyComment: (commentId) => request(`/studies/comments/${commentId}`, { method: 'DELETE' }),
   likeStudyComment: (commentId) => request(`/studies/comments/${commentId}/like`, { method: 'POST' }),
   unlikeStudyComment: (commentId) => request(`/studies/comments/${commentId}/like`, { method: 'DELETE' }),
+
+  // Devotionals
+  getTodaysDevotional: () => request('/devotionals/today'),
+  listDevotionalModules: () => request('/devotionals/modules'),
+  setDevotionalModule: (moduleCode) => request('/devotionals/settings', { method: 'POST', body: JSON.stringify({ moduleCode }) }),
 
   listStudyResources: (studyId) => request(`/studies/${studyId}/resources`),
   addStudyResource: (studyId, payload) => request(`/studies/${studyId}/resources`, { method: 'POST', body: JSON.stringify(payload) }),

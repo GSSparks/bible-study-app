@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import RichEditor from './RichEditor.jsx';
+import { getAvatarColor } from '../utils/avatar.js';
 
 export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenStudy }) {
   const [studies, setStudies] = useState([]);
@@ -35,17 +36,39 @@ export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenS
       {loading && <p className="text-sm text-muted">Loading…</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      <div className="space-y-2">
-        {studies.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => onOpenStudy(s.id)}
-            className="block w-full rounded-md border border-rule bg-panel p-4 text-left transition-colors hover:border-brass/60"
-          >
-            <div className="font-display text-sm text-parchment">{s.title}</div>
-            {s.description && <div className="mt-0.5 text-xs text-muted">{s.description}</div>}
-          </button>
-        ))}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {studies.map((s) => {
+          const bannerColor = getAvatarColor(s.title);
+          return (
+            <div
+              key={s.id}
+              className="group overflow-hidden rounded-xl border border-rule bg-panel transition-colors hover:border-brass/50"
+            >
+              <button onClick={() => onOpenStudy(s.id)} className="relative block h-24 w-full overflow-hidden bg-ink">
+                {s.bannerUrl ? (
+                  <img src={s.bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                ) : (
+                  <>
+                    <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 25% 65%, ${bannerColor}66 0%, transparent 65%)` }} />
+                    <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 80% 25%, ${bannerColor}33 0%, transparent 60%)` }} />
+                    <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 50% 110%, #0D1B2966 0%, transparent 50%)` }} />
+                  </>
+                )}
+                <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-panel to-transparent" />
+              </button>
+              <button onClick={() => onOpenStudy(s.id)} className="block w-full px-4 pb-3 pt-2 text-left">
+                <div className="font-display text-base leading-snug text-parchment transition-colors group-hover:text-brass">
+                  {s.title}
+                </div>
+                {s.description ? (
+                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted">{s.description}</p>
+                ) : (
+                  <p className="mt-1 text-xs italic text-muted/40">No description</p>
+                )}
+              </button>
+            </div>
+          );
+        })}
         {!loading && studies.length === 0 && (
           <p className="text-sm text-muted">No studies in this Scriptorium yet.</p>
         )}

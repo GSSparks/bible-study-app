@@ -126,10 +126,10 @@ export async function listMembers(scriptoriumId, userId) {
   await getScriptorium(scriptoriumId, userId); // reuses the same 404-masking check
   const memberships = await prisma.scriptoriumMembership.findMany({
     where: { scriptoriumId },
-    include: { user: { select: { id: true, username: true } } },
+    include: { user: { select: { id: true, username: true, avatarUrl: true, displayName: true } } },
     orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }], // 'owner' sorts before 'member' alphabetically, a small free bonus
   });
-  return memberships.map((m) => ({ membershipId: m.id, id: m.user.id, username: m.user.username, role: m.role, joinedAt: m.joinedAt }));
+  return memberships.map((m) => ({ membershipId: m.id, id: m.user.id, username: m.user.username, displayName: m.user.displayName, avatarUrl: m.user.avatarUrl, role: m.role, joinedAt: m.joinedAt }));
 }
 
 export async function joinPublicScriptorium(scriptoriumId, userId) {
@@ -193,13 +193,72 @@ export async function deleteScriptorium(scriptoriumId, userId) {
   await prisma.scriptorium.delete({ where: { id: scriptoriumId } }); // cascades remove memberships/invites
 }
 
-export async function updateScriptorium(scriptoriumId, userId, { name, description, visibility }) {
+export async function updateScriptorium(scriptoriumId, userId, { name, description, visibility, tags, about, weeklyVerse }) {
   await assertOwner(scriptoriumId, userId);
   validateFields({ name, description, visibility });
+  const cleanTags = Array.isArray(tags)
+    ? [...new Set(tags.map((t) => t.trim().toLowerCase()).filter(Boolean))].slice(0, 20)
+    : undefined;
   return prisma.scriptorium.update({
     where: { id: scriptoriumId },
-    data: { name: name.trim(), description: description?.trim() || null, visibility },
+    data: {
+      name: name.trim(),
+      description: description?.trim() || null,
+      visibility,
+      ...(cleanTags !== undefined && { tags: cleanTags }),
+      ...(about !== undefined && { about: about?.trim() || null }),
+      ...(weeklyVerse !== undefined && { weeklyVerse: weeklyVerse?.trim() || null }),
+    },
   });
+}
+
+export async function listResources(scriptoriumId, userId) {
+  await getScriptorium(scriptoriumId, userId);
+  return prisma.scriptoriumResource.findMany({
+    where: { scriptoriumId },
+    include: { addedBy: { select: { id: true, username: true } } },
+    orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+  });
+}
+
+export async function addResource(scriptoriumId, userId, { label, url }) {
+  const membership = await prisma.scriptoriumMembership.findUnique({
+    where: { scriptoriumId_userId: { scriptoriumId, userId } },
+  });
+  if (!membership) {
+    const err = new Error('Not a member.');
+    err.status = 403;
+    throw err;
+  }
+  if (!label?.trim() || !url?.trim()) {
+    const err = new Error('label and url are required.');
+    err.status = 400;
+    throw err;
+  }
+  const count = await prisma.scriptoriumResource.count({ where: { scriptoriumId } });
+  return prisma.scriptoriumResource.create({
+    data: { scriptoriumId, addedById: userId, label: label.trim(), url: url.trim(), order: count },
+  });
+}
+
+export async function removeResource(scriptoriumId, userId, resourceId) {
+  const resource = await prisma.scriptoriumResource.findUnique({ where: { id: resourceId } });
+  if (!resource || resource.scriptoriumId !== scriptoriumId) {
+    const err = new Error('Resource not found.');
+    err.status = 404;
+    throw err;
+  }
+  const membership = await prisma.scriptoriumMembership.findUnique({
+    where: { scriptoriumId_userId: { scriptoriumId, userId } },
+  });
+  const isOwner = membership?.role === 'owner';
+  const isAdder = resource.addedById === userId;
+  if (!isOwner && !isAdder) {
+    const err = new Error('Not authorized.');
+    err.status = 403;
+    throw err;
+  }
+  await prisma.scriptoriumResource.delete({ where: { id: resourceId } });
 }
 
 /** Owner-only member removal (separate from leaveScriptorium, which is

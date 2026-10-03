@@ -144,11 +144,11 @@ export async function listParticipants(studyId, viewerId) {
   await getStudy(studyId, viewerId); // visibility check, throws 404 if not visible
   const participants = await prisma.studyParticipant.findMany({
     where: { studyId },
-    include: { user: { select: { id: true, username: true } } },
+    include: { user: { select: { id: true, username: true, avatarUrl: true, displayName: true } } },
     orderBy: { joinedAt: 'asc' },
   });
   return participants
-    .map((p) => ({ participantId: p.id, id: p.user?.id, username: p.user?.username, role: p.role, joinedAt: p.joinedAt }))
+    .map((p) => ({ participantId: p.id, id: p.user?.id, username: p.user?.username, displayName: p.user?.displayName, avatarUrl: p.user?.avatarUrl, role: p.role, joinedAt: p.joinedAt }))
     .sort((a, b) => (a.role === b.role ? 0 : a.role === 'owner' ? -1 : 1));
 }
 

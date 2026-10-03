@@ -11,6 +11,15 @@
   background-color: transparent !important;
 }
 
+/* Study notes and other markdown content on parchment reading surfaces —
+   match the serif font and page text color used by the Bible passage text
+   in the same panels so the two feel typographically unified. */
+[data-color-mode='light'] .wmde-markdown {
+  font-family: "Source Serif 4", Georgia, serif;
+  color: #2B2620;
+  line-height: 1.75;
+}
+
 @layer base {
   * {
     scrollbar-width: thin;

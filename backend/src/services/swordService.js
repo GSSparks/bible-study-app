@@ -79,6 +79,35 @@ class SwordService {
     return this.sword.getAllLocalModules(moduleType);
   }
 
+  listDevotionalModules() {
+    for (const type of ['DAILY', 'Daily']) {
+      try {
+        const mods = this.sword.getAllLocalModules(type);
+        if (mods && mods.length > 0) return mods;
+      } catch {}
+    }
+    return [];
+  }
+
+  // Daily devotional modules use months as "books" and day numbers as
+  // "chapters" — the same getChapterText path used for Bible modules
+  // works here without any special casing, so this just maps a Date to
+  // that coordinate and reuses the existing content pipeline.
+  getDevotionalEntry(moduleCode, date = new Date()) {
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = MONTHS[date.getMonth()];
+    const day = date.getDate();
+    try {
+      const verses = this.sword.getChapterText(moduleCode, month, day);
+      return verses.map((v) => {
+        const { content, titles } = this.processVerseContent(v.content);
+        return { verseNr: Number(v.verseNr), content, titles, text: this.stripHtml(content) };
+      });
+    } catch {
+      return [];
+    }
+  }
+
   async installModule(repoName, moduleCode, onProgress) {
     await this._ensureRepoConfig();
     return this.sword.installModule(repoName, moduleCode, (progress) => {

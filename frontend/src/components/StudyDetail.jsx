@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera } from 'lucide-react';
+import { Camera, Video, Sparkles } from 'lucide-react';
 import { getAvatarColor } from '../utils/avatar.js';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
+import AvatarRoll from './AvatarRoll.jsx';
 import ResourceFooter from './ResourceFooter.jsx';
 import PassageQuickView from './PassageQuickView.jsx';
 import RichEditor from './RichEditor.jsx';
@@ -58,6 +59,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [participants, setParticipants] = useState([]);
   const [activeLessonId, setActiveLessonId] = useState(null);
   const [tab, setTab] = useState('content');
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -66,16 +68,23 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
   const [showEditStudyModal, setShowEditStudyModal] = useState(false);
   const [bannerUrl, setBannerUrl] = useState(null);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [generatingBanner, setGeneratingBanner] = useState(false);
   const bannerInputRef = useRef(null);
 
   function refresh() {
     setLoading(true);
     setError(null);
-    Promise.all([api.getStudy(studyId), api.listStudyLessons(studyId), api.listStudyResources(studyId)])
-      .then(([s, l, r]) => {
+    Promise.all([
+      api.getStudy(studyId),
+      api.listStudyLessons(studyId),
+      api.listStudyResources(studyId),
+      api.listStudyParticipants(studyId).catch(() => []),
+    ])
+      .then(([s, l, r, p]) => {
         setStudy(s);
         setLessons(l);
         setResources(r);
+        setParticipants(p);
         setActiveLessonId((prev) => (prev && l.some((lesson) => lesson.id === prev) ? prev : l[0]?.id || null));
         if (s.isParticipant) {
           api.getStudyProgress(studyId).then(setProgress).catch(() => {});
@@ -98,6 +107,18 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
     } finally {
       setUploadingBanner(false);
       e.target.value = '';
+    }
+  }
+
+  async function handleGenerateBanner() {
+    setGeneratingBanner(true);
+    try {
+      const { url } = await api.generateStudyBanner(studyId);
+      setBannerUrl(url);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGeneratingBanner(false);
     }
   }
 
@@ -191,11 +212,19 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
               <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
               <button
                 onClick={() => bannerInputRef.current?.click()}
-                disabled={uploadingBanner}
+                disabled={uploadingBanner || generatingBanner}
                 className="flex items-center gap-1.5 rounded-md border border-parchment/20 bg-ink/50 px-2.5 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment disabled:opacity-50"
               >
                 <Camera size={13} />
                 {uploadingBanner ? 'uploading…' : 'banner'}
+              </button>
+              <button
+                onClick={handleGenerateBanner}
+                disabled={generatingBanner || uploadingBanner}
+                className="flex items-center gap-1.5 rounded-md border border-parchment/20 bg-ink/50 px-2.5 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment disabled:opacity-50"
+              >
+                <Sparkles size={13} />
+                {generatingBanner ? 'generating…' : 'AI banner'}
               </button>
             </>
           )}
@@ -234,50 +263,65 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
             {study.scriptoriumId ? 'group study' : 'solo study'}
           </p>
         </div>
-      </div>
-      <div className="shrink-0 border-b border-rule px-6 py-3">
-        {study.description && <p className="mb-3 max-w-2xl text-sm text-muted">{study.description}</p>}
-        <div className="flex gap-4 text-sm">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`pb-2 ${tab === t.key ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      {error && <p className="px-6 pt-3 text-sm text-red-400">{error}</p>}
-
-      <div className="min-h-0 flex-1 overflow-hidden lg:flex">
-        <div className="min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">
-          {tab === 'content' && (
-            <ContentTab
-              study={study}
-              lessons={lessons}
-              activeLesson={activeLesson}
-              onSelectLesson={setActiveLessonId}
-              isOwner={isOwner}
-              onAddLesson={() => setShowAddLessonModal(true)}
-              onGenerate={() => setShowGenerateModal(true)}
-              onLessonsChanged={refresh}
-              resources={resources}
-              onOpenInPassages={onOpenInPassages}
-              onAskAiCompanionAbout={onAskAiCompanionAbout}
-              onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+        {participants.length > 0 && (
+          <div className="absolute bottom-4 right-6 z-10">
+            <AvatarRoll
+              members={participants}
+              total={participants.length}
+              onMemberClick={null}
+              onOverflowClick={() => setTab('members')}
             />
-          )}
-          {tab === 'discussion' && (
-            <DiscussionTab lesson={activeLesson} isParticipant={study.isParticipant} currentUserId={currentUserId} />
-          )}
-          {tab === 'members' && <MembersTab studyId={studyId} isOwner={isOwner} />}
+          </div>
+        )}
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden lg:flex">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden px-4 lg:px-6">
+          {study.description && <p className="mb-3 mt-4 max-w-2xl text-sm text-muted">{study.description}</p>}
+          {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+          <div className="flex shrink-0 gap-6 border-b border-rule pt-4 text-sm">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`pb-2 ${tab === t.key ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+              >
+                {t.key === 'members' ? `Members (${participants.length})` : t.label}
+              </button>
+            ))}
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden pt-4">
+            {tab === 'content' && (
+              <ContentTab
+                study={study}
+                lessons={lessons}
+                activeLesson={activeLesson}
+                onSelectLesson={setActiveLessonId}
+                isOwner={isOwner}
+                onAddLesson={() => setShowAddLessonModal(true)}
+                onGenerate={() => setShowGenerateModal(true)}
+                onLessonsChanged={refresh}
+                resources={resources}
+                onOpenInPassages={onOpenInPassages}
+                onAskAiCompanionAbout={onAskAiCompanionAbout}
+                onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+              />
+            )}
+            {tab === 'discussion' && (
+              <div className="h-full overflow-y-auto">
+                <DiscussionTab lesson={activeLesson} isParticipant={study.isParticipant} currentUserId={currentUserId} />
+              </div>
+            )}
+            {tab === 'members' && (
+              <div className="h-full overflow-y-auto">
+                <MembersTab studyId={studyId} isOwner={isOwner} />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Desktop: persistent right sidebar */}
-        <div className="hidden w-72 shrink-0 overflow-y-auto border-l border-rule p-4 lg:block">{sidebarContent}</div>
+        <div className="hidden w-72 shrink-0 overflow-y-auto p-4 lg:block">{sidebarContent}</div>
       </div>
 
       {/* Mobile: drawer overlay */}
@@ -726,11 +770,15 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
   const [pendingBody, setPendingBody] = useState('');
   const [savingBody, setSavingBody] = useState(false);
   const [bodyError, setBodyError] = useState(null);
+  const [videoUrl, setVideoUrl] = useState(lesson.videoUrl || null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const videoInputRef = useRef(null);
 
   useEffect(() => {
     setPassage(null);
     setPassageError(null);
     setEditingBody(false);
+    setVideoUrl(lesson.videoUrl || null);
     if (lesson.module && lesson.reference) {
       api
         .getPassage(lesson.module, lesson.reference)
@@ -770,6 +818,33 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
       // this is a small, recoverable part of the page.
     } finally {
       setSavingNote(false);
+    }
+  }
+
+  async function handleVideoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingVideo(true);
+    try {
+      const { url } = await api.uploadLessonVideo(lesson.id, file);
+      setVideoUrl(url);
+      onLessonsChanged();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setUploadingVideo(false);
+      e.target.value = '';
+    }
+  }
+
+  async function handleRemoveVideo() {
+    if (!confirm('Remove the video from this lesson?')) return;
+    try {
+      await api.removeLessonVideo(lesson.id);
+      setVideoUrl(null);
+      onLessonsChanged();
+    } catch (err) {
+      alert(err.message);
     }
   }
 
@@ -860,6 +935,41 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
           </p>
         )}
       </div>
+
+      {/* Lesson video — between passage and study notes */}
+      {(videoUrl || isOwner) && (
+        <div className="overflow-hidden rounded-xl border border-rule bg-ink">
+          <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden" onChange={handleVideoChange} />
+          {videoUrl ? (
+            <>
+              <video src={videoUrl} controls className="w-full" style={{ maxHeight: '480px' }} />
+              {isOwner && (
+                <div className="flex items-center justify-between px-4 py-2">
+                  <span className="text-xs text-muted">Lesson Video</span>
+                  <div className="flex gap-3">
+                    <button onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo} className="text-xs text-muted hover:text-parchment disabled:opacity-50">
+                      {uploadingVideo ? 'uploading…' : 'replace'}
+                    </button>
+                    <button onClick={handleRemoveVideo} className="text-xs text-muted hover:text-red-400">
+                      remove
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <button
+              onClick={() => videoInputRef.current?.click()}
+              disabled={uploadingVideo}
+              className="flex w-full flex-col items-center justify-center gap-2 py-8 text-muted hover:text-parchment disabled:opacity-50"
+            >
+              <Video size={24} strokeWidth={1.5} />
+              <span className="text-sm">{uploadingVideo ? 'uploading…' : 'add a lesson video'}</span>
+              <span className="text-xs text-muted/60">mp4, webm, or mov · up to 500 MB</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Study notes — click-to-edit in place for the owner */}
       {(lesson.body || isOwner) && (

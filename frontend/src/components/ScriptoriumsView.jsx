@@ -1,18 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Search } from 'lucide-react';
+import { Camera, Search, Sparkles, ExternalLink, Trash2, Plus } from 'lucide-react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
+import AvatarRoll from './AvatarRoll.jsx';
 import { getAvatarColor } from '../utils/avatar.js';
 import PostFeed from './PostFeed.jsx';
+import RichEditor from './RichEditor.jsx';
+import RichContent from './RichContent.jsx';
 import ScriptoriumStudiesTab from './ScriptoriumStudiesTab.jsx';
 import StudyDetail from './StudyDetail.jsx';
+import DailyDevotional from './DailyDevotional.jsx';
 
-export default function ScriptoriumsView({ currentUserId, urlScriptoriumId, urlStudyId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
+export default function ScriptoriumsView({ currentUserId, currentUserRole, urlScriptoriumId, urlStudyId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
   const routerNavigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = () => setRefreshKey((k) => k + 1);
+  const isAdmin = currentUserRole === 'admin';
 
   if (urlScriptoriumId) {
     return (
@@ -31,11 +36,18 @@ export default function ScriptoriumsView({ currentUserId, urlScriptoriumId, urlS
   return (
     <div className="h-full overflow-y-auto px-6 py-6">
       <div className="mx-auto max-w-5xl">
-        <ScriptoriumsList
-          onOpen={(id) => routerNavigate('/scriptoriums/' + id)}
-          refreshKey={refreshKey}
-          onRequestCreate={() => setShowCreateModal(true)}
-        />
+        <div className="flex items-start gap-6">
+          <div className="min-w-0 flex-1">
+            <ScriptoriumsList
+              onOpen={(id) => routerNavigate('/scriptoriums/' + id)}
+              refreshKey={refreshKey}
+              onRequestCreate={() => setShowCreateModal(true)}
+            />
+          </div>
+          <div className="hidden w-72 shrink-0 lg:block">
+            <DailyDevotional isAdmin={isAdmin} />
+          </div>
+        </div>
       </div>
 
       {showCreateModal && (
@@ -59,6 +71,7 @@ function ScriptoriumsList({ onOpen, refreshKey, onRequestCreate }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
+  const [activeTag, setActiveTag] = useState(null);
   const [joining, setJoining] = useState(null);
   const [busy, setBusy] = useState(null);
 
@@ -79,12 +92,16 @@ function ScriptoriumsList({ onOpen, refreshKey, onRequestCreate }) {
   const q = search.toLowerCase();
   const myIds = new Set(mine.map((s) => s.id));
 
-  const filteredMine = mine.filter(
-    (s) => !q || s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q)
-  );
-  const filteredBrowse = publicList
-    .filter((s) => !myIds.has(s.id))
-    .filter((s) => !q || s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q));
+  const allTags = [...new Set([...mine, ...publicList].flatMap((s) => s.tags || []))].sort();
+
+  function matchesFilters(s) {
+    const textMatch = !q || s.name.toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q);
+    const tagMatch = !activeTag || (s.tags || []).includes(activeTag);
+    return textMatch && tagMatch;
+  }
+
+  const filteredMine = mine.filter(matchesFilters);
+  const filteredBrowse = publicList.filter((s) => !myIds.has(s.id)).filter(matchesFilters);
 
   async function handleJoin(id) {
     setJoining(id);
@@ -132,6 +149,24 @@ function ScriptoriumsList({ onOpen, refreshKey, onRequestCreate }) {
           + new
         </button>
       </div>
+
+      {allTags.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+              className={`rounded-full px-2.5 py-0.5 text-xs ${
+                activeTag === tag
+                  ? 'bg-brass text-ink'
+                  : 'border border-rule text-muted hover:border-brass/60 hover:text-parchment'
+              }`}
+            >
+              #{tag}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
       {loading && <p className="text-sm text-muted">Loading…</p>}
@@ -255,6 +290,17 @@ function ScriptoriumCard({ s, onOpen, badge, joinButton }) {
         )}
       </button>
 
+      {/* Tags */}
+      {s.tags?.length > 0 && (
+        <div className="flex flex-wrap gap-1 px-4 pb-2">
+          {s.tags.map((tag) => (
+            <span key={tag} className="rounded-full border border-rule/60 px-2 py-0.5 text-[10px] text-muted/70">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Footer row */}
       <div className="flex items-center justify-between border-t border-rule/40 px-4 py-2.5">
         <div className="flex items-center gap-2 text-xs text-muted/60">
@@ -363,19 +409,68 @@ function CreateModal({ onClose, onCreated }) {
   );
 }
 
+const STOP_WORDS = new Set([
+  'the','a','an','and','or','but','in','on','at','to','for','of','with','by','from',
+  'as','is','was','are','were','be','been','being','have','has','had','do','does',
+  'did','will','would','could','should','may','might','must','can','this','that',
+  'these','those','it','its','we','our','they','their','you','your','he','she',
+  'his','her','i','my','me','us','not','no','so','if','then','than','more','most',
+  'all','each','every','some','any','few','about','into','over','after','before',
+  'what','which','who','when','where','how','why','also','through','just','very',
+  'study','bible','scripture','scriptorium','chapter','verse','book','god','lord',
+]);
+
+function suggestTags(name, description, about, existing = []) {
+  const raw = [name, description, about].filter(Boolean).join(' ');
+  const stripped = raw.replace(/[#*`[\]()_>~]/g, ' ').replace(/https?:\/\/\S+/g, '');
+  const words = stripped.toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/);
+  const freq = {};
+  for (const w of words) {
+    if (w.length >= 4 && !STOP_WORDS.has(w)) freq[w] = (freq[w] || 0) + 1;
+  }
+  const existingSet = new Set(existing);
+  return Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([w]) => w)
+    .filter((w) => !existingSet.has(w));
+}
+
 function EditModal({ scriptorium, onClose, onSaved }) {
   const [name, setName] = useState(scriptorium.name);
   const [description, setDescription] = useState(scriptorium.description || '');
   const [visibility, setVisibility] = useState(scriptorium.visibility);
+  const [about, setAbout] = useState(scriptorium.about || '');
+  const [weeklyVerse, setWeeklyVerse] = useState(scriptorium.weeklyVerse || '');
+  const [tags, setTags] = useState(scriptorium.tags || []);
+  const [tagInput, setTagInput] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  function addTag(raw) {
+    const tag = raw.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (tag && !tags.includes(tag) && tags.length < 20) {
+      setTags([...tags, tag]);
+    }
+    setTagInput('');
+  }
+
+  function handleTagKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag(tagInput);
+    } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
+      setTags(tags.slice(0, -1));
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      await api.updateScriptorium(scriptorium.id, { name, description, visibility });
+      await api.updateScriptorium(scriptorium.id, { name, description, visibility, tags, about, weeklyVerse });
       onSaved();
     } catch (e) {
       setError(e.message);
@@ -386,12 +481,12 @@ function EditModal({ scriptorium, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-sm rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
+      <div className="w-full max-w-lg rounded-lg border border-rule bg-panel p-6 text-parchment shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg">Edit Scriptorium</h2>
           <button onClick={onClose} className="text-xs text-muted hover:text-parchment">close</button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="max-h-[80vh] space-y-3 overflow-y-auto pr-1">
           <div>
             <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Name</label>
             <input
@@ -415,6 +510,61 @@ function EditModal({ scriptorium, onClose, onSaved }) {
             <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Visibility</label>
             <VisibilityToggle value={visibility} onChange={setVisibility} />
           </div>
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-xs uppercase tracking-wide text-muted">Tags</label>
+              <button
+                type="button"
+                onClick={() => setSuggestions(suggestTags(name, description, about, tags))}
+                className="text-xs text-muted hover:text-parchment"
+              >
+                suggest from content
+              </button>
+            </div>
+            <div className="flex min-h-[2.5rem] flex-wrap gap-1.5 rounded border border-rule bg-ink px-2 py-1.5 focus-within:border-brass">
+              {tags.map((tag) => (
+                <span key={tag} className="flex items-center gap-1 rounded-full bg-brass/20 px-2 py-0.5 text-xs text-brass">
+                  #{tag}
+                  <button type="button" onClick={() => setTags(tags.filter((t) => t !== tag))} className="text-brass/60 hover:text-brass">×</button>
+                </span>
+              ))}
+              <input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                onBlur={() => tagInput && addTag(tagInput)}
+                placeholder={tags.length === 0 ? 'Add tags (Enter to add)…' : ''}
+                className="min-w-[6rem] flex-1 bg-transparent text-sm text-parchment placeholder:text-muted/40 focus:outline-none"
+              />
+            </div>
+            {suggestions.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => { addTag(s); setSuggestions(suggestions.filter((x) => x !== s)); }}
+                    className="rounded-full border border-rule/50 px-2 py-0.5 text-[10px] text-muted/70 hover:border-brass/60 hover:text-parchment"
+                  >
+                    + #{s}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Weekly Verse Reference</label>
+            <input
+              value={weeklyVerse}
+              onChange={(e) => setWeeklyVerse(e.target.value)}
+              placeholder="e.g. John 3:16"
+              className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted/40 focus:border-brass"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wide text-muted">About (Introduction)</label>
+            <RichEditor value={about} onChange={setAbout} height={160} />
+          </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
           <button
             type="submit"
@@ -424,6 +574,273 @@ function EditModal({ scriptorium, onClose, onSaved }) {
             {saving ? 'saving…' : 'save'}
           </button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function AboutSection({ scriptorium, isOwner, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(scriptorium.about || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.updateScriptorium(scriptorium.id, {
+        name: scriptorium.name,
+        description: scriptorium.description || '',
+        visibility: scriptorium.visibility,
+        about: draft,
+      });
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="space-y-3">
+        <RichEditor value={draft} onChange={setDraft} height={300} />
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        <div className="flex gap-2">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
+          >
+            {saving ? 'saving…' : 'save'}
+          </button>
+          <button onClick={() => { setEditing(false); setDraft(scriptorium.about || ''); }} className="text-xs text-muted hover:text-parchment">
+            cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {isOwner && (
+        <div className="mb-3 flex justify-end">
+          <button onClick={() => setEditing(true)} className="text-xs text-muted hover:text-parchment">
+            {scriptorium.about ? 'edit' : '+ add introduction'}
+          </button>
+        </div>
+      )}
+      {scriptorium.about ? (
+        <div className="prose-sm max-w-none">
+          <RichContent>{scriptorium.about}</RichContent>
+        </div>
+      ) : (
+        <p className="text-sm italic text-muted/50">No introduction yet.</p>
+      )}
+    </div>
+  );
+}
+
+function ResourcesSection({ scriptoriumId, isMember, currentUserId, isOwner }) {
+  const [resources, setResources] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [label, setLabel] = useState('');
+  const [url, setUrl] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [removingId, setRemovingId] = useState(null);
+
+  function load() {
+    setLoading(true);
+    api.listScriptoriumResources(scriptoriumId)
+      .then(setResources)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(load, [scriptoriumId]);
+
+  async function handleAdd(e) {
+    e.preventDefault();
+    if (!label.trim() || !url.trim()) return;
+    setAdding(true);
+    setError(null);
+    try {
+      await api.addScriptoriumResource(scriptoriumId, { label, url });
+      setLabel('');
+      setUrl('');
+      setShowAdd(false);
+      load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function handleRemove(resourceId) {
+    setRemovingId(resourceId);
+    try {
+      await api.removeScriptoriumResource(scriptoriumId, resourceId);
+      load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  return (
+    <div>
+      {loading && <p className="text-sm text-muted">Loading…</p>}
+      {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
+
+      <div className="space-y-2">
+        {resources.map((r) => (
+          <div key={r.id} className="flex items-center justify-between rounded-lg border border-rule bg-panel/50 px-4 py-2.5">
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-parchment hover:text-brass"
+            >
+              <ExternalLink size={13} className="shrink-0 text-muted" />
+              {r.label}
+            </a>
+            {(isOwner || r.addedBy?.id === currentUserId) && (
+              <button
+                disabled={removingId === r.id}
+                onClick={() => handleRemove(r.id)}
+                className="ml-3 shrink-0 text-muted/40 hover:text-red-400 disabled:opacity-50"
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
+          </div>
+        ))}
+        {!loading && resources.length === 0 && (
+          <p className="text-sm italic text-muted/50">No resources yet.</p>
+        )}
+      </div>
+
+      {isMember && (
+        <div className="mt-4">
+          {showAdd ? (
+            <form onSubmit={handleAdd} className="space-y-2 rounded-lg border border-rule bg-panel/50 p-3">
+              <input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="Label (e.g. Bible Project: John)"
+                autoFocus
+                className="w-full rounded border border-rule bg-ink px-3 py-1.5 text-sm text-parchment placeholder:text-muted/40 focus:border-brass"
+              />
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="URL"
+                type="url"
+                className="w-full rounded border border-rule bg-ink px-3 py-1.5 text-sm text-parchment placeholder:text-muted/40 focus:border-brass"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={adding || !label.trim() || !url.trim()}
+                  className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
+                >
+                  {adding ? 'adding…' : 'add'}
+                </button>
+                <button type="button" onClick={() => setShowAdd(false)} className="text-xs text-muted hover:text-parchment">
+                  cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-1.5 text-xs text-muted hover:text-parchment"
+            >
+              <Plus size={13} /> add resource
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WeeklyVerseWidget({ verse }) {
+  const [text, setText] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setText(null);
+    api.listInstalledModules('BIBLE').then((modules) => {
+      const mod = modules[0];
+      if (!mod || cancelled) { setLoading(false); return; }
+      return api.getPassage(mod.name, verse).then((data) => {
+        const raw = data?.verses?.[0]?.content || null;
+        if (!cancelled) setText(raw ? raw.replace(/<[^>]*>/g, '') : null);
+      });
+    }).catch(() => {}).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [verse]);
+
+  return (
+    <div className="mb-4 rounded-lg border border-rule bg-panel/50 p-4">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-brass">Weekly Verse</p>
+      <p className="mb-1 text-xs font-medium text-parchment/80">{verse}</p>
+      {loading && <p className="text-xs text-muted/50">Loading…</p>}
+      {!loading && text && (
+        <p className="text-xs leading-relaxed text-muted">{text}</p>
+      )}
+    </div>
+  );
+}
+
+function ActiveStudiesWidget({ scriptoriumId, onOpenStudy }) {
+  const [studies, setStudies] = useState([]);
+
+  useEffect(() => {
+    api.listScriptoriumStudies(scriptoriumId).then((all) => setStudies(all.slice(0, 3))).catch(() => {});
+  }, [scriptoriumId]);
+
+  if (studies.length === 0) return null;
+
+  return (
+    <div className="mb-4 rounded-lg border border-rule bg-panel/50 p-4">
+      <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brass">Active Studies</p>
+      <div className="space-y-2">
+        {studies.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => onOpenStudy(s.id)}
+            className="block w-full text-left text-xs text-parchment/80 hover:text-brass"
+          >
+            {s.title}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TagsWidget({ tags }) {
+  return (
+    <div className="rounded-lg border border-rule bg-panel/50 p-4">
+      <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brass">Tags</p>
+      <div className="flex flex-wrap gap-1.5">
+        {tags.map((tag) => (
+          <span key={tag} className="rounded-full border border-rule/60 px-2.5 py-0.5 text-xs text-muted/80">
+            #{tag}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -501,11 +918,12 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
   const [leaving, setLeaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [removingId, setRemovingId] = useState(null);
-  const [section, setSection] = useState('wall');
+  const [section, setSection] = useState('scroll');
   const [wallPosts, setWallPosts] = useState([]);
   const [wallLoading, setWallLoading] = useState(true);
   const [wallError, setWallError] = useState(null);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [generatingBanner, setGeneratingBanner] = useState(false);
   const [bannerUrl, setBannerUrl] = useState(null);
   const bannerInputRef = useRef(null);
 
@@ -563,6 +981,18 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
     }
   }
 
+  async function handleGenerateBanner() {
+    setGeneratingBanner(true);
+    try {
+      const { url } = await api.generateScriptoriumBanner(id);
+      setBannerUrl(url);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setGeneratingBanner(false);
+    }
+  }
+
   if (loading) return <p className="p-6 text-sm text-muted">Loading…</p>;
   if (error && !scriptorium) return <p className="p-6 text-sm text-red-400">{error}</p>;
   if (!scriptorium) return null;
@@ -613,11 +1043,19 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
               <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
               <button
                 onClick={() => bannerInputRef.current?.click()}
-                disabled={uploadingBanner}
+                disabled={uploadingBanner || generatingBanner}
                 className="flex items-center gap-1.5 rounded-md border border-parchment/20 bg-ink/50 px-2.5 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment disabled:opacity-50"
               >
                 <Camera size={13} />
                 {uploadingBanner ? 'uploading…' : 'banner'}
+              </button>
+              <button
+                onClick={handleGenerateBanner}
+                disabled={generatingBanner || uploadingBanner}
+                className="flex items-center gap-1.5 rounded-md border border-parchment/20 bg-ink/50 px-2.5 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment disabled:opacity-50"
+              >
+                <Sparkles size={13} />
+                {generatingBanner ? 'generating…' : 'AI banner'}
               </button>
             </>
           )}
@@ -661,6 +1099,17 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
           <h2 className="font-display text-3xl text-parchment">{scriptorium.name}</h2>
           <p className="mt-0.5 text-xs uppercase tracking-wider text-parchment/40">{scriptorium.visibility}</p>
         </div>
+
+        {members.length > 0 && (
+          <div className="absolute bottom-4 right-6 z-10">
+            <AvatarRoll
+              members={members}
+              total={members.length}
+              onMemberClick={null}
+              onOverflowClick={() => setSection('members')}
+            />
+          </div>
+        )}
       </div>
 
       {/* Scrollable content */}
@@ -671,60 +1120,101 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
           )}
           {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
 
-          <div className="mb-4 flex gap-4 border-b border-rule text-sm">
-            {['wall', 'studies', 'members'].map((s) => (
-              <button
-                key={s}
-                onClick={() => setSection(s)}
-                className={`pb-2 capitalize ${section === s ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
-              >
-                {s === 'members' ? `Members (${members.length})` : s}
-              </button>
-            ))}
-          </div>
+          <div className="flex gap-6">
+            {/* Main column */}
+            <div className="min-w-0 flex-1">
+              <div className="mb-4 flex gap-6 border-b border-rule text-sm">
+                {[
+                  { key: 'scroll', label: 'Scroll' },
+                  { key: 'about', label: 'About' },
+                  { key: 'studies', label: 'Studies' },
+                  { key: 'resources', label: 'Resources' },
+                  { key: 'members', label: `Members (${members.length})` },
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setSection(key)}
+                    className={`pb-2 ${section === key ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
 
-          {section === 'wall' && (
-            <PostFeed
-              posts={wallPosts}
-              loading={wallLoading}
-              error={wallError}
-              canPost={isMember}
-              scriptoriumId={id}
-              currentUserId={currentUserId}
-              onRefresh={refreshWall}
-            />
-          )}
+              {section === 'scroll' && (
+                <PostFeed
+                  posts={wallPosts}
+                  loading={wallLoading}
+                  error={wallError}
+                  canPost={isMember}
+                  scriptoriumId={id}
+                  currentUserId={currentUserId}
+                  onRefresh={refreshWall}
+                />
+              )}
 
-          {section === 'members' && (
-            <div className="overflow-hidden rounded-lg border border-rule">
-              {members.map((m) => (
-                <div key={m.membershipId} className="flex items-center justify-between border-b border-rule px-4 py-2.5 text-sm last:border-0">
-                  <div className="flex items-center gap-2.5">
-                    <Avatar username={m.username} size={28} />
-                    <span className="text-parchment">{m.username}</span>
-                    {m.role === 'owner' && <span className="text-xs text-brass">owner</span>}
-                  </div>
-                  {isOwner && m.role !== 'owner' && (
-                    <button
-                      disabled={removingId === m.membershipId}
-                      onClick={() => handleRemoveMember(m.membershipId)}
-                      className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
-                    >
-                      {removingId === m.membershipId ? '…' : 'remove'}
-                    </button>
-                  )}
+              {section === 'about' && (
+                <AboutSection
+                  scriptorium={scriptorium}
+                  isOwner={isOwner}
+                  onSaved={refresh}
+                />
+              )}
+
+              {section === 'studies' && (
+                <ScriptoriumStudiesTab
+                  scriptoriumId={id}
+                  isMember={isMember}
+                  onOpenStudy={(studyId) => routerNavigate('/scriptoriums/' + id + '/studies/' + studyId)}
+                />
+              )}
+
+              {section === 'resources' && (
+                <ResourcesSection
+                  scriptoriumId={id}
+                  isMember={isMember}
+                  currentUserId={currentUserId}
+                  isOwner={isOwner}
+                />
+              )}
+
+              {section === 'members' && (
+                <div className="overflow-hidden rounded-lg border border-rule">
+                  {members.map((m) => (
+                    <div key={m.membershipId} className="flex items-center justify-between border-b border-rule px-4 py-2.5 text-sm last:border-0">
+                      <div className="flex items-center gap-2.5">
+                        <Avatar username={m.username} avatarUrl={m.avatarUrl} size={28} />
+                        <span className="text-parchment">
+                          {m.displayName || m.username}
+                        </span>
+                        {m.role === 'owner' && <span className="text-xs text-brass">owner</span>}
+                      </div>
+                      {isOwner && m.role !== 'owner' && (
+                        <button
+                          disabled={removingId === m.membershipId}
+                          onClick={() => handleRemoveMember(m.membershipId)}
+                          className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                        >
+                          {removingId === m.membershipId ? '…' : 'remove'}
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
 
-          {section === 'studies' && (
-            <ScriptoriumStudiesTab
-              scriptoriumId={id}
-              isMember={isMember}
-              onOpenStudy={(studyId) => routerNavigate('/scriptoriums/' + id + '/studies/' + studyId)}
-            />
-          )}
+            {/* Right sidebar */}
+            <div className="hidden w-64 shrink-0 lg:block">
+              {scriptorium.weeklyVerse && (
+                <WeeklyVerseWidget verse={scriptorium.weeklyVerse} />
+              )}
+              <ActiveStudiesWidget scriptoriumId={id} onOpenStudy={(studyId) => routerNavigate('/scriptoriums/' + id + '/studies/' + studyId)} />
+              {scriptorium.tags?.length > 0 && (
+                <TagsWidget tags={scriptorium.tags} />
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

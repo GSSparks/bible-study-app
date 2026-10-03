@@ -3,9 +3,10 @@ import { BookOpen } from 'lucide-react';
 import { api } from '../api/client.js';
 import PostFeed from './PostFeed.jsx';
 import Avatar from './Avatar.jsx';
+import DailyDevotional from './DailyDevotional.jsx';
 import { getAvatarColor } from '../utils/avatar.js';
 
-export default function HomeView({ currentUserId, currentUsername, onViewProfile, onNavigateToStudies, onOpenStudy }) {
+export default function HomeView({ currentUserId, currentUsername, currentUserRole, onViewProfile, onNavigateToStudies, onOpenStudy }) {
   const [profile, setProfile] = useState(null);
   const [studies, setStudies] = useState([]);
   const [posts, setPosts] = useState([]);
@@ -134,6 +135,7 @@ export default function HomeView({ currentUserId, currentUsername, onViewProfile
 
           {/* ── Right column (feed) ──────────────────────────── */}
           <div className="min-w-0 flex-1">
+            <DailyDevotional isAdmin={currentUserRole === 'admin'} />
             <PostFeed
               posts={posts}
               loading={postsLoading}

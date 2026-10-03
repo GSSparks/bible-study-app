@@ -58,6 +58,12 @@ export const uploadPostMedia = multer({
   fileFilter: mediaOnly,
 }).array('media', 4);
 
+export const uploadLessonVideo = multer({
+  storage: makeStorage('lesson-videos'),
+  limits: { fileSize: 500 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, VIDEO_TYPES.has(file.mimetype)),
+}).single('video');
+
 export function mimeToType(mimetype) {
   return VIDEO_TYPES.has(mimetype) ? 'video' : 'image';
 }

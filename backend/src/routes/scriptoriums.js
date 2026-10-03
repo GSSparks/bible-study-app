@@ -14,6 +14,9 @@ import {
   inviteToScriptorium,
   listMyInvites,
   respondToInvite,
+  listResources,
+  addResource,
+  removeResource,
 } from '../services/scriptoriumService.js';
 
 export const scriptoriumsRouter = Router();
@@ -110,8 +113,8 @@ scriptoriumsRouter.post('/:id/leave', async (req, res, next) => {
 
 scriptoriumsRouter.put('/:id', async (req, res, next) => {
   try {
-    const { name, description, visibility } = req.body;
-    res.json(await updateScriptorium(req.params.id, req.user.id, { name, description, visibility }));
+    const { name, description, visibility, tags, about, weeklyVerse } = req.body;
+    res.json(await updateScriptorium(req.params.id, req.user.id, { name, description, visibility, tags, about, weeklyVerse }));
   } catch (err) {
     next(err);
   }
@@ -140,6 +143,32 @@ scriptoriumsRouter.post('/:id/invite', async (req, res, next) => {
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: 'username is required' });
     res.status(201).json(await inviteToScriptorium(req.params.id, req.user.id, username));
+  } catch (err) {
+    next(err);
+  }
+});
+
+scriptoriumsRouter.get('/:id/resources', async (req, res, next) => {
+  try {
+    res.json(await listResources(req.params.id, req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
+scriptoriumsRouter.post('/:id/resources', async (req, res, next) => {
+  try {
+    const { label, url } = req.body;
+    res.status(201).json(await addResource(req.params.id, req.user.id, { label, url }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+scriptoriumsRouter.delete('/:id/resources/:resourceId', async (req, res, next) => {
+  try {
+    await removeResource(req.params.id, req.user.id, req.params.resourceId);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }
