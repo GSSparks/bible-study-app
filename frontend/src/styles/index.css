@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* The wmde-markdown CSS sets background-color via a per-element CSS
+   variable override, so parent-level overrides lose the specificity
+   battle. Making it transparent here lets the parent's bg-page or
+   bg-panel show through in all contexts — the parent always provides
+   the background we actually want. */
+.wmde-markdown {
+  background-color: transparent !important;
+}
+
 @layer base {
   * {
     scrollbar-width: thin;
