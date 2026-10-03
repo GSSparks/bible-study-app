@@ -65,11 +65,19 @@ export async function createScriptorium(ownerId, { name, description, visibility
  *  member" without a second round trip per result). */
 export async function listPublicScriptoriums(userId) {
   const [scriptoriums, myMemberships] = await Promise.all([
-    prisma.scriptorium.findMany({ where: { visibility: 'public' }, orderBy: { createdAt: 'desc' } }),
+    prisma.scriptorium.findMany({
+      where: { visibility: 'public' },
+      orderBy: { createdAt: 'desc' },
+      include: { _count: { select: { memberships: true } } },
+    }),
     prisma.scriptoriumMembership.findMany({ where: { userId } }),
   ]);
   const myScriptoriumIds = new Set(myMemberships.map((m) => m.scriptoriumId));
-  return scriptoriums.map((s) => ({ ...s, isMember: myScriptoriumIds.has(s.id) }));
+  return scriptoriums.map(({ _count, ...s }) => ({
+    ...s,
+    isMember: myScriptoriumIds.has(s.id),
+    memberCount: _count.memberships,
+  }));
 }
 
 /** Every Scriptorium the caller is a member of, regardless of
@@ -79,10 +87,13 @@ export async function listPublicScriptoriums(userId) {
 export async function listMyScriptoriums(userId) {
   const memberships = await prisma.scriptoriumMembership.findMany({
     where: { userId },
-    include: { scriptorium: true },
+    include: { scriptorium: { include: { _count: { select: { memberships: true } } } } },
     orderBy: { joinedAt: 'desc' },
   });
-  return memberships.map((m) => ({ ...m.scriptorium, myRole: m.role }));
+  return memberships.map((m) => {
+    const { _count, ...s } = m.scriptorium;
+    return { ...s, myRole: m.role, memberCount: _count.memberships };
+  });
 }
 
 /** 404 (not 403) when a non-member requests a private Scriptorium —

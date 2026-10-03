@@ -100,26 +100,16 @@ function ScriptoriumsList({ onOpen, refreshKey, onRequestCreate }) {
 
   async function handleAcceptInvite(inviteId) {
     setBusy(inviteId);
-    try {
-      await api.acceptScriptoriumInvite(inviteId);
-      refresh();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(null);
-    }
+    try { await api.acceptScriptoriumInvite(inviteId); refresh(); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(null); }
   }
 
   async function handleDeclineInvite(inviteId) {
     setBusy(inviteId);
-    try {
-      await api.declineScriptoriumInvite(inviteId);
-      refresh();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(null);
-    }
+    try { await api.declineScriptoriumInvite(inviteId); refresh(); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(null); }
   }
 
   return (
@@ -148,10 +138,8 @@ function ScriptoriumsList({ onOpen, refreshKey, onRequestCreate }) {
 
       {/* Pending invites */}
       {!loading && invites.length > 0 && (
-        <div className="mb-8 rounded-lg border border-brass/30 bg-brass/5 p-4">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brass">
-            Pending Invites
-          </p>
+        <div className="mb-8 rounded-xl border border-brass/30 bg-brass/5 p-4">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-brass">Pending Invites</p>
           <div className="space-y-2.5">
             {invites.map((i) => (
               <div key={i.inviteId} className="flex items-center justify-between text-sm">
@@ -184,31 +172,17 @@ function ScriptoriumsList({ onOpen, refreshKey, onRequestCreate }) {
       {!loading && (
         <>
           {/* My Scriptoriums */}
-          <section className="mb-8">
-            <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted">My Scriptoriums</h3>
+          <section className="mb-10">
+            <h3 className="mb-4 text-xs font-medium uppercase tracking-wider text-muted">My Scriptoriums</h3>
             {filteredMine.length > 0 ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredMine.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => onOpen(s.id)}
-                    className="rounded-lg border border-rule bg-panel p-5 text-left transition-colors hover:border-brass/60"
-                  >
-                    <div className="mb-1 font-display text-base text-parchment">{s.name}</div>
-                    {s.description && (
-                      <p className="mb-2 line-clamp-2 text-xs leading-relaxed text-muted">{s.description}</p>
-                    )}
-                    <div className="text-xs uppercase tracking-wide text-muted/70">
-                      {s.visibility} · {s.myRole}
-                    </div>
-                  </button>
+                  <ScriptoriumCard key={s.id} s={s} onOpen={() => onOpen(s.id)} badge={s.myRole} />
                 ))}
               </div>
             ) : (
               <p className="text-sm text-muted">
-                {search
-                  ? 'No matches in your Scriptoriums.'
-                  : "You're not in any Scriptoriums yet — browse below or create your own."}
+                {search ? 'No matches.' : "You're not in any Scriptoriums yet — browse below or create your own."}
               </p>
             )}
           </section>
@@ -216,29 +190,24 @@ function ScriptoriumsList({ onOpen, refreshKey, onRequestCreate }) {
           {/* Browse public */}
           {(filteredBrowse.length > 0 || (!search && publicList.filter((s) => !myIds.has(s.id)).length > 0)) && (
             <section>
-              <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Browse</h3>
+              <h3 className="mb-4 text-xs font-medium uppercase tracking-wider text-muted">Browse</h3>
               {filteredBrowse.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {filteredBrowse.map((s) => (
-                    <div key={s.id} className="flex flex-col rounded-lg border border-rule bg-panel p-5">
-                      <button
-                        onClick={() => onOpen(s.id)}
-                        className="mb-1 block text-left font-display text-base text-parchment hover:text-brass"
-                      >
-                        {s.name}
-                      </button>
-                      {s.description && (
-                        <p className="mb-3 line-clamp-2 flex-1 text-xs leading-relaxed text-muted">{s.description}</p>
-                      )}
-                      {!s.description && <div className="flex-1" />}
-                      <button
-                        disabled={joining === s.id}
-                        onClick={() => handleJoin(s.id)}
-                        className="mt-2 self-start rounded bg-verdigris/80 px-3 py-1.5 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
-                      >
-                        {joining === s.id ? 'joining…' : 'join'}
-                      </button>
-                    </div>
+                    <ScriptoriumCard
+                      key={s.id}
+                      s={s}
+                      onOpen={() => onOpen(s.id)}
+                      joinButton={
+                        <button
+                          disabled={joining === s.id}
+                          onClick={() => handleJoin(s.id)}
+                          className="rounded bg-verdigris/80 px-2.5 py-1 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
+                        >
+                          {joining === s.id ? 'joining…' : 'join'}
+                        </button>
+                      }
+                    />
                   ))}
                 </div>
               ) : (
@@ -248,6 +217,56 @@ function ScriptoriumsList({ onOpen, refreshKey, onRequestCreate }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function ScriptoriumCard({ s, onOpen, badge, joinButton }) {
+  const bannerColor = getAvatarColor(s.name);
+  return (
+    <div className="group overflow-hidden rounded-xl border border-rule bg-panel transition-colors hover:border-brass/50">
+      {/* Banner strip — clickable */}
+      <button onClick={onOpen} className="relative block h-24 w-full overflow-hidden bg-ink">
+        {s.bannerUrl ? (
+          <img
+            src={s.bannerUrl}
+            alt=""
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <>
+            <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 25% 65%, ${bannerColor}66 0%, transparent 65%)` }} />
+            <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 80% 25%, ${bannerColor}33 0%, transparent 60%)` }} />
+            <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 50% 110%, #0D1B2966 0%, transparent 50%)` }} />
+          </>
+        )}
+        <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-panel to-transparent" />
+      </button>
+
+      {/* Info — clickable */}
+      <button onClick={onOpen} className="block w-full px-4 pb-3 pt-2 text-left">
+        <div className="font-display text-base leading-snug text-parchment transition-colors group-hover:text-brass">
+          {s.name}
+        </div>
+        {s.description ? (
+          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted">{s.description}</p>
+        ) : (
+          <p className="mt-1 text-xs italic text-muted/40">No description</p>
+        )}
+      </button>
+
+      {/* Footer row */}
+      <div className="flex items-center justify-between border-t border-rule/40 px-4 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-muted/60">
+          {s.memberCount != null && (
+            <span>{s.memberCount} {s.memberCount === 1 ? 'member' : 'members'}</span>
+          )}
+          {s.memberCount != null && <span>·</span>}
+          <span className="capitalize">{s.visibility}</span>
+        </div>
+        {badge && <span className="text-xs capitalize text-muted">{badge}</span>}
+        {joinButton}
+      </div>
     </div>
   );
 }
@@ -646,7 +665,7 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
 
       {/* Scrollable content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="px-6 py-4">
+        <div className="mx-auto max-w-5xl px-6 py-4">
           {scriptorium.description && (
             <p className="mb-4 max-w-xl text-sm leading-relaxed text-muted">{scriptorium.description}</p>
           )}
