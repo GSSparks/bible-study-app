@@ -66,7 +66,7 @@ export default function HomeView({ currentUserId, currentUsername, onViewProfile
                   username={user?.username}
                   avatarUrl={user?.avatarUrl}
                   size={56}
-                  className="ring-4 ring-panel"
+                  className="relative z-10 ring-4 ring-panel"
                 />
                 <div className="mt-2">
                   <p className="font-display text-base text-parchment">
