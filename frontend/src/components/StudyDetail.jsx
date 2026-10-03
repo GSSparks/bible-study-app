@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Camera } from 'lucide-react';
 import { getAvatarColor } from '../utils/avatar.js';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
@@ -61,6 +62,9 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
   const [showAddLessonModal, setShowAddLessonModal] = useState(false);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [showEditStudyModal, setShowEditStudyModal] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const bannerInputRef = useRef(null);
 
   function refresh() {
     setLoading(true);
@@ -80,6 +84,20 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
   }
 
   useEffect(refresh, [studyId]);
+  useEffect(() => { if (study) setBannerUrl(study.bannerUrl || null); }, [study?.id]);
+
+  async function handleBannerChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBanner(true);
+    try {
+      const { url } = await api.uploadStudyBanner(studyId, file);
+      setBannerUrl(url);
+    } finally {
+      setUploadingBanner(false);
+      e.target.value = '';
+    }
+  }
 
   async function handleJoin() {
     try {
@@ -147,14 +165,38 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
   return (
     <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden">
       {/* Hero banner */}
-      <div className="relative h-40 shrink-0 overflow-hidden bg-ink">
-        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 25% 65%, ${bannerColor}55 0%, transparent 65%)` }} />
-        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 75% 30%, ${bannerColor}20 0%, transparent 55%)` }} />
-        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-ink to-transparent" />
+      <div className="relative h-48 shrink-0 bg-ink">
+        <div className="absolute inset-0 overflow-hidden">
+          {bannerUrl ? (
+            <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <>
+              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 25% 65%, ${bannerColor}55 0%, transparent 65%)` }} />
+              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 75% 30%, ${bannerColor}22 0%, transparent 55%)` }} />
+              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 55% 10%, ${bannerColor}18 0%, transparent 50%)` }} />
+            </>
+          )}
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-ink to-transparent" />
+        </div>
+
         <button onClick={onBack} className="absolute left-6 top-4 z-10 text-xs text-parchment/60 hover:text-parchment">
           ‹ {backLabel}
         </button>
+
         <div className="absolute right-6 top-3 z-10 flex flex-wrap gap-2">
+          {isOwner && (
+            <>
+              <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
+              <button
+                onClick={() => bannerInputRef.current?.click()}
+                disabled={uploadingBanner}
+                className="flex items-center gap-1.5 rounded-md border border-parchment/20 bg-ink/50 px-2.5 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment disabled:opacity-50"
+              >
+                <Camera size={13} />
+                {uploadingBanner ? 'uploading…' : 'banner'}
+              </button>
+            </>
+          )}
           {!isParticipant && study.scriptoriumId && (
             <button onClick={handleJoin} className="rounded-md border border-parchment/20 bg-ink/50 px-3 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment">
               join
@@ -183,10 +225,11 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
             ☰
           </button>
         </div>
-        <div className="absolute bottom-0 left-0 z-10 px-6 pb-3">
-          <h2 className="font-display text-2xl text-parchment">{study.title}</h2>
+
+        <div className="absolute bottom-0 left-0 z-10 px-6 pb-4">
+          <h2 className="font-display text-3xl text-parchment">{study.title}</h2>
           <p className="mt-0.5 text-xs uppercase tracking-wider text-parchment/40">
-            {lessons.length} {lessons.length === 1 ? 'lesson' : 'lessons'} · {study.scriptoriumId ? 'group study' : 'solo study'}
+            {study.scriptoriumId ? 'group study' : 'solo study'}
           </p>
         </div>
       </div>

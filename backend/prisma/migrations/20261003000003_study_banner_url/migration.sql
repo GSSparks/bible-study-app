@@ -1,0 +1,1 @@
+ALTER TABLE "Study" ADD COLUMN "bannerUrl" TEXT;

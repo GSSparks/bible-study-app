@@ -155,6 +155,11 @@ export const api = {
     fd.append('banner', file);
     return request(`/uploads/banner/scriptorium/${id}`, { method: 'POST', body: fd });
   },
+  uploadStudyBanner: (id, file) => {
+    const fd = new FormData();
+    fd.append('banner', file);
+    return request(`/uploads/banner/study/${id}`, { method: 'POST', body: fd });
+  },
 
   // Studies
   listMyStudies: () => request('/studies/mine'),

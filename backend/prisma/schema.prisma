@@ -257,6 +257,7 @@ model Study {
   id            String       @id @default(cuid())
   title         String
   description   String?
+  bannerUrl     String?
   scriptoriumId String?      // null = personal solo study, private to the creator; set = group study, inherits that Scriptorium's own visibility/membership rules entirely
   scriptorium   Scriptorium? @relation(fields: [scriptoriumId], references: [id], onDelete: Cascade)
   creatorId     String

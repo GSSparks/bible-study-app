@@ -40,3 +40,18 @@ uploadsRouter.post('/banner/scriptorium/:id', async (req, res) => {
     res.json({ url });
   });
 });
+
+uploadsRouter.post('/banner/study/:id', async (req, res) => {
+  const study = await prisma.study.findFirst({
+    where: { id: req.params.id, creatorId: req.user.id },
+  });
+  if (!study) return res.status(404).json({ error: 'Not found.' });
+
+  uploadBanner(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+    const url = `/uploads/banners/${req.file.filename}`;
+    await prisma.study.update({ where: { id: req.params.id }, data: { bannerUrl: url } });
+    res.json({ url });
+  });
+});
