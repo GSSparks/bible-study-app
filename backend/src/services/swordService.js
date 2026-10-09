@@ -80,32 +80,138 @@ class SwordService {
   }
 
   listDevotionalModules() {
-    for (const type of ['DAILY', 'Daily']) {
+    // SWORD classifies daily devotionals inconsistently across installs
+    // (COMMENTARY or DICT depending on the module driver). Description
+    // text is the only reliable signal — devotional modules invariably
+    // include "daily", "morning", or "evening" in their description.
+    const DAILY_RE = /\b(daily|morning|evening|devotion|devotional)\b/i;
+    const seen = new Set();
+    const results = [];
+    for (const type of ['COMMENTARY', 'DICT', 'BOOK']) {
       try {
         const mods = this.sword.getAllLocalModules(type);
-        if (mods && mods.length > 0) return mods;
+        if (!Array.isArray(mods)) continue;
+        for (const m of mods) {
+          if (seen.has(m.name)) continue;
+          seen.add(m.name);
+          if (DAILY_RE.test(m.description || '') || DAILY_RE.test(m.name || '')) {
+            results.push(m);
+          }
+        }
       } catch {}
     }
-    return [];
+    return results;
   }
 
-  // Daily devotional modules use months as "books" and day numbers as
-  // "chapters" — the same getChapterText path used for Bible modules
-  // works here without any special casing, so this just maps a Date to
-  // that coordinate and reuses the existing content pipeline.
   getDevotionalEntry(moduleCode, date = new Date()) {
     const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'];
     const month = MONTHS[date.getMonth()];
+    const fullMonth = FULL_MONTHS[date.getMonth()];
     const day = date.getDate();
+    const monthNum = String(date.getMonth() + 1).padStart(2, '0');
+    const dayPad = String(day).padStart(2, '0');
+
+    // Approach 1: DICT-keyed module — scan keys list for today's date.
+    // isDictModule tracks whether getDictModuleKeys succeeded so we don't
+    // mistakenly fall through to getChapterText for a DICT module where
+    // that call would return wrong content (e.g. the last/default entry).
+    let isDictModule = false;
     try {
-      const verses = this.sword.getChapterText(moduleCode, month, day);
-      return verses.map((v) => {
-        const { content, titles } = this.processVerseContent(v.content);
-        return { verseNr: Number(v.verseNr), content, titles, text: this.stripHtml(content) };
-      });
-    } catch {
-      return [];
+      const allKeys = this.sword.getDictModuleKeys(moduleCode);
+      if (Array.isArray(allKeys)) {
+        isDictModule = true;
+        if (allKeys.length > 0) {
+          console.log(`[devotional] ${moduleCode}: ${allKeys.length} keys, samples:`, allKeys.slice(0, 6));
+
+          // Key format varies across modules; try several patterns in order.
+          // "10.05" / "10/05" — numeric MM.DD (e.g. SME)
+          // "Oct 5 am" / "October 5" / "Oct 05" — named month
+          // "5 Oct am" — day-first
+          // "Oct.5" / "Oct-5" — separator variants
+          // "Oct 5th am" — ordinal suffix
+          const patterns = [
+            new RegExp(`^0?${date.getMonth() + 1}[.\\-/]${dayPad}$`),
+            new RegExp(`^(${month}|${fullMonth})\\s+0?${day}\\b`, 'i'),
+            new RegExp(`^0?${day}\\s+(${month}|${fullMonth})\\b`, 'i'),
+            new RegExp(`^(${month}|${fullMonth})[.\\-/]0?${day}\\b`, 'i'),
+            new RegExp(`^(${month}|${fullMonth})\\s+0?${day}(?:st|nd|rd|th)?\\b`, 'i'),
+          ];
+
+          let todayKeys = [];
+          for (const pat of patterns) {
+            todayKeys = allKeys.filter((k) => pat.test(k.trim()));
+            if (todayKeys.length > 0) break;
+          }
+
+          console.log(`[devotional] Keys matched for ${fullMonth} ${day}:`, todayKeys);
+
+          if (todayKeys.length > 0) {
+            todayKeys.sort((a, b) => {
+              const al = a.toLowerCase();
+              const bl = b.toLowerCase();
+              const aIsMorn = al.includes('am') || al.includes('morning');
+              const bIsEve = bl.includes('pm') || bl.includes('evening');
+              if (aIsMorn && bIsEve) return -1;
+              if ((al.includes('pm') || al.includes('evening')) && (bl.includes('am') || bl.includes('morning'))) return 1;
+              return a.localeCompare(b);
+            });
+
+            const entries = [];
+            for (const key of todayKeys) {
+              try {
+                const raw = this.sword.getRawModuleEntry(moduleCode, key);
+                if (!raw?.trim()) continue;
+
+                // Some modules (e.g. SME with MM.DD keys) store both morning
+                // and evening readings in a single entry separated by an inline
+                // "Evening, Month Day" header. Detect that and split.
+                const eveningRe = new RegExp(`Evening,?\\s+${fullMonth}\\s+${day}\\b`, 'i');
+                const eveningIdx = raw.search(eveningRe);
+
+                if (eveningIdx > 0) {
+                  const morningHeaderRe = new RegExp(`Morning,?\\s+${fullMonth}\\s+${day}[^\\S\\r\\n]*`, 'i');
+                  const morningRaw = raw.slice(0, eveningIdx).replace(morningHeaderRe, '').trim();
+                  const eveningRaw = raw.slice(eveningIdx).replace(eveningRe, '').trim();
+                  for (const halfRaw of [morningRaw, eveningRaw]) {
+                    if (!halfRaw) continue;
+                    const { content, titles } = this.processDevotionalContent(halfRaw);
+                    const text = this.stripHtml(content);
+                    if (text) entries.push({ content, titles, text });
+                  }
+                } else {
+                  const { content, titles } = this.processDevotionalContent(raw);
+                  const text = this.stripHtml(content);
+                  if (text) entries.push({ content, titles, text });
+                }
+              } catch {}
+            }
+            if (entries.length > 0) return entries;
+          }
+        }
+      }
+    } catch {}
+
+    // Approach 2: Commentary-keyed module — only tried when the module is
+    // NOT a DICT module. Calling getChapterText on a DICT module can return
+    // arbitrary content (it treats the month name as a Bible book abbreviation
+    // and returns whatever that maps to, which is usually wrong).
+    if (!isDictModule) {
+      for (const bookName of [month, fullMonth]) {
+        try {
+          const verses = this.sword.getChapterText(moduleCode, bookName, day);
+          if (Array.isArray(verses) && verses.length > 0) {
+            return verses.map((v) => {
+              const { content, titles } = this.processVerseContent(v.content);
+              return { content, titles, text: this.stripHtml(content) };
+            });
+          }
+        } catch {}
+      }
     }
+
+    return [];
   }
 
   async installModule(repoName, moduleCode, onProgress) {
@@ -130,7 +236,10 @@ class SwordService {
       throw err;
     }
 
-    const destDir = config.swordModulesPath;
+    // node-sword-interface passes swordModulesPath as the SWORD "home" dir;
+    // the SWORD library appends .sword/ internally, so modules actually live
+    // at {swordModulesPath}/.sword/mods.d/ and .../modules/.
+    const destDir = path.join(config.swordModulesPath, '.sword');
     const resolvedDest = path.resolve(destDir);
     for (const entry of entries) {
       const resolvedPath = path.resolve(destDir, entry.entryName);
@@ -143,7 +252,6 @@ class SwordService {
 
     fs.mkdirSync(destDir, { recursive: true });
     zip.extractAllTo(destDir, true);
-    this._repoConfigLoaded = false;
   }
 
   _parseOsisPoint(point) {
@@ -216,6 +324,37 @@ class SwordService {
     const strongsNormalized = this.normalizeStrongsMarkup(dictLinked);
     const content = this.wrapVerseReferences(strongsNormalized);
     return { content, titles };
+  }
+
+  // Processes raw ThML devotional entries — preserves paragraph structure and
+  // converts <hi type="bold/italic"> to semantic HTML instead of flattening.
+  processDevotionalContent(html) {
+    if (!html) return { content: '', titles: [] };
+
+    // Extract raw <title>...</title> tags into the titles array.
+    const titles = [];
+    let processed = html.replace(/<title>([\s\S]*?)<\/title>/gi, (_, inner) => {
+      const text = this.stripHtml(inner).trim();
+      if (text) titles.push(text);
+      return '';
+    });
+
+    // Convert ThML <hi> tags to semantic HTML (non-greedy, handles each type).
+    processed = processed.replace(/<hi\s+type="bold"\s*>([\s\S]*?)<\/hi>/gi, '<strong>$1</strong>');
+    processed = processed.replace(/<hi\s+type="italic"\s*>([\s\S]*?)<\/hi>/gi, '<em>$1</em>');
+    processed = processed.replace(/<hi\s+type="sup(?:er)?"\s*>([\s\S]*?)<\/hi>/gi, '<sup>$1</sup>');
+    processed = processed.replace(/<hi\s+type="sub"\s*>([\s\S]*?)<\/hi>/gi, '<sub>$1</sub>');
+    processed = processed.replace(/<hi[^>]*>([\s\S]*?)<\/hi>/gi, '<span>$1</span>');
+
+    // Flatten <div> to <p> but keep <p> as block-level (do not inline them).
+    processed = processed.replace(/<div(\s|>)/gi, '<p$1').replace(/<\/div>/gi, '</p>');
+
+    // Normalize cross-refs and footnotes, and make Bible references clickable.
+    processed = this.normalizeCrossReferenceNotes(processed);
+    processed = this.normalizeFootnoteMarkup(processed);
+    processed = this.wrapVerseReferences(processed);
+
+    return { content: processed, titles };
   }
 
   linkStrongsCrossReferences(html) {
