@@ -55,6 +55,7 @@ model Document {
   id            String   @id @default(cuid())
   title         String
   author        String?
+  collection    String?
   filename      String   @unique
   pageCount     Int?
   extractedText String?
@@ -132,9 +133,11 @@ model User {
   comments Comment[]
   studiesCreated         Study[]                  @relation("StudiesCreated")
   studyParticipations    StudyParticipant[]
-  studyLessonCompletions StudyLessonCompletion[]
+  studyLessonCompletions  StudyLessonCompletion[]
+  studyLessonReflections  StudyLessonReflection[]
   studyComments      StudyComment[]
   studyCommentLikes  StudyCommentLike[]
+  readingPlanProgress ReadingPlanProgress[]
 }
 
 // Mutual-acceptance connections ("Fellows" in the UI). One row per
@@ -285,15 +288,17 @@ model StudyLesson {
   id        String   @id @default(cuid())
   studyId   String
   study     Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  order     Int
-  title     String
-  module    String?
-  reference String?
-  body      String?
-  videoUrl  String?
-  createdAt DateTime @default(now())
+  order             Int
+  title             String
+  module            String?
+  reference         String?
+  body              String?
+  videoUrl          String?
+  reflectionPrompt  String?
+  createdAt         DateTime @default(now())
 
   completions StudyLessonCompletion[]
+  reflections StudyLessonReflection[]
   comments    StudyComment[]
 
   @@index([studyId])
@@ -319,6 +324,20 @@ model StudyLessonCompletion {
   userId      String
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   completedAt DateTime    @default(now())
+
+  @@unique([lessonId, userId])
+  @@index([userId])
+}
+
+model StudyLessonReflection {
+  id        String      @id @default(cuid())
+  lessonId  String
+  lesson    StudyLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   @@unique([lessonId, userId])
   @@index([userId])
@@ -366,11 +385,12 @@ model StudyResource {
   id         String   @id @default(cuid())
   studyId    String
   study      Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  type       String   // "commentary" | "link" | "note"
-  label      String   // footer tab display text, e.g. "Commentary: Clarke" or "Bible Project: John"
-  moduleCode String?  // required for type="commentary"
+  type       String   // "commentary" | "module" | "link" | "note"
+  label      String   // display text, e.g. "Clarke's Commentary" or "Bible Project: John"
+  moduleCode String?  // required for type="commentary"|"module"
+  moduleType String?  // "BIBLE" | "COMMENTARY" | "DICT" — for type="module"
   url        String?  // required for type="link"
-  body       String?  // required for type="note" — free text, written directly rather than pointing at external content
+  body       String?  // required for type="note"
   order      Int      @default(0)
   createdAt  DateTime @default(now())
 
@@ -381,12 +401,40 @@ model ScriptoriumResource {
   id            String      @id @default(cuid())
   scriptoriumId String
   scriptorium   Scriptorium @relation(fields: [scriptoriumId], references: [id], onDelete: Cascade)
+  type          String      @default("link") // "link" | "note"
   label         String
-  url           String
+  url           String?     // required for type="link"
+  body          String?     // required for type="note"
   addedById     String
   addedBy       User        @relation(fields: [addedById], references: [id], onDelete: Cascade)
   order         Int         @default(0)
   createdAt     DateTime    @default(now())
 
   @@index([scriptoriumId])
+}
+
+model ReadingPlan {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isBuiltIn   Boolean  @default(false)
+  // JSON: Array<{ day: number, label: string, passages: string[] }>
+  schedule    Json
+  createdAt   DateTime @default(now())
+
+  progress ReadingPlanProgress[]
+}
+
+model ReadingPlanProgress {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId      String
+  plan        ReadingPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dayNumber   Int
+  completedAt DateTime    @default(now())
+
+  @@unique([userId, planId, dayNumber])
+  @@index([userId])
+  @@index([planId])
 }

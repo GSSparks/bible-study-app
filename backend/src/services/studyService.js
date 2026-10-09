@@ -241,7 +241,7 @@ export async function bulkCreateLessons(studyId, callerId, lessons) {
   });
 }
 
-export async function updateLesson(lessonId, callerId, { order, title, module, reference, body }) {
+export async function updateLesson(lessonId, callerId, { order, title, module, reference, body, reflectionPrompt }) {
   const lesson = await prisma.studyLesson.findUnique({ where: { id: lessonId } });
   if (!lesson) {
     const err = new Error('Lesson not found.');
@@ -258,6 +258,7 @@ export async function updateLesson(lessonId, callerId, { order, title, module, r
       module: module || null,
       reference: reference || null,
       body: body?.trim() || null,
+      reflectionPrompt: reflectionPrompt?.trim() || null,
     },
   });
 }
@@ -275,7 +276,14 @@ export async function deleteLesson(lessonId, callerId) {
 
 export async function listLessons(studyId, viewerId) {
   await getStudy(studyId, viewerId); // visibility check, throws 404 if not visible
-  return prisma.studyLesson.findMany({ where: { studyId }, orderBy: { order: 'asc' } });
+  const lessons = await prisma.studyLesson.findMany({ where: { studyId }, orderBy: { order: 'asc' } });
+  if (!viewerId) return lessons.map((l) => ({ ...l, myReflection: null }));
+  const lessonIds = lessons.map((l) => l.id);
+  const reflections = await prisma.studyLessonReflection.findMany({
+    where: { lessonId: { in: lessonIds }, userId: viewerId },
+  });
+  const reflectionMap = Object.fromEntries(reflections.map((r) => [r.lessonId, r]));
+  return lessons.map((l) => ({ ...l, myReflection: reflectionMap[l.id] || null }));
 }
 
 export async function getLesson(lessonId, viewerId) {
@@ -286,7 +294,12 @@ export async function getLesson(lessonId, viewerId) {
     throw err;
   }
   await getStudy(lesson.studyId, viewerId); // visibility check
-  return lesson;
+  const myReflection = viewerId
+    ? await prisma.studyLessonReflection.findUnique({
+        where: { lessonId_userId: { lessonId, userId: viewerId } },
+      })
+    : null;
+  return { ...lesson, myReflection: myReflection || null };
 }
 
 /** Requires being a participant — you can't track progress on a study
@@ -307,6 +320,16 @@ export async function markLessonComplete(lessonId, userId) {
     const err = new Error('Join this study to track progress.');
     err.status = 403;
     throw err;
+  }
+  if (lesson.reflectionPrompt) {
+    const reflection = await prisma.studyLessonReflection.findUnique({
+      where: { lessonId_userId: { lessonId, userId } },
+    });
+    if (!reflection) {
+      const err = new Error('Please answer the reflection prompt before marking this lesson complete.');
+      err.status = 400;
+      throw err;
+    }
   }
   return prisma.studyLessonCompletion.upsert({
     where: { lessonId_userId: { lessonId, userId } },
@@ -551,13 +574,13 @@ export async function generateLessonDrafts(studyId, callerId, { topic, weekCount
   });
 }
 
-const VALID_RESOURCE_TYPES = ['commentary', 'link', 'note'];
+const VALID_RESOURCE_TYPES = ['commentary', 'module', 'link', 'note'];
 const MAX_LABEL_LENGTH = 80;
-const MAX_NOTE_BODY_LENGTH = 5000;
+const MAX_NOTE_BODY_LENGTH = 10000;
 
 function validateResourceInput({ type, label, moduleCode, url, body }) {
   if (!VALID_RESOURCE_TYPES.includes(type)) {
-    const err = new Error('type must be "commentary", "link", or "note".');
+    const err = new Error('type must be "commentary", "module", "link", or "note".');
     err.status = 400;
     throw err;
   }
@@ -571,8 +594,8 @@ function validateResourceInput({ type, label, moduleCode, url, body }) {
     err.status = 400;
     throw err;
   }
-  if (type === 'commentary' && !moduleCode) {
-    const err = new Error('moduleCode is required for a commentary resource.');
+  if ((type === 'commentary' || type === 'module') && !moduleCode) {
+    const err = new Error('moduleCode is required for a module resource.');
     err.status = 400;
     throw err;
   }
@@ -603,15 +626,17 @@ function validateResourceInput({ type, label, moduleCode, url, body }) {
  *  pointing at external/SWORD content, so other participants get a
  *  shared library of the leader's own notes as part of the study's
  *  resources, not just links elsewhere. */
-export async function addResource(studyId, callerId, { type, label, moduleCode, url, body, order }) {
+export async function addResource(studyId, callerId, { type, label, moduleCode, moduleType, url, body, order }) {
   await assertOwnerOfStudy(studyId, callerId);
   validateResourceInput({ type, label, moduleCode, url, body });
+  const isModuleType = type === 'commentary' || type === 'module';
   return prisma.studyResource.create({
     data: {
       studyId,
       type,
       label: label.trim(),
-      moduleCode: type === 'commentary' ? moduleCode : null,
+      moduleCode: isModuleType ? moduleCode : null,
+      moduleType: type === 'module' ? (moduleType || null) : null,
       url: type === 'link' ? url.trim() : null,
       body: type === 'note' ? body.trim() : null,
       order: order ?? 0,
@@ -636,6 +661,62 @@ export async function removeResource(resourceId, callerId) {
 export async function listResources(studyId, viewerId) {
   await getStudy(studyId, viewerId); // visibility check, throws 404 if not visible
   return prisma.studyResource.findMany({ where: { studyId }, orderBy: { order: 'asc' } });
+}
+
+export async function listAllReflections(studyId, callerId) {
+  await assertOwnerOfStudy(studyId, callerId);
+  const lessons = await prisma.studyLesson.findMany({
+    where: { studyId, reflectionPrompt: { not: null } },
+    orderBy: { order: 'asc' },
+    select: {
+      id: true,
+      title: true,
+      order: true,
+      reflectionPrompt: true,
+      reflections: {
+        include: {
+          user: { select: { id: true, username: true, displayName: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  });
+  return lessons;
+}
+
+export async function getReflection(lessonId, userId) {
+  await getLesson(lessonId, userId); // visibility check
+  return prisma.studyLessonReflection.findUnique({
+    where: { lessonId_userId: { lessonId, userId } },
+  });
+}
+
+export async function saveReflection(lessonId, userId, body) {
+  const lesson = await prisma.studyLesson.findUnique({ where: { id: lessonId } });
+  if (!lesson) {
+    const err = new Error('Lesson not found.');
+    err.status = 404;
+    throw err;
+  }
+  await getStudy(lesson.studyId, userId); // visibility check
+  const participant = await prisma.studyParticipant.findUnique({
+    where: { studyId_userId: { studyId: lesson.studyId, userId } },
+  });
+  if (!participant) {
+    const err = new Error('Join this study to save a reflection.');
+    err.status = 403;
+    throw err;
+  }
+  if (!body || !body.trim()) {
+    const err = new Error('Reflection cannot be empty.');
+    err.status = 400;
+    throw err;
+  }
+  return prisma.studyLessonReflection.upsert({
+    where: { lessonId_userId: { lessonId, userId } },
+    create: { lessonId, userId, body: body.trim() },
+    update: { body: body.trim() },
+  });
 }
 
 /** The actual footer-drawer content for one resource against one
@@ -668,14 +749,15 @@ export async function getResourceContent(resourceId, lessonId, viewerId) {
     return { type: 'note', label: resource.label, text: resource.body };
   }
 
+  // 'module' and legacy 'commentary' both render SWORD passage content
   if (!lesson.reference) {
-    return { type: 'commentary', label: resource.label, text: null, note: 'This lesson has no reference set yet.' };
+    return { type: resource.type, label: resource.label, text: null, note: 'This lesson has no reference set yet.' };
   }
   try {
     const verses = swordService.getPassage(resource.moduleCode, lesson.reference);
     const text = swordService.versesToText(verses);
-    return { type: 'commentary', label: resource.label, text };
+    return { type: resource.type, label: resource.label, text };
   } catch {
-    return { type: 'commentary', label: resource.label, text: null, note: `No ${resource.label} entry found for ${lesson.reference}.` };
+    return { type: resource.type, label: resource.label, text: null, note: `No ${resource.label} entry found for ${lesson.reference}.` };
   }
 }

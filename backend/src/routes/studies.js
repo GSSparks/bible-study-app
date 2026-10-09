@@ -29,6 +29,9 @@ import {
   removeResource,
   listResources,
   getResourceContent,
+  getReflection,
+  saveReflection,
+  listAllReflections,
 } from '../services/studyService.js';
 
 export const studiesRouter = Router();
@@ -66,8 +69,24 @@ studiesRouter.post('/', async (req, res, next) => {
 // /:id, so no ordering ambiguity with the study routes below.
 studiesRouter.put('/lessons/:lessonId', async (req, res, next) => {
   try {
-    const { order, title, module, reference, body } = req.body;
-    res.json(await updateLesson(req.params.lessonId, req.user.id, { order, title, module, reference, body }));
+    const { order, title, module, reference, body, reflectionPrompt } = req.body;
+    res.json(await updateLesson(req.params.lessonId, req.user.id, { order, title, module, reference, body, reflectionPrompt }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.get('/lessons/:lessonId/reflection', async (req, res, next) => {
+  try {
+    res.json(await getReflection(req.params.lessonId, req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.put('/lessons/:lessonId/reflection', async (req, res, next) => {
+  try {
+    res.json(await saveReflection(req.params.lessonId, req.user.id, req.body.body));
   } catch (err) {
     next(err);
   }
@@ -244,6 +263,14 @@ studiesRouter.post('/:id/generate-lessons', async (req, res, next) => {
   }
 });
 
+studiesRouter.get('/:id/reflections', async (req, res, next) => {
+  try {
+    res.json(await listAllReflections(req.params.id, req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
 studiesRouter.get('/:id/resources', async (req, res, next) => {
   try {
     res.json(await listResources(req.params.id, req.user.id));
@@ -254,8 +281,8 @@ studiesRouter.get('/:id/resources', async (req, res, next) => {
 
 studiesRouter.post('/:id/resources', async (req, res, next) => {
   try {
-    const { type, label, moduleCode, url, body, order } = req.body;
-    res.status(201).json(await addResource(req.params.id, req.user.id, { type, label, moduleCode, url, body, order }));
+    const { type, label, moduleCode, moduleType, url, body, order } = req.body;
+    res.status(201).json(await addResource(req.params.id, req.user.id, { type, label, moduleCode, moduleType, url, body, order }));
   } catch (err) {
     next(err);
   }
