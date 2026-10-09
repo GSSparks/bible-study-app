@@ -14,14 +14,14 @@ export default function FootnotePopup({ text, x, y, onClose }) {
       {/* Invisible full-screen catcher so clicking anywhere outside the
           popup closes it — same pattern as ContextZoomMenu/ModulePicker. */}
       <div className="fixed inset-0 z-20" onClick={onClose} />
-      <div className="fixed z-30 w-72 rounded-lg border border-rule bg-panel p-3 shadow-2xl" style={style}>
+      <div className="fixed z-30 w-72 rounded-lg border border-pageBorder bg-page p-3 shadow-2xl" style={style}>
         <div className="mb-1 flex items-center justify-between">
-          <span className="font-mono text-xs uppercase tracking-wide text-muted">Note</span>
-          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
+          <span className="font-mono text-xs uppercase tracking-wide text-pageMuted">Note</span>
+          <button onClick={onClose} className="text-xs text-pageMuted hover:text-pageText">
             close
           </button>
         </div>
-        <p className="font-display text-sm text-parchment/90">{text}</p>
+        <p className="font-display text-sm text-pageText">{text}</p>
       </div>
     </>,
     document.body

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 import ReaderPane from './ReaderPane.jsx';
 import StrongsPopup from './StrongsPopup.jsx';
-import VersePopup from './VersePopup.jsx';
+import VerseDrawer from './VerseDrawer.jsx';
 
 /** A self-contained, footer-scale wrapper around ReaderPane — the same
  * component Passages uses for both its Bible and commentary panes,
@@ -44,7 +44,7 @@ export default function PassageQuickView({
   const [reference, setReference] = useState(initialReference);
   const [modules, setModules] = useState([]);
   const [strongsPopup, setStrongsPopup] = useState(null); // { key, x, y, morph, wordText, module }
-  const [versePopup, setVersePopup] = useState(null); // { osisRef, x, y }
+  const [verseDrawer, setVerseDrawer] = useState(null); // { osisRef }
 
   useEffect(() => {
     setModule(initialModule);
@@ -58,7 +58,7 @@ export default function PassageQuickView({
   }, [allowModuleSwitch, moduleType]);
 
   return (
-    <div>
+    <div className="flex flex-col">
       {allowModuleSwitch && (
         <select
           value={module}
@@ -80,7 +80,7 @@ export default function PassageQuickView({
         onStrongsClick={(key, event, morph, wordText, mod) =>
           setStrongsPopup({ key, x: event.clientX, y: event.clientY, morph, wordText, module: mod })
         }
-        onVerseRefClick={(osisRef, event) => setVersePopup({ osisRef, x: event.clientX, y: event.clientY })}
+        onVerseRefClick={(osisRef) => setVerseDrawer({ osisRef })}
         onAnnotate={() => onFocusNote?.()}
         onAskAboutPassage={(mod, ref) => onAskAiCompanionAbout?.(mod, ref)}
         onPhraseStudy={(phrase, mod, strongsSequence) => onAskAiCompanionPhraseStudy?.(phrase, mod, strongsSequence)}
@@ -106,20 +106,13 @@ export default function PassageQuickView({
         />
       )}
 
-      {versePopup && (
-        <VersePopup
-          osisRef={versePopup.osisRef}
+      {verseDrawer && (
+        <VerseDrawer
+          osisRef={verseDrawer.osisRef}
           module={module}
-          x={versePopup.x}
-          y={versePopup.y}
-          onClose={() => setVersePopup(null)}
+          onClose={() => setVerseDrawer(null)}
           onOpenInTab={(mod, ref) => {
-            // "Open in tab" has no tab system to open into here — the
-            // footer only ever shows one passage at a time, so this
-            // just navigates THIS component's own local view to the
-            // cross-referenced verse, staying inside the footer rather
-            // than leaving the Study page.
-            setVersePopup(null);
+            setVerseDrawer(null);
             setModule(mod);
             setReference(ref);
           }}

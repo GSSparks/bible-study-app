@@ -9,6 +9,7 @@
    the background we actually want. */
 .wmde-markdown {
   background-color: transparent !important;
+  font-family: "Source Serif 4", Georgia, serif;
 }
 
 /* Study notes and other markdown content on parchment reading surfaces —
@@ -77,6 +78,7 @@
 .verse-ref {
   cursor: pointer;
   color: theme('colors.verdigris');
+  margin-inline: 0.2em;
 }
 .verse-ref:hover {
   color: theme('colors.pageAccent');
@@ -139,6 +141,7 @@
    typography plugin installed, so these are the minimal rules needed
    for headings/lists/code/bold to actually look different from
    paragraph text instead of rendering as plain, undifferentiated text. */
+.markdown-body { font-family: "Source Serif 4", Georgia, serif; }
 .markdown-body :first-child { margin-top: 0; }
 .markdown-body :last-child { margin-bottom: 0; }
 .markdown-body h1,
@@ -194,25 +197,109 @@
   text-align: left;
 }
 
-/* .markdown-body above is tuned for the study assistant's dark ink/
-   panel background by default — colors like parchment-colored bold
-   text read fine there, but go nearly invisible against the light
-   "page" reading surfaces (DictionaryPane, ReaderPane's commentary
-   tabs) where saved word studies and conversations also render as
-   markdown now. .markdown-body-page is an additional modifier class,
-   applied alongside .markdown-body (not instead of it) wherever
-   markdown content shows up on a light page background — it only
-   overrides the specific rules that actually depend on the
-   surrounding background being dark; most of .markdown-body (headings,
-   links, code blocks) already has reasonable contrast against either
-   background and needs no override. Code/pre blocks keep their dark
-   ink background and parchment text in both contexts — a deliberate
-   "terminal-style" look regardless of the surrounding theme, and
-   parchment-on-ink is high-contrast either way, so no override needed
-   there. */
-.markdown-body.markdown-body-page strong {
+/* .markdown-body-page is applied alongside .markdown-body wherever
+   markdown renders on the warm cream "page" reading surface instead of
+   the dark app chrome. It overrides every rule in .markdown-body that
+   hard-codes ink/panel/parchment/rule colors. */
+.markdown-body.markdown-body-page {
+  color: theme('colors.pageText');
+}
+.markdown-body.markdown-body-page h1,
+.markdown-body.markdown-body-page h2,
+.markdown-body.markdown-body-page h3 {
   color: theme('colors.pageAccent');
 }
+.markdown-body.markdown-body-page strong {
+  color: theme('colors.pageText');
+  font-weight: 700;
+}
+.markdown-body.markdown-body-page em {
+  color: theme('colors.pageText');
+}
+.markdown-body.markdown-body-page code {
+  background: rgba(0,0,0,0.07);
+  color: theme('colors.pageText');
+  border: 1px solid theme('colors.pageBorder');
+}
+.markdown-body.markdown-body-page pre {
+  background: rgba(0,0,0,0.07);
+  color: theme('colors.pageText');
+  border: 1px solid theme('colors.pageBorder');
+}
+.markdown-body.markdown-body-page pre code {
+  background: none;
+  border: none;
+}
 .markdown-body.markdown-body-page blockquote {
+  border-left-color: theme('colors.pageAccent');
   color: theme('colors.pageMuted');
+}
+.markdown-body.markdown-body-page a {
+  color: theme('colors.pageAccent');
+}
+.markdown-body.markdown-body-page table {
+  width: 100%;
+  font-size: 0.875rem;
+}
+.markdown-body.markdown-body-page th,
+.markdown-body.markdown-body-page td {
+  border-color: theme('colors.pageBorder');
+  padding: 0.4em 0.75em;
+}
+.markdown-body.markdown-body-page th {
+  background: rgba(151,114,28,0.1);
+  color: theme('colors.pageText');
+  font-family: theme('fontFamily.sans');
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.markdown-body.markdown-body-page tr:nth-child(even) td {
+  background: rgba(0,0,0,0.025);
+}
+
+/* ── Devotional content renderer ─────────────────────────────────────────
+   Applied to <div class="devotional-content"> which receives processed
+   ThML HTML: <p> paragraphs, <strong> headings, <em> scripture refs. */
+.devotional-content p {
+  margin-bottom: 0.8rem;
+  line-height: 1.75;
+}
+.devotional-content p:last-child {
+  margin-bottom: 0;
+}
+/* Bold-only paragraphs are section headings (topic title, "Prayer", etc.) */
+.devotional-content p:has(> strong:only-child) {
+  font-family: theme('fontFamily.display');
+  font-size: 0.9em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-top: 1.1rem;
+  margin-bottom: 0.3rem;
+  opacity: 0.9;
+}
+/* First such heading has no top margin */
+.devotional-content p:has(> strong:only-child):first-of-type {
+  margin-top: 0;
+}
+/* Italic-only paragraphs are scripture references */
+.devotional-content p:has(> em:only-child) {
+  color: theme('colors.brass');
+  border-left: 2px solid theme('colors.brass');
+  padding-left: 0.65rem;
+  font-style: normal;
+  opacity: 0.9;
+  margin-bottom: 1rem;
+}
+.devotional-content p:has(> em:only-child) em {
+  font-style: italic;
+}
+/* Inline bold within body paragraphs */
+.devotional-content strong {
+  font-weight: 600;
+}
+/* Verse references inside devotional get the teal treatment */
+.devotional-content .verse-ref {
+  color: theme('colors.verdigris');
 }

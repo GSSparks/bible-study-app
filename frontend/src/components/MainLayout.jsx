@@ -1,6 +1,7 @@
 import ReaderPane from './ReaderPane.jsx';
 import DictionaryPane from './DictionaryPane.jsx';
 import TabStrip from './TabStrip.jsx';
+import VerseDrawer from './VerseDrawer.jsx';
 import { useResizableWidth } from '../hooks/useResizableWidth.js';
 import { useResizableHeight } from '../hooks/useResizableHeight.js';
 
@@ -35,6 +36,10 @@ export default function MainLayout({
   onAnnotate,
   onAskAboutPassage,
   onPhraseStudy,
+  verseDrawer,
+  onCloseVerseDrawer,
+  onOpenVerseTab,
+  defaultBibleModule,
 }) {
   const { width: commentaryWidth, onDragStart: onCommentaryDragStart } = useResizableWidth({
     key: 'scriptorium-commentary-width',
@@ -83,6 +88,14 @@ export default function MainLayout({
               </div>
             ))}
           </div>
+          {verseDrawer && (
+            <VerseDrawer
+              osisRef={verseDrawer.osisRef}
+              module={defaultBibleModule}
+              onClose={onCloseVerseDrawer}
+              onOpenInTab={onOpenVerseTab}
+            />
+          )}
         </div>
 
         <div

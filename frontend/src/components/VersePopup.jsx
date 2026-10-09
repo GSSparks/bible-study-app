@@ -8,7 +8,7 @@ import { api } from '../api/client.js';
  * more than one Strong's number). Each ref gets its own fetch, preview,
  * and "open in tab" button, stacked. OSIS form is accepted directly by
  * the passage endpoint — no need to convert to a "human" string first. */
-export default function VersePopup({ osisRef, module, x, y, onClose, onOpenInTab }) {
+export default function VersePopup({ osisRef, module, x, y, onClose, onOpenInTab, zIndex = 30 }) {
   const refs = osisRef.split(',').map((r) => r.trim()).filter(Boolean);
   const [entries, setEntries] = useState(null);
   const [error, setError] = useState(null);
@@ -38,22 +38,22 @@ export default function VersePopup({ osisRef, module, x, y, onClose, onOpenInTab
     <>
       {/* Invisible full-screen catcher so clicking anywhere outside the
           popup closes it — same pattern as ContextZoomMenu/ModulePicker. */}
-      <div className="fixed inset-0 z-20" onClick={onClose} />
-      <div className="fixed z-30 w-96 max-h-[70vh] overflow-y-auto rounded-lg border border-rule bg-panel p-4 shadow-2xl" style={style}>
+      <div className="fixed inset-0" style={{ zIndex: zIndex - 1 }} onClick={onClose} />
+      <div className="fixed w-96 max-h-[70vh] overflow-y-auto rounded-lg border border-pageBorder bg-page p-4 shadow-2xl" style={{ ...style, zIndex }}>
         <div className="mb-2 flex items-center justify-between">
           <span className="font-mono text-xs uppercase tracking-wide text-verdigris">{refs.join(' + ')}</span>
-          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
+          <button onClick={onClose} className="text-xs text-pageMuted hover:text-pageText">
             close
           </button>
         </div>
 
-        {loading && <p className="text-sm text-muted">Loading…</p>}
+        {loading && <p className="text-sm text-pageMuted">Loading…</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}
 
         {entries?.map(({ ref, verses }, i) => (
-          <div key={ref} className={i > 0 ? 'mt-3 border-t border-rule pt-3' : ''}>
-            {entries.length > 1 && <p className="mb-1 font-mono text-xs text-muted">{ref}</p>}
-            <p className="mb-2 font-display text-sm leading-relaxed text-parchment/90">
+          <div key={ref} className={i > 0 ? 'mt-3 border-t border-pageBorder pt-3' : ''}>
+            {entries.length > 1 && <p className="mb-1 font-mono text-xs text-pageMuted">{ref}</p>}
+            <p className="mb-2 font-display text-sm leading-relaxed text-pageText">
               {verses.map((v) => (
                 <span key={`${v.chapter}-${v.verseNr}`}>
                   <sup className="mr-1 text-xs text-brass">{v.verseNr}</sup>

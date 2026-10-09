@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import MainLayout from './MainLayout.jsx';
 import SearchBar from './SearchBar.jsx';
 import StrongsPopup from './StrongsPopup.jsx';
-import VersePopup from './VersePopup.jsx';
 import StudyAssistant from './StudyAssistant.jsx';
 import { api } from '../api/client.js';
 import { useResizableWidth } from '../hooks/useResizableWidth.js';
@@ -29,7 +28,7 @@ export default function StudyMode({ auth, onNavigateToLibrary, pendingBibleOpen,
   const dictionary = useTabbedWindow([]);
 
   const [strongsPopup, setStrongsPopup] = useState(null); // { key, x, y, morph }
-  const [versePopup, setVersePopup] = useState(null); // { osisRef, x, y }
+  const [verseDrawer, setVerseDrawer] = useState(null); // { osisRef }
   const [pendingDictKey, setPendingDictKey] = useState(null);
   const [pendingDictFilter, setPendingDictFilter] = useState(null);
   const [pendingDictTabId, setPendingDictTabId] = useState(null);
@@ -134,8 +133,8 @@ export default function StudyMode({ auth, onNavigateToLibrary, pendingBibleOpen,
     setStrongsPopup({ key, x: event.clientX, y: event.clientY, morph, wordText, module });
   }
 
-  function handleVerseRefClick(osisRef, event) {
-    setVersePopup({ osisRef, x: event.clientX, y: event.clientY });
+  function handleVerseRefClick(osisRef) {
+    setVerseDrawer({ osisRef });
   }
 
   function handleWordStudy(strongsKey, module) {
@@ -155,7 +154,7 @@ export default function StudyMode({ auth, onNavigateToLibrary, pendingBibleOpen,
   }
 
   function openVerseTab(module, osisRef) {
-    setVersePopup(null);
+    setVerseDrawer(null);
     navigateFocus(osisRef);
     if (bible.activeTab?.module !== module) {
       bible.addTab(module, osisRef);
@@ -252,6 +251,10 @@ export default function StudyMode({ auth, onNavigateToLibrary, pendingBibleOpen,
           onAnnotate={onNavigateToLibrary}
           onAskAboutPassage={handleAskAboutPassage}
           onPhraseStudy={handlePhraseStudy}
+          verseDrawer={verseDrawer}
+          onCloseVerseDrawer={() => setVerseDrawer(null)}
+          onOpenVerseTab={openVerseTab}
+          defaultBibleModule={defaultBibleModule}
         />
 
         <div
@@ -292,16 +295,6 @@ export default function StudyMode({ auth, onNavigateToLibrary, pendingBibleOpen,
         />
       )}
 
-      {versePopup && (
-        <VersePopup
-          osisRef={versePopup.osisRef}
-          module={defaultBibleModule}
-          x={versePopup.x}
-          y={versePopup.y}
-          onClose={() => setVersePopup(null)}
-          onOpenInTab={openVerseTab}
-        />
-      )}
     </div>
   );
 }

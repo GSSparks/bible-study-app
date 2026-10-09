@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 let nextTabId = 1;
-const uid = () => `tab-${nextTabId++}`;
+export const uid = () => `tab-${nextTabId++}`;
 
 /** One region's tab state (Bible / Commentary / Dictionary each get
  * their own instance of this). Deliberately doesn't exclude
@@ -9,9 +9,9 @@ const uid = () => `tab-${nextTabId++}`;
  * now be opened in more than one tab, since there's no longer a
  * per-tab reference to differentiate them by; they're all just
  * different ways of looking at the one shared focused verse. */
-export function useTabbedWindow(initial = []) {
+export function useTabbedWindow(initial = [], initialActiveId = null) {
   const [tabs, setTabs] = useState(initial);
-  const [activeTabId, setActiveTabId] = useState(initial[0]?.id || null);
+  const [activeTabId, setActiveTabId] = useState(initialActiveId ?? initial[0]?.id ?? null);
 
   function addTab(module, title) {
     const id = uid();

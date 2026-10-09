@@ -6,21 +6,25 @@ import { api } from '../api/client.js';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 
-/** Notes are either anchored to the current passage or freestanding
- * (a personal study journal, not tied to any reference) — the "This
- * passage" / "All notes" tabs switch between those views, and both use
- * the same rich markdown editor and are both searchable. */
+/** Strip a leading markdown heading line if it duplicates the note's
+ *  title — AI-generated notes write the title both as a field and as
+ *  the first line of the body (`# Title`), causing it to render twice. */
+function stripLeadingHeading(body) {
+  return body.replace(/^#{1,6}\s+.+\n?/, '').trim();
+}
+
+/** AI-generated notes sometimes store the title as `# My Title`, leaving
+ *  the raw `#` visible when the field is rendered as plain text. */
+function cleanTitle(title) {
+  return title?.replace(/^#{1,6}\s+/, '').trim() ?? title;
+}
+
 export default function NotesSidebar({ reference, module, isLoggedIn }) {
-  // Defaults to 'all' when no reference is provided (the standalone
-  // Library page) rather than always defaulting to 'passage', which
-  // would otherwise show "Open a passage to see notes here" as the
-  // very first thing on a page where there's no passage concept at
-  // all. Still defaults to 'passage' if a reference IS provided, for
-  // any future case where this gets embedded somewhere with one again.
-  const [tab, setTab] = useState(reference ? 'passage' : 'all'); // 'passage' | 'all'
+  const [tab, setTab] = useState(reference ? 'passage' : 'all');
   const [notes, setNotes] = useState([]);
   const [query, setQuery] = useState('');
-  const [editingId, setEditingId] = useState(null); // note id, or 'new'
+  const [editingId, setEditingId] = useState(null);
+  const [viewingNote, setViewingNote] = useState(null);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [error, setError] = useState(null);
@@ -38,19 +42,21 @@ export default function NotesSidebar({ reference, module, isLoggedIn }) {
   useEffect(refresh, [tab, reference]);
   useEffect(() => {
     if (tab !== 'all') return;
-    const t = setTimeout(refresh, 200); // light debounce while typing
+    const t = setTimeout(refresh, 200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   function startNew() {
     setEditingId('new');
+    setViewingNote(null);
     setTitle('');
     setBody('');
   }
 
   function startEdit(note) {
     setEditingId(note.id);
+    setViewingNote(null);
     setTitle(note.title || '');
     setBody(note.body);
   }
@@ -78,16 +84,13 @@ export default function NotesSidebar({ reference, module, isLoggedIn }) {
   async function remove(id) {
     try {
       await api.deleteNote(id);
+      if (viewingNote?.id === id) setViewingNote(null);
       refresh();
     } catch (e) {
       setError(e.message);
     }
   }
 
-  // Placed after every hook above (Rules of Hooks) — refresh() still
-  // fires even in this state (via the useEffect above), but its result
-  // is never rendered here, so it just fails silently in the background
-  // rather than causing a visible bug.
   if (!isLoggedIn) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-6 text-center">
@@ -98,26 +101,30 @@ export default function NotesSidebar({ reference, module, isLoggedIn }) {
   }
 
   return (
-    <div className="flex h-full flex-col p-4" data-color-mode="dark">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-display text-lg text-parchment">Notes</h3>
-        <button onClick={startNew} className="rounded bg-brass/90 px-2 py-1 text-xs font-medium text-ink hover:bg-brass">
-          + new
-        </button>
-      </div>
-
-      <div className="mb-3 flex border-b border-rule text-xs">
+    <div className="flex h-full flex-col" data-color-mode="dark">
+      {/* Tab bar + new button */}
+      <div className="mb-4 flex items-end justify-between border-b border-rule">
+        <div className="flex gap-4 text-sm">
+          {reference && (
+            <button
+              onClick={() => setTab('passage')}
+              className={`pb-3 ${tab === 'passage' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+            >
+              This passage
+            </button>
+          )}
+          <button
+            onClick={() => setTab('all')}
+            className={`pb-3 ${tab === 'all' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+          >
+            All notes
+          </button>
+        </div>
         <button
-          onClick={() => setTab('passage')}
-          className={`px-3 py-2 ${tab === 'passage' ? 'border-b-2 border-brass text-parchment' : 'text-muted'}`}
+          onClick={startNew}
+          className="mb-3 rounded border border-rule px-3 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment"
         >
-          This passage
-        </button>
-        <button
-          onClick={() => setTab('all')}
-          className={`px-3 py-2 ${tab === 'all' ? 'border-b-2 border-brass text-parchment' : 'text-muted'}`}
-        >
-          All notes
+          + new note
         </button>
       </div>
 
@@ -125,60 +132,141 @@ export default function NotesSidebar({ reference, module, isLoggedIn }) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search your notes…"
-          className="mb-3 rounded-md border border-rule bg-ink px-3 py-2 text-sm placeholder:text-muted focus:border-brass"
+          placeholder="Search notes…"
+          className="mb-4 rounded-lg border border-rule bg-panel px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
         />
       )}
-      {tab === 'passage' && !reference && <p className="text-sm text-muted">Open a passage to see notes here.</p>}
+      {tab === 'passage' && !reference && (
+        <p className="text-sm text-muted">Open a passage to see notes here.</p>
+      )}
 
-      {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
+      {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
 
+      {/* Inline editor for new / editing */}
       {editingId && (
-        <div className="mb-3 rounded-md border border-rule p-2">
+        <div className="mb-4 rounded-xl border border-rule bg-panel p-4">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title (optional)"
-            className="mb-2 w-full rounded border border-rule bg-ink px-2 py-1.5 text-sm placeholder:text-muted"
+            className="mb-3 w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
           />
-          <MDEditor value={body} onChange={(v) => setBody(v || '')} height={200} preview="edit" />
-          <div className="mt-2 flex justify-end gap-2">
+          <MDEditor value={body} onChange={(v) => setBody(v || '')} height={220} preview="edit" />
+          <div className="mt-3 flex justify-end gap-2">
             <button onClick={() => setEditingId(null)} className="text-xs text-muted hover:text-parchment">
               cancel
             </button>
-            <button onClick={save} className="rounded bg-verdigris/80 px-3 py-1 text-xs text-parchment hover:bg-verdigris">
+            <button onClick={save} className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass">
               save
             </button>
           </div>
         </div>
       )}
 
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-        {notes.map((n) => (
-          <div key={n.id} className="rounded-md border border-rule px-3 py-2 text-sm">
-            <div className="flex items-start justify-between gap-2">
-              <button onClick={() => startEdit(n)} className="truncate text-left font-medium text-parchment hover:text-brass">
-                {n.title || n.reference || 'Untitled'}
-              </button>
-              <button onClick={() => remove(n.id)} className="shrink-0 text-xs text-muted hover:text-red-400">
-                delete
-              </button>
-            </div>
-            {(n.reference || n.fromAssistant) && (
-              <div className="text-xs text-muted">
-                {n.reference}
-                {n.reference && n.fromAssistant && ' · '}
-                {n.fromAssistant && 'from assistant'}
+      {/* Note cards — click to view, double-click to edit */}
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+        {notes.map((n) => {
+          const displayBody = stripLeadingHeading(n.body);
+          return (
+            <div
+              key={n.id}
+              className="group cursor-pointer rounded-xl border border-rule bg-panel px-4 py-3 transition-colors hover:border-brass/50"
+              onClick={() => setViewingNote(n)}
+              onDoubleClick={(e) => { e.preventDefault(); startEdit(n); }}
+              title="Click to read · Double-click to edit"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="truncate font-display text-base leading-snug text-parchment">
+                  {cleanTitle(n.title) || n.reference || 'Untitled'}
+                </p>
+                <button
+                  onClick={(e) => { e.stopPropagation(); startEdit(n); }}
+                  className="shrink-0 text-xs text-muted opacity-0 hover:text-parchment group-hover:opacity-100"
+                >
+                  edit
+                </button>
               </div>
-            )}
-            <div className="markdown-body mt-1 text-parchment/90">
-              <Markdown remarkPlugins={[remarkGfm]}>{n.body}</Markdown>
+              {(n.reference || n.fromAssistant) && (
+                <p className="mt-0.5 font-mono text-xs text-muted">
+                  {n.reference}
+                  {n.reference && n.fromAssistant && ' · '}
+                  {n.fromAssistant && 'from assistant'}
+                </p>
+              )}
+              {displayBody && (
+                <div className="markdown-body mt-2 line-clamp-3 text-sm text-parchment/70">
+                  <Markdown remarkPlugins={[remarkGfm]}>{displayBody}</Markdown>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
         {notes.length === 0 && !editingId && (
-          <p className="text-sm text-muted">No notes {tab === 'all' ? 'yet' : 'on this passage yet'}.</p>
+          <p className="py-12 text-center text-sm text-muted">
+            {tab === 'all' ? 'No notes yet.' : 'No notes on this passage yet.'}
+          </p>
         )}
+      </div>
+
+      {/* Note reader modal */}
+      {viewingNote && (
+        <NoteModal
+          note={viewingNote}
+          onClose={() => setViewingNote(null)}
+          onEdit={() => startEdit(viewingNote)}
+          onDelete={() => remove(viewingNote.id)}
+        />
+      )}
+    </div>
+  );
+}
+
+function NoteModal({ note, onClose, onEdit, onDelete }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const displayBody = stripLeadingHeading(note.body);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-black/70 sm:items-center sm:justify-center sm:px-6 sm:py-10"
+      onClick={onClose}
+    >
+      <div
+        className="flex h-full w-full flex-col overflow-hidden bg-page shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-xl sm:border sm:border-pageBorder"
+        onClick={(e) => e.stopPropagation()}
+        data-color-mode="light"
+      >
+        {/* Modal header */}
+        <div className="flex shrink-0 items-start justify-between border-b border-pageBorder px-6 py-4">
+          <div className="min-w-0 flex-1 pr-4">
+            <h2 className="font-display text-xl leading-snug text-pageText">
+              {cleanTitle(note.title) || note.reference || 'Untitled'}
+            </h2>
+            {(note.reference || note.fromAssistant) && (
+              <p className="mt-1 font-mono text-xs text-pageMuted">
+                {note.reference}
+                {note.reference && note.fromAssistant && ' · '}
+                {note.fromAssistant && 'from assistant'}
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <button onClick={onEdit} className="text-xs text-pageMuted hover:text-pageText">edit</button>
+            <button onClick={onDelete} className="text-xs text-pageMuted hover:text-red-600">delete</button>
+            <button onClick={onClose} className="text-xs text-pageMuted hover:text-pageText">close</button>
+          </div>
+        </div>
+
+        {/* Modal body */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="markdown-body markdown-body-page text-sm leading-relaxed text-pageText">
+            <Markdown remarkPlugins={[remarkGfm]}>{displayBody}</Markdown>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -45,6 +45,8 @@ export default function StudyAssistant({
   resumeSessionRequest,
   isLoggedIn,
   onSessionSaved,
+  documentIds = [],
+  onClearDocuments,
 }) {
   const [conversations, setConversations] = useState(() => [makeConversation('chat', 'Chat')]);
   const [activeConversationId, setActiveConversationId] = useState(() => conversations[0].id);
@@ -134,6 +136,7 @@ export default function StudyAssistant({
         sources: [{ module, reference, kind: 'bible', title: module }],
         includeAllCommentaries: true,
         includeWordStudies: true,
+        documentIds,
       });
       const userMessage = {
         role: 'user',
@@ -164,11 +167,12 @@ export default function StudyAssistant({
     const id = addConversation('chat', title, { module, reference });
     updateConversation(id, { loading: true, loadingLabel: 'Thinking…' });
     try {
-      const context = module && reference
+      const context = (module && reference) || documentIds.length > 0
         ? await api.buildContext({
-            sources: [{ module, reference, kind: 'bible', title: module }],
-            includeAllCommentaries: true,
-            includeWordStudies: true,
+            sources: module && reference ? [{ module, reference, kind: 'bible', title: module }] : [],
+            includeAllCommentaries: Boolean(module && reference),
+            includeWordStudies: Boolean(module && reference),
+            documentIds,
           })
         : { passages: [], notes: [] };
       const userMessage = { role: 'user', content: question };
@@ -324,8 +328,12 @@ export default function StudyAssistant({
     updateConversation(convId, { messages: nextMessages, loading: true, loadingLabel: 'Thinking…', error: null });
     setInput('');
     try {
-      const context = effectiveSources.length > 0
-        ? await api.buildContext({ sources: effectiveSources, noteIds: conv.attachedNotes.map((n) => n.id) })
+      const context = effectiveSources.length > 0 || documentIds.length > 0
+        ? await api.buildContext({
+            sources: effectiveSources,
+            noteIds: conv.attachedNotes.map((n) => n.id),
+            documentIds,
+          })
         : { passages: [], notes: [] };
       const res = await api.askAssistant({ context, messages: nextMessages, sessionId: conv.sessionId });
       updateConversation(convId, (c) => ({
@@ -444,13 +452,22 @@ export default function StudyAssistant({
         </button>
       </div>
 
-      {(validSources.length > 0 || (activeConversation.meta.module && activeConversation.meta.reference)) && (
-        <p className="mt-2 text-xs text-muted">
-          Context:{' '}
+      {(validSources.length > 0 || (activeConversation.meta.module && activeConversation.meta.reference) || documentIds.length > 0) && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-1 text-xs text-muted">
+          <span>Context:</span>
           {validSources.length > 0
-            ? validSources.map((s) => `${s.title} ${s.reference}`).join(' · ')
-            : `${activeConversation.meta.module} ${activeConversation.meta.reference}`}
-        </p>
+            ? <span>{validSources.map((s) => `${s.title} ${s.reference}`).join(' · ')}</span>
+            : (activeConversation.meta.module && activeConversation.meta.reference)
+            ? <span>{activeConversation.meta.module} {activeConversation.meta.reference}</span>
+            : null}
+          {documentIds.length > 0 && (
+            <span className="flex items-center gap-1">
+              {(validSources.length > 0 || (activeConversation.meta.module && activeConversation.meta.reference)) && '·'}
+              {documentIds.length} document{documentIds.length > 1 ? 's' : ''}
+              <button onClick={onClearDocuments} className="text-muted/60 hover:text-red-400" title="Remove document context">✕</button>
+            </span>
+          )}
+        </div>
       )}
 
       <div className="mb-3">

@@ -46,10 +46,10 @@ export default function StrongsPopup({
   return createPortal(
     <>
       <div className="fixed inset-0 z-20" onClick={onClose} />
-      <div className="fixed z-30 w-80 max-h-[70vh] overflow-y-auto rounded-lg border border-rule bg-panel p-4 shadow-2xl" style={style}>
+      <div className="fixed z-30 w-80 max-h-[70vh] overflow-y-auto rounded-lg border border-pageBorder bg-page p-4 shadow-2xl" style={style}>
         <div className="mb-2 flex items-center justify-between">
           <span className="font-mono text-xs uppercase tracking-wide text-verdigris">{keys.join(' + ')}</span>
-          <button onClick={onClose} className="text-xs text-muted hover:text-parchment">
+          <button onClick={onClose} className="text-xs text-pageMuted hover:text-pageText">
             close
           </button>
         </div>
@@ -63,40 +63,40 @@ export default function StrongsPopup({
           </button>
         )}
 
-        {loading && <p className="text-sm text-muted">Loading…</p>}
+        {loading && <p className="text-sm text-pageMuted">Loading…</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}
 
         {entries?.map(({ key, entry }, i) => {
           const morphCode = morphCodes[i];
           const morphGloss = morphCode ? decodeRobinsonMorph(morphCode) : null;
           return (
-            <div key={key} className={i > 0 ? 'mt-3 border-t border-rule pt-3' : ''}>
-              {entries.length > 1 && <p className="mb-1 font-mono text-xs text-muted">{key}</p>}
+            <div key={key} className={i > 0 ? 'mt-3 border-t border-pageBorder pt-3' : ''}>
+              {entries.length > 1 && <p className="mb-1 font-mono text-xs text-pageMuted">{key}</p>}
               <div className="space-y-2 text-sm">
                 {morphCode && (
-                  <p className="font-mono text-xs text-muted">
+                  <p className="font-mono text-xs text-pageMuted">
                     {morphCode}
-                    {morphGloss && <span className="ml-2 font-sans italic text-parchment/70">({morphGloss})</span>}
+                    {morphGloss && <span className="ml-2 font-sans italic text-pageMuted">({morphGloss})</span>}
                   </p>
                 )}
                 {(entry.transcription || entry.phoneticTranscription) && (
-                  <p className="font-display text-base text-parchment">
+                  <p className="font-display text-base text-pageText">
                     {entry.transcription}
                     {entry.phoneticTranscription && (
-                      <span className="ml-2 text-xs text-muted">{entry.phoneticTranscription}</span>
+                      <span className="ml-2 text-xs text-pageMuted">{entry.phoneticTranscription}</span>
                     )}
                   </p>
                 )}
-                {entry.definition && <p className="text-parchment/90">{entry.definition}</p>}
+                {entry.definition && <p className="text-pageText">{entry.definition}</p>}
                 {entry.references?.length > 0 && (
                   <div>
-                    <p className="mb-1 text-xs uppercase tracking-wide text-muted">See also</p>
+                    <p className="mb-1 text-xs uppercase tracking-wide text-pageMuted">See also</p>
                     <div className="flex flex-wrap gap-1">
                       {entry.references.map((ref) => (
                         <button
                           key={ref.key}
                           onClick={() => onNavigateKey(ref.key)}
-                          className="rounded border border-rule px-2 py-0.5 font-mono text-xs text-parchment/90 hover:border-brass hover:text-brass"
+                          className="rounded border border-pageBorder px-2 py-0.5 font-mono text-xs text-pageText hover:border-brass hover:text-brass"
                         >
                           {ref.key}
                         </button>

@@ -273,6 +273,8 @@ export default function AICompanionView({
   onOverviewRequestConsumed,
   pendingPhraseStudyRequest,
   onPhraseStudyRequestConsumed,
+  pendingDocumentRequest,
+  onDocumentRequestConsumed,
 }) {
   const [askQuestionRequest, setAskQuestionRequest] = useState(null);
   const [overviewRequest, setOverviewRequest] = useState(null);
@@ -283,6 +285,7 @@ export default function AICompanionView({
   const [loadingSessions, setLoadingSessions] = useState(true);
   // 'welcome' → show the greeting/example boxes; 'chat' → show StudyAssistant
   const [mode, setMode] = useState('welcome');
+  const [activeDocumentIds, setActiveDocumentIds] = useState([]);
 
   function refreshSessions() {
     if (!isLoggedIn) return;
@@ -335,6 +338,14 @@ export default function AICompanionView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingPhraseStudyRequest?.nonce]);
 
+  useEffect(() => {
+    if (!pendingDocumentRequest) return;
+    setActiveDocumentIds([pendingDocumentRequest.id]);
+    setMode('chat');
+    onDocumentRequestConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDocumentRequest?.nonce]);
+
   if (!isLoggedIn) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-6 text-center">
@@ -346,73 +357,96 @@ export default function AICompanionView({
   }
 
   return (
-    <div className="flex h-full min-h-0 justify-center overflow-hidden">
-      <div className="flex h-full w-full max-w-5xl min-h-0">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      {/* Mobile-only compact toolbar */}
+      <div className="flex shrink-0 items-center gap-1.5 border-b border-rule bg-ink px-3 py-2 lg:hidden">
+        <button onClick={() => setActiveModal('ask')} className="flex items-center gap-1.5 rounded border border-rule px-2.5 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment">
+          <MessageCircle size={13} /> Ask
+        </button>
+        <button onClick={() => setActiveModal('study')} className="flex items-center gap-1.5 rounded border border-rule px-2.5 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment">
+          <BookOpen size={13} /> Study
+        </button>
+        <button onClick={() => setActiveModal('compare')} className="flex items-center gap-1.5 rounded border border-rule px-2.5 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment">
+          <ArrowLeftRight size={13} /> Compare
+        </button>
+        {mode === 'chat' && (
+          <button onClick={() => setMode('welcome')} className="ml-auto rounded border border-rule px-2.5 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment">
+            + New
+          </button>
+        )}
+      </div>
 
-        {/* ── Main chat area ───────────────────────────────── */}
-        <div className="relative min-h-0 flex-1">
-          {/* StudyAssistant stays mounted to preserve tab/conversation state */}
-          <div className={mode === 'chat' ? 'h-full' : 'hidden'}>
-            <StudyAssistant
-              sources={[]}
-              overviewRequest={overviewRequest}
-              wordStudyRequest={null}
-              phraseStudyRequest={phraseStudyRequest}
-              askQuestionRequest={askQuestionRequest}
-              resumeSessionRequest={resumeSessionRequest}
-              isLoggedIn={isLoggedIn}
-              onSessionSaved={refreshSessions}
-            />
-          </div>
-          {mode === 'welcome' && (
-            <WelcomePanel username={username} onQuestion={startFreeQuestion} />
-          )}
-        </div>
+      {/* Content row — side-by-side on desktop, full-width on mobile */}
+      <div className="flex min-h-0 flex-1 justify-center overflow-hidden">
+        <div className="flex h-full w-full max-w-5xl min-h-0">
 
-        {/* ── Right sidebar ────────────────────────────────── */}
-        <aside className="flex w-64 shrink-0 flex-col overflow-y-auto">
-          <div className="p-4">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted">Tools</p>
-            <div className="space-y-2">
-              <ToolButton icon={MessageCircle} label="Ask a Question" description="With a specific passage" onClick={() => setActiveModal('ask')} />
-              <ToolButton icon={BookOpen} label="Study a Passage" description="Context and commentary" onClick={() => setActiveModal('study')} />
-              <ToolButton icon={Tag} label="Topical Study" description="Coming soon" disabled />
-              <ToolButton icon={ArrowLeftRight} label="Compare Translations" description="See how versions differ" onClick={() => setActiveModal('compare')} />
+          {/* ── Main chat area ───────────────────────────────── */}
+          <div className="relative min-h-0 flex-1">
+            {/* StudyAssistant stays mounted to preserve tab/conversation state */}
+            <div className={mode === 'chat' ? 'h-full' : 'hidden'}>
+              <StudyAssistant
+                sources={[]}
+                overviewRequest={overviewRequest}
+                wordStudyRequest={null}
+                phraseStudyRequest={phraseStudyRequest}
+                askQuestionRequest={askQuestionRequest}
+                resumeSessionRequest={resumeSessionRequest}
+                isLoggedIn={isLoggedIn}
+                onSessionSaved={refreshSessions}
+                documentIds={activeDocumentIds}
+                onClearDocuments={() => setActiveDocumentIds([])}
+              />
             </div>
-
-            {mode === 'chat' && (
-              <button
-                onClick={() => setMode('welcome')}
-                className="mt-4 w-full rounded-lg border border-rule px-3 py-2 text-xs text-muted hover:border-brass hover:text-parchment"
-              >
-                + New conversation
-              </button>
+            {mode === 'welcome' && (
+              <WelcomePanel username={username} onQuestion={startFreeQuestion} />
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto border-t border-rule p-4">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted">Recent</p>
-            {loadingSessions && <p className="text-xs text-muted">Loading…</p>}
-            <div className="space-y-1">
-              {recentSessions.map((s) => {
-                const label = s.title || s.reference || 'Chat';
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => handleResume(s)}
-                    className="block w-full rounded px-2 py-1.5 text-left text-xs text-parchment/90 hover:bg-panel hover:text-brass"
-                    title={label}
-                  >
-                    <span className="line-clamp-2 leading-snug">{label}</span>
-                  </button>
-                );
-              })}
-              {!loadingSessions && recentSessions.length === 0 && (
-                <p className="text-xs text-muted">No conversations yet.</p>
+          {/* ── Right sidebar — hidden on mobile ─────────────── */}
+          <aside className="hidden w-64 shrink-0 flex-col overflow-y-auto lg:flex">
+            <div className="p-4">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted">Tools</p>
+              <div className="space-y-2">
+                <ToolButton icon={MessageCircle} label="Ask a Question" description="With a specific passage" onClick={() => setActiveModal('ask')} />
+                <ToolButton icon={BookOpen} label="Study a Passage" description="Context and commentary" onClick={() => setActiveModal('study')} />
+                <ToolButton icon={Tag} label="Topical Study" description="Coming soon" disabled />
+                <ToolButton icon={ArrowLeftRight} label="Compare Translations" description="See how versions differ" onClick={() => setActiveModal('compare')} />
+              </div>
+
+              {mode === 'chat' && (
+                <button
+                  onClick={() => setMode('welcome')}
+                  className="mt-4 w-full rounded-lg border border-rule px-3 py-2 text-xs text-muted hover:border-brass hover:text-parchment"
+                >
+                  + New conversation
+                </button>
               )}
             </div>
-          </div>
-        </aside>
+
+            <div className="flex-1 overflow-y-auto border-t border-rule p-4">
+              <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted">Recent</p>
+              {loadingSessions && <p className="text-xs text-muted">Loading…</p>}
+              <div className="space-y-1">
+                {recentSessions.map((s) => {
+                  const label = s.title || s.reference || 'Chat';
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => handleResume(s)}
+                      className="block w-full rounded px-2 py-1.5 text-left text-xs text-parchment/90 hover:bg-panel hover:text-brass"
+                      title={label}
+                    >
+                      <span className="line-clamp-2 leading-snug">{label}</span>
+                    </button>
+                  );
+                })}
+                {!loadingSessions && recentSessions.length === 0 && (
+                  <p className="text-xs text-muted">No conversations yet.</p>
+                )}
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
 
       {activeModal === 'ask' && (
