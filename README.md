@@ -6,7 +6,8 @@
 <p align="center">A self-hosted, multi-user Bible study platform built on the CrossWire SWORD engine.</p>
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="Scriptorium study lesson view" width="800">
+  <img src="docs/screenshot_1.png" alt="Scriptorium cell view" width="800">
+  <img src="docs/screenshot_2.png" alt="Scriptorium study lesson view" width="800">
 </p>
 
 Scriptorium is a self-hosted Bible study environment: real text from the SWORD engine (same library behind Ezra Bible App and Xiphos), an LLM study assistant grounded in the passages you actually have open, structured multi-week Studies with AI-drafted lesson outlines, and small-group coordination through Scriptoriums — all from one Docker container.
@@ -116,13 +117,68 @@ Structured studies that live inside a Scriptorium:
 
 Private, per-user commentary notes or dictionary definitions saved through the same UI as SWORD modules. Personal commentary entries support range-overlap matching — a note saved for "John 3:16-18" surfaces when reading verse 17.
 
+## Markdown modules
+
+A lightweight alternative to compiled SWORD modules. Drop a folder into the `MD_MODULES_PATH` directory (default `/data/md-modules`) — or upload a `.zip` through **Admin → Modules** — and it appears in the pane module pickers alongside SWORD modules.
+
+**Folder layout:**
+
+```
+my-commentary/
+  module.json        ← metadata
+  john.md            ← content keyed by ## headings
+  genesis.md
+```
+
+**`module.json`:**
+
+```json
+{
+  "name": "My Commentary",
+  "description": "Shown in the module picker",
+  "type": "COMMENTARY"
+}
+```
+
+`type` is `COMMENTARY`, `DICT`, or `BIBLE`.
+
+**Commentary and Bible text** — one `.md` file per book (named by book name or standard abbreviation — `genesis.md` and `gen.md` both work). Sections are `## chapter:verse` headings; `## chapter` headings are a fallback for chapter-level content:
+
+```markdown
+## 3:16
+
+For God so loved the world — *agapē* here is not sentimental affection
+but a determined, self-giving will toward another's good.
+
+## 3:17
+
+A necessary corrective: the Son came as the way *out* of condemnation,
+not as its executor.
+```
+
+**Dictionary** — `## Entry Name` sections in any `.md` file in the module folder, or one file per entry with the filename as the key:
+
+```markdown
+## Grace
+
+The Greek *charis* (χάρις) — unmerited favor...
+
+## Faith
+
+*Pistis* (πίστις) — trust, confidence, belief...
+```
+
+Full Markdown is rendered (bold, italic, headings, lists, links, inline code). Commentary modules are automatically included in the Passage Guide AI context.
+
+**Installing via zip:** zip the module folder and upload it in **Admin → Modules**. The upload button auto-detects whether the zip is a SWORD module or a Markdown module. An example zip is included at `modules/example-commentary.zip`.
+
 ## PDF library
 
 Admins upload reference PDFs; anyone can browse and search. Extracted text (capped at 200K chars per doc) is hit by the main search bar alongside Bible text and notes.
 
 ## Admin
 
-- **Modules** — install from CrossWire repositories by type (BIBLE, COMMENTARY, DICT, DAILY); per-module visibility toggle for regular users; manual `.zip` upload for offline installs
+- **Modules** — install from CrossWire repositories by type (BIBLE, COMMENTARY, DICT, DAILY); per-module visibility toggle for regular users; manual `.zip` upload for offline installs (auto-detects SWORD vs. Markdown module format)
 - **Daily Devotional** — select which installed Daily module shows in the Scriptorium sidebar; the gear icon on the widget opens the picker
 - **Users** — create and list user accounts
 - **Posts / Media** — moderate content
