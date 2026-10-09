@@ -38,10 +38,21 @@ export async function getTodaysDevotional() {
   }
 
   // Two entries = morning/evening pattern (Spurgeon etc.); label them.
-  const labelled = entries.map((e, i) => ({
-    ...e,
-    label: entries.length === 2 ? (i === 0 ? 'Morning' : 'Evening') : null,
-  }));
+  // More than two = multiple verse entries for the same day (e.g. Wesley's
+  // Notes) — merge into one reading so they don't become confusing tabs.
+  let labelled;
+  if (entries.length === 2) {
+    labelled = entries.map((e, i) => ({ ...e, label: i === 0 ? 'Morning' : 'Evening' }));
+  } else if (entries.length > 2) {
+    labelled = [{
+      ...entries[0],
+      text: entries.map((e) => e.text).filter(Boolean).join('\n\n'),
+      content: entries.map((e) => e.content).filter(Boolean).join('\n\n'),
+      label: null,
+    }];
+  } else {
+    labelled = entries.map((e) => ({ ...e, label: null }));
+  }
 
   return {
     available: true,

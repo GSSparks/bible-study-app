@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 
 const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding'];
-const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT', 'DAILY'];
+const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT'];
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;

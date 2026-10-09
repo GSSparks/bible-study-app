@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, Box, Library as LibraryIcon, Sparkles, Settings as SettingsIcon, Shield, Menu } from 'lucide-react';
+import { BookOpen, BookMarked, Box, Library as LibraryIcon, Settings as SettingsIcon, Shield, Menu, X } from 'lucide-react';
+import BiblePanel from './BiblePanel.jsx';
 import CellView from './CellView.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
 import AdminView from './AdminView.jsx';
 import ScriptoriumsView from './ScriptoriumsView.jsx';
 import LibraryView from './LibraryView.jsx';
-import AICompanionView from './AICompanionView.jsx';
+import ReadingPlanView from './ReadingPlanView.jsx';
 import LoginModal from './LoginModal.jsx';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
 import UserMenu from './UserMenu.jsx';
@@ -16,9 +17,9 @@ import { api } from '../api/client.js';
 const NAV_GROUPS = [
   [
     { key: 'cell', label: 'Cell', Icon: BookOpen },
+    { key: 'plans', label: 'Plans', Icon: BookMarked },
     { key: 'scriptoriums', label: 'Scriptoriums', Icon: Box, requiresAuth: true },
     { key: 'library', label: 'Library', Icon: LibraryIcon },
-    { key: 'ai-companion', label: 'AI Companion', Icon: Sparkles },
   ],
   [
     { key: 'settings', label: 'Settings', Icon: SettingsIcon, requiresAuth: true },
@@ -43,6 +44,8 @@ export default function AppShell({ auth }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [biblePanelOpen, setBiblePanelOpen] = useState(false);
+  const [pendingBiblePanel, setPendingBiblePanel] = useState(null);
   // 'My Scriptorium' as the initial value matches the backend's own
   // default, so there's no flash of a different placeholder before the
   // real fetch resolves.
@@ -77,11 +80,17 @@ export default function AppShell({ auth }) {
   // addresses. Studies deep-links now go through the URL instead.
   const [pendingBibleOpen, setPendingBibleOpen] = useState(null);
   const [pendingAiOverview, setPendingAiOverview] = useState(null);
-  const [pendingPhraseStudy, setPendingPhraseStudy] = useState(null);
+  const [pendingAiPhraseStudy, setPendingAiPhraseStudy] = useState(null);
+  const [pendingAiDocument, setPendingAiDocument] = useState(null);
 
   function navigate(key) {
     routerNavigate('/' + key);
     setDrawerOpen(false);
+  }
+
+  function openBiblePanel(reference, module) {
+    setPendingBiblePanel({ reference, module: module || null, nonce: Date.now() });
+    setBiblePanelOpen(true);
   }
 
   function openInPassages(module, reference) {
@@ -91,17 +100,36 @@ export default function AppShell({ auth }) {
 
   function askAiCompanionAbout(module, reference) {
     setPendingAiOverview({ module, reference, nonce: Date.now() });
-    navigate('ai-companion');
+    navigate('cell');
   }
 
   function askAiCompanionPhraseStudy(phrase, module, strongsSequence) {
-    setPendingPhraseStudy({ phrase, module, strongsSequence, nonce: Date.now() });
-    navigate('ai-companion');
+    setPendingAiPhraseStudy({ phrase, module, strongsSequence, nonce: Date.now() });
+    navigate('cell');
+  }
+
+  function askAiCompanionAboutDocument(docId) {
+    setPendingAiDocument({ id: docId, nonce: Date.now() });
+    navigate('cell');
   }
 
   useEffect(() => {
     api.getBranding().then((b) => setBrandName(b.name)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        setBiblePanelOpen((prev) => !prev);
+      }
+      if (e.key === 'Escape' && biblePanelOpen) {
+        setBiblePanelOpen(false);
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [biblePanelOpen]);
 
   function isVisible(item) {
     if (item.adminOnly && auth.user?.role !== 'admin') return false;
@@ -128,11 +156,19 @@ export default function AppShell({ auth }) {
         />
       )}
 
-      {/* Sidebar — fixed overlay on mobile, static column on lg+ */}
-      <aside className={`fixed inset-y-0 left-0 z-40 flex w-56 shrink-0 flex-col border-r border-rule bg-ink transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 lg:z-auto ${drawerOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+      {/* Sidebar — full-screen overlay on mobile, static column on lg+ */}
+      <aside className={`fixed inset-y-0 left-0 z-40 flex w-full shrink-0 flex-col border-r border-rule bg-ink transition-transform duration-200 ease-in-out lg:relative lg:w-56 lg:translate-x-0 lg:z-auto ${drawerOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        {/* Header */}
         <div className="flex items-center gap-2 px-5 py-4">
           <img src="/logo.png" alt="" className="h-8 w-8 rounded-md" />
           <span className="font-display text-lg tracking-wide">{brandName}</span>
+          <button
+            onClick={() => setDrawerOpen(false)}
+            className="ml-auto rounded p-1 text-muted hover:text-parchment lg:hidden"
+            aria-label="Close menu"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-2">
@@ -145,8 +181,8 @@ export default function AppShell({ auth }) {
                   <button
                     key={item.key}
                     onClick={() => navigate(item.key)}
-                    className={`flex w-full items-center gap-3 px-5 py-2 text-left text-sm ${
-                      active ? 'border-r-2 border-brass bg-panel text-brass' : 'text-muted hover:bg-panel hover:text-parchment'
+                    className={`flex w-full items-center gap-3 px-5 py-3 text-left text-sm lg:py-2 ${
+                      active ? 'border-l-2 border-brass bg-panel text-brass' : 'border-l-2 border-transparent text-muted hover:bg-panel hover:text-parchment'
                     }`}
                   >
                     <Icon size={18} strokeWidth={2} className="shrink-0" />
@@ -159,6 +195,14 @@ export default function AppShell({ auth }) {
         </nav>
 
         <div className="p-3">
+          <button
+            onClick={() => { setBiblePanelOpen((prev) => !prev); setDrawerOpen(false); }}
+            title="Quick Bible (Ctrl+B)"
+            className={`mb-2 flex w-full items-center gap-3 rounded px-2 py-3 text-sm transition-colors lg:py-2 ${biblePanelOpen ? 'text-brass' : 'text-muted hover:bg-panel hover:text-parchment'}`}
+          >
+            <BookOpen size={18} strokeWidth={2} className="shrink-0" />
+            Bible
+          </button>
           {auth.user ? (
             <UserMenu
               username={auth.user.username}
@@ -187,7 +231,14 @@ export default function AppShell({ auth }) {
           >
             <Menu size={20} />
           </button>
-          <span className="ml-3 font-display text-lg tracking-wide">{brandName}</span>
+          <span className="ml-3 flex-1 font-display text-lg tracking-wide">{brandName}</span>
+          <button
+            onClick={() => setBiblePanelOpen((prev) => !prev)}
+            title="Quick Bible (Ctrl+B)"
+            className={`rounded p-1 transition-colors ${biblePanelOpen ? 'text-brass' : 'text-muted hover:text-parchment'}`}
+          >
+            <BookOpen size={18} />
+          </button>
         </div>
 
       <main className="min-h-0 flex-1 overflow-hidden">
@@ -207,8 +258,12 @@ export default function AppShell({ auth }) {
             pendingBibleOpen={pendingBibleOpen}
             onBibleOpenConsumed={() => setPendingBibleOpen(null)}
             defaultBibleModule={defaultBibleModule}
-            onAskAiCompanionAbout={askAiCompanionAbout}
-            onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
+            pendingAiOverview={pendingAiOverview}
+            onAiOverviewConsumed={() => setPendingAiOverview(null)}
+            pendingAiPhraseStudy={pendingAiPhraseStudy}
+            onAiPhraseStudyConsumed={() => setPendingAiPhraseStudy(null)}
+            pendingAiDocument={pendingAiDocument}
+            onAiDocumentConsumed={() => setPendingAiDocument(null)}
           />
         </div>
         {activeView === 'settings' && (
@@ -220,6 +275,12 @@ export default function AppShell({ auth }) {
           />
         )}
         {activeView === 'admin' && <AdminView />}
+        {activeView === 'plans' && (
+          <ReadingPlanView
+            isLoggedIn={Boolean(auth.user)}
+            onOpenInBible={(ref) => { openInPassages(null, ref); }}
+          />
+        )}
         <div className={activeView === 'scriptoriums' ? 'h-full' : 'hidden'}>
           <ScriptoriumsView
             currentUserId={auth.user?.id}
@@ -229,29 +290,34 @@ export default function AppShell({ auth }) {
             onOpenInPassages={openInPassages}
             onAskAiCompanionAbout={askAiCompanionAbout}
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
+            onOpenBiblePanel={openBiblePanel}
           />
         </div>
-        {activeView === 'library' && <LibraryView isLoggedIn={Boolean(auth.user)} />}
-        <div className={activeView === 'ai-companion' ? 'h-full' : 'hidden'}>
-          <AICompanionView
+        <div className={activeView === 'library' ? 'h-full' : 'hidden'}>
+          <LibraryView
             isLoggedIn={Boolean(auth.user)}
-            username={auth.user?.displayName || auth.user?.username}
-            pendingOverviewRequest={pendingAiOverview}
-            onOverviewRequestConsumed={() => setPendingAiOverview(null)}
-            pendingPhraseStudyRequest={pendingPhraseStudy}
-            onPhraseStudyRequestConsumed={() => setPendingPhraseStudy(null)}
+            isAdmin={auth.user?.role === 'admin'}
+            onAskAI={askAiCompanionAboutDocument}
           />
         </div>
         {activeView !== 'cell' &&
           activeView !== 'settings' &&
           activeView !== 'admin' &&
+          activeView !== 'plans' &&
           activeView !== 'scriptoriums' &&
-          activeView !== 'library' &&
-          activeView !== 'ai-companion' && (
+          activeView !== 'library' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
         )}
       </main>
       </div>
+
+      <BiblePanel
+        open={biblePanelOpen}
+        onClose={() => setBiblePanelOpen(false)}
+        pendingOpen={pendingBiblePanel}
+        onPendingConsumed={() => setPendingBiblePanel(null)}
+        defaultBibleModule={defaultBibleModule}
+      />
 
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} onLogin={auth.login} />}
       {showChangePasswordModal && <ChangePasswordModal onClose={() => setShowChangePasswordModal(false)} />}

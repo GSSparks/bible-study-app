@@ -221,7 +221,7 @@ export async function listResources(scriptoriumId, userId) {
   });
 }
 
-export async function addResource(scriptoriumId, userId, { label, url }) {
+export async function addResource(scriptoriumId, userId, { type = 'link', label, url, body }) {
   const membership = await prisma.scriptoriumMembership.findUnique({
     where: { scriptoriumId_userId: { scriptoriumId, userId } },
   });
@@ -230,14 +230,32 @@ export async function addResource(scriptoriumId, userId, { label, url }) {
     err.status = 403;
     throw err;
   }
-  if (!label?.trim() || !url?.trim()) {
-    const err = new Error('label and url are required.');
+  if (!label?.trim()) {
+    const err = new Error('label is required.');
+    err.status = 400;
+    throw err;
+  }
+  if (type === 'link' && !url?.trim()) {
+    const err = new Error('url is required for a link resource.');
+    err.status = 400;
+    throw err;
+  }
+  if (type === 'note' && !body?.trim()) {
+    const err = new Error('body is required for a note resource.');
     err.status = 400;
     throw err;
   }
   const count = await prisma.scriptoriumResource.count({ where: { scriptoriumId } });
   return prisma.scriptoriumResource.create({
-    data: { scriptoriumId, addedById: userId, label: label.trim(), url: url.trim(), order: count },
+    data: {
+      scriptoriumId,
+      addedById: userId,
+      type,
+      label: label.trim(),
+      url: type === 'link' ? url.trim() : null,
+      body: type === 'note' ? body.trim() : null,
+      order: count,
+    },
   });
 }
 

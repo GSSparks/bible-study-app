@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Settings2 } from 'lucide-react';
 import { api } from '../api/client.js';
 
@@ -6,17 +7,22 @@ const TEXT_PREVIEW = 380;
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-export default function DailyDevotional({ isAdmin }) {
+export default function DailyDevotional({ isAdmin, onOpenBiblePanel }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeIdx, setActiveIdx] = useState(0);
-  const [expanded, setExpanded] = useState(false);
+  const [showFullText, setShowFullText] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   function load() {
     setLoading(true);
     api.getTodaysDevotional()
-      .then((d) => { setData(d); setActiveIdx(0); setExpanded(false); })
+      .then((d) => {
+        setData(d);
+        // For Morning/Evening modules, open the appropriate reading by time of day
+        setActiveIdx(d?.entries?.length === 2 && new Date().getHours() >= 12 ? 1 : 0);
+        setShowFullText(false);
+      })
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }
@@ -43,9 +49,19 @@ export default function DailyDevotional({ isAdmin }) {
   const entry = data.entries[activeIdx];
   const hasMultiple = data.entries.length > 1;
   const text = entry?.text ?? '';
-  const title = entry?.titles?.[0] ?? null;
+  const content = entry?.content ?? '';
+  const rawTitle = entry?.titles?.[0] ?? null;
+  // Strip "Month Day Session: " prefix if present — the date is already shown
+  const title = rawTitle?.includes(': ') ? rawTitle.split(': ').slice(1).join(': ') : rawTitle;
   const isLong = text.length > TEXT_PREVIEW;
-  const displayText = isLong && !expanded ? text.slice(0, TEXT_PREVIEW).trimEnd() + '…' : text;
+  const activeLabel = hasMultiple ? (data.entries[activeIdx]?.label ?? null) : null;
+
+  function handleContentClick(e) {
+    const ref = e.target.closest('.verse-ref')?.dataset?.ref;
+    if (ref && onOpenBiblePanel) {
+      onOpenBiblePanel(ref);
+    }
+  }
 
   return (
     <div className="mb-4 overflow-hidden rounded-xl border border-brass/20 bg-panel">
@@ -61,7 +77,7 @@ export default function DailyDevotional({ isAdmin }) {
               {data.entries.map((e, i) => (
                 <button
                   key={i}
-                  onClick={() => { setActiveIdx(i); setExpanded(false); }}
+                  onClick={() => { setActiveIdx(i); setShowFullText(false); }}
                   className={`px-2.5 py-1 transition-colors ${activeIdx === i ? 'bg-brass/20 text-brass' : 'text-muted hover:text-parchment'}`}
                 >
                   {e.label ?? `Entry ${i + 1}`}
@@ -86,17 +102,37 @@ export default function DailyDevotional({ isAdmin }) {
         {title && (
           <p className="mb-2 font-display text-base leading-snug text-parchment">{title}</p>
         )}
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-parchment/85">{displayText}</p>
+        {content ? (
+          <div
+            className={`devotional-content text-sm leading-relaxed text-parchment/85 ${isLong ? 'line-clamp-6' : ''}`}
+            dangerouslySetInnerHTML={{ __html: content }}
+            onClick={handleContentClick}
+          />
+        ) : (
+          <p className="text-sm leading-relaxed text-parchment/85">
+            {isLong ? text.slice(0, TEXT_PREVIEW).trimEnd() + '…' : text}
+          </p>
+        )}
         {isLong && (
           <button
-            onClick={() => setExpanded(!expanded)}
+            onClick={() => setShowFullText(true)}
             className="mt-2 text-xs text-brass hover:underline"
           >
-            {expanded ? 'Show less' : 'Read more'}
+            Read more
           </button>
         )}
         <p className="mt-3 text-[10px] uppercase tracking-wider text-muted/40">{data.moduleCode}</p>
       </div>
+
+      {showFullText && (
+        <FullTextModal
+          entry={entry}
+          label={activeLabel}
+          moduleCode={data.moduleCode}
+          onClose={() => setShowFullText(false)}
+          onOpenBiblePanel={onOpenBiblePanel}
+        />
+      )}
 
       {showSettings && (
         <DevotionalSettingsModal
@@ -107,6 +143,61 @@ export default function DailyDevotional({ isAdmin }) {
         />
       )}
     </div>
+  );
+}
+
+function FullTextModal({ entry, label, moduleCode, onClose, onOpenBiblePanel }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const title = entry?.titles?.[0];
+  const content = entry?.content;
+
+  function handleContentClick(e) {
+    const ref = e.target.closest('.verse-ref')?.dataset?.ref;
+    if (ref && onOpenBiblePanel) {
+      onOpenBiblePanel(ref);
+      onClose();
+    }
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[60] flex items-end bg-black/70 sm:items-center sm:px-6 sm:py-10"
+      onClick={onClose}
+    >
+      <div
+        className="flex h-full w-full flex-col overflow-hidden bg-panel shadow-2xl sm:mx-auto sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-xl sm:border sm:border-brass/30"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-start justify-between border-b border-rule/40 bg-brass/5 px-5 py-3">
+          <div>
+            {label && <p className="text-xs font-medium uppercase tracking-wider text-brass">{label}</p>}
+            {title && <p className="mt-0.5 font-display text-base leading-snug text-parchment">{title}</p>}
+            {!label && !title && <p className="text-xs font-medium uppercase tracking-wider text-brass">Daily Devotional</p>}
+          </div>
+          <button onClick={onClose} className="ml-4 mt-0.5 shrink-0 text-sm text-muted/60 hover:text-parchment">
+            ✕
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 py-5">
+          {content ? (
+            <div
+              className="devotional-content text-sm leading-relaxed text-parchment/85"
+              dangerouslySetInnerHTML={{ __html: content }}
+              onClick={handleContentClick}
+            />
+          ) : (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-parchment/85">{entry?.text}</p>
+          )}
+          <p className="mt-5 text-[10px] uppercase tracking-wider text-muted/40">{moduleCode}</p>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 

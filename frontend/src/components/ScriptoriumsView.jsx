@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Search, Sparkles, ExternalLink, Trash2, Plus } from 'lucide-react';
+import { Camera, Search, Sparkles, ExternalLink, FileText, Trash2, Plus } from 'lucide-react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 import AvatarRoll from './AvatarRoll.jsx';
@@ -11,8 +12,15 @@ import RichContent from './RichContent.jsx';
 import ScriptoriumStudiesTab from './ScriptoriumStudiesTab.jsx';
 import StudyDetail from './StudyDetail.jsx';
 import DailyDevotional from './DailyDevotional.jsx';
+import DocumentModal from './DocumentModal.jsx';
 
-export default function ScriptoriumsView({ currentUserId, currentUserRole, urlScriptoriumId, urlStudyId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
+function parseDocumentId(url) {
+  if (!url) return null;
+  const m = url.match(/\/api\/pdf\/([^/]+)\/file/);
+  return m ? m[1] : null;
+}
+
+export default function ScriptoriumsView({ currentUserId, currentUserRole, urlScriptoriumId, urlStudyId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel }) {
   const routerNavigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -29,6 +37,7 @@ export default function ScriptoriumsView({ currentUserId, currentUserRole, urlSc
         onOpenInPassages={onOpenInPassages}
         onAskAiCompanionAbout={onAskAiCompanionAbout}
         onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+        onOpenBiblePanel={onOpenBiblePanel}
       />
     );
   }
@@ -36,16 +45,16 @@ export default function ScriptoriumsView({ currentUserId, currentUserRole, urlSc
   return (
     <div className="h-full overflow-y-auto px-6 py-6">
       <div className="mx-auto max-w-5xl">
-        <div className="flex items-start gap-6">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="shrink-0 lg:order-2 lg:w-72">
+            <DailyDevotional isAdmin={isAdmin} onOpenBiblePanel={onOpenBiblePanel} />
+          </div>
+          <div className="min-w-0 flex-1 lg:order-1">
             <ScriptoriumsList
               onOpen={(id) => routerNavigate('/scriptoriums/' + id)}
               refreshKey={refreshKey}
               onRequestCreate={() => setShowCreateModal(true)}
             />
-          </div>
-          <div className="hidden w-72 shrink-0 lg:block">
-            <DailyDevotional isAdmin={isAdmin} />
           </div>
         </div>
       </div>
@@ -436,7 +445,8 @@ function suggestTags(name, description, about, existing = []) {
     .filter((w) => !existingSet.has(w));
 }
 
-function EditModal({ scriptorium, onClose, onSaved }) {
+function EditModal({ scriptorium, onClose, onSaved, bannerUrl, uploadingBanner, generatingBanner, onBannerChange, onGenerateBanner, onDelete }) {
+  const bannerInputRef = useRef(null);
   const [name, setName] = useState(scriptorium.name);
   const [description, setDescription] = useState(scriptorium.description || '');
   const [visibility, setVisibility] = useState(scriptorium.visibility);
@@ -445,6 +455,7 @@ function EditModal({ scriptorium, onClose, onSaved }) {
   const [tags, setTags] = useState(scriptorium.tags || []);
   const [tagInput, setTagInput] = useState('');
   const [suggestions, setSuggestions] = useState([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -487,6 +498,26 @@ function EditModal({ scriptorium, onClose, onSaved }) {
           <button onClick={onClose} className="text-xs text-muted hover:text-parchment">close</button>
         </div>
         <form onSubmit={handleSubmit} className="max-h-[80vh] space-y-3 overflow-y-auto pr-1">
+          {/* Banner */}
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Banner</label>
+            <div className="relative mb-2 h-24 overflow-hidden rounded-lg border border-rule bg-ink">
+              {bannerUrl
+                ? <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
+                : <div className="flex h-full items-center justify-center"><p className="text-xs text-muted">No banner</p></div>}
+            </div>
+            <div className="flex gap-2">
+              <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={onBannerChange} />
+              <button type="button" onClick={() => bannerInputRef.current?.click()} disabled={uploadingBanner || generatingBanner}
+                className="flex items-center gap-1.5 rounded border border-rule px-3 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment disabled:opacity-50">
+                <Camera size={12} />{uploadingBanner ? 'uploading…' : 'upload'}
+              </button>
+              <button type="button" onClick={onGenerateBanner} disabled={generatingBanner || uploadingBanner}
+                className="flex items-center gap-1.5 rounded border border-rule px-3 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment disabled:opacity-50">
+                <Sparkles size={12} />{generatingBanner ? 'generating…' : 'AI banner'}
+              </button>
+            </div>
+          </div>
           <div>
             <label className="mb-1 block text-xs uppercase tracking-wide text-muted">Name</label>
             <input
@@ -573,6 +604,21 @@ function EditModal({ scriptorium, onClose, onSaved }) {
           >
             {saving ? 'saving…' : 'save'}
           </button>
+          {onDelete && (
+            <div className="border-t border-rule pt-3">
+              {confirmDelete ? (
+                <div className="flex items-center gap-2">
+                  <span className="flex-1 text-xs text-muted">Delete this Scriptorium permanently?</span>
+                  <button type="button" onClick={onDelete} className="rounded border border-red-900/60 px-3 py-1.5 text-xs text-red-400 hover:border-red-400">delete</button>
+                  <button type="button" onClick={() => setConfirmDelete(false)} className="text-xs text-muted hover:text-parchment">cancel</button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setConfirmDelete(true)} className="text-xs text-muted hover:text-red-400">
+                  delete scriptorium…
+                </button>
+              )}
+            </div>
+          )}
         </form>
       </div>
     </div>
@@ -650,10 +696,16 @@ function ResourcesSection({ scriptoriumId, isMember, currentUserId, isOwner }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [addSource, setAddSource] = useState('link');
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
+  const [body, setBody] = useState('');
+  const [libraryNotes, setLibraryNotes] = useState(null);
+  const [libraryDocs, setLibraryDocs] = useState(null);
   const [adding, setAdding] = useState(false);
   const [removingId, setRemovingId] = useState(null);
+  const [viewingNote, setViewingNote] = useState(null);
+  const [viewingDocId, setViewingDocId] = useState(null);
 
   function load() {
     setLoading(true);
@@ -665,15 +717,37 @@ function ResourcesSection({ scriptoriumId, isMember, currentUserId, isOwner }) {
 
   useEffect(load, [scriptoriumId]);
 
+  useEffect(() => {
+    if (addSource === 'library-note' && libraryNotes === null) {
+      api.listNotes({}).then(setLibraryNotes).catch(() => setLibraryNotes([]));
+    }
+    if (addSource === 'document' && libraryDocs === null) {
+      api.listDocuments().then(setLibraryDocs).catch(() => setLibraryDocs([]));
+    }
+  }, [addSource]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function selectLibraryNote(note) {
+    setBody(note.body);
+    setLabel((prev) => prev || note.title || note.reference || 'Note');
+  }
+
+  function selectDocument(doc) {
+    setUrl(api.documentFileUrl(doc.id));
+    setLabel((prev) => prev || doc.title);
+  }
+
   async function handleAdd(e) {
     e.preventDefault();
-    if (!label.trim() || !url.trim()) return;
     setAdding(true);
     setError(null);
     try {
-      await api.addScriptoriumResource(scriptoriumId, { label, url });
+      const payload = addSource === 'library-note'
+        ? { type: 'note', label, body }
+        : { type: 'link', label, url };
+      await api.addScriptoriumResource(scriptoriumId, payload);
       setLabel('');
       setUrl('');
+      setBody('');
       setShowAdd(false);
       load();
     } catch (e) {
@@ -695,61 +769,159 @@ function ResourcesSection({ scriptoriumId, isMember, currentUserId, isOwner }) {
     }
   }
 
+  function openAddForm() {
+    setLabel(''); setUrl(''); setBody(''); setAddSource('link');
+    setShowAdd(true);
+  }
+
+  const addDisabled = adding || !label.trim() ||
+    ((addSource === 'link' || addSource === 'document') && !url.trim()) ||
+    (addSource === 'library-note' && !body.trim());
+
   return (
     <div>
       {loading && <p className="text-sm text-muted">Loading…</p>}
       {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
 
-      <div className="space-y-2">
-        {resources.map((r) => (
-          <div key={r.id} className="flex items-center justify-between rounded-lg border border-rule bg-panel/50 px-4 py-2.5">
-            <a
-              href={r.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-parchment hover:text-brass"
-            >
-              <ExternalLink size={13} className="shrink-0 text-muted" />
-              {r.label}
-            </a>
-            {(isOwner || r.addedBy?.id === currentUserId) && (
-              <button
-                disabled={removingId === r.id}
-                onClick={() => handleRemove(r.id)}
-                className="ml-3 shrink-0 text-muted/40 hover:text-red-400 disabled:opacity-50"
-              >
-                <Trash2 size={13} />
-              </button>
-            )}
-          </div>
-        ))}
-        {!loading && resources.length === 0 && (
-          <p className="text-sm italic text-muted/50">No resources yet.</p>
-        )}
+      {!loading && resources.length === 0 && (
+        <p className="text-sm italic text-muted/50">No resources yet.</p>
+      )}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {resources.map((r) => {
+          const docId = parseDocumentId(r.url);
+          const isDoc = Boolean(docId);
+          const isNote = r.type === 'note';
+          const isExtLink = !isDoc && !isNote && (!r.type || r.type === 'link');
+          let hostname = '';
+          if (isExtLink && r.url) {
+            try { hostname = new URL(r.url).hostname.replace(/^www\./, ''); } catch {}
+          }
+          const canDelete = isOwner || r.addedBy?.id === currentUserId;
+
+          function handleClick() {
+            if (isDoc) { setViewingDocId(docId); return; }
+            if (isNote) { setViewingNote(r); return; }
+            window.open(r.url, '_blank', 'noopener,noreferrer');
+          }
+
+          return (
+            <div key={r.id} className="group relative overflow-hidden rounded-xl border border-rule bg-panel transition-colors hover:border-brass/50">
+              <div className="flex h-20 items-center justify-center border-b border-rule/50 bg-ink/50">
+                {isDoc ? (
+                  <FileText size={22} className="text-muted/40" strokeWidth={1.5} />
+                ) : isExtLink && hostname ? (
+                  <img
+                    src={`https://www.google.com/s2/favicons?domain=${hostname}&sz=64`}
+                    alt=""
+                    className="h-10 w-10 opacity-60"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : isExtLink ? (
+                  <ExternalLink size={22} className="text-muted/40" strokeWidth={1.5} />
+                ) : (
+                  <FileText size={22} className="text-muted/40" strokeWidth={1.5} />
+                )}
+              </div>
+              <div className="px-3 py-2.5">
+                <p className="truncate font-display text-sm text-parchment">{r.label}</p>
+                {hostname && <p className="mt-0.5 font-mono text-[10px] text-muted">{hostname}</p>}
+                {isNote && r.body && (
+                  <p className="mt-0.5 line-clamp-2 text-xs text-muted/60">
+                    {r.body.replace(/[#*_`[\]]/g, '').slice(0, 80)}
+                  </p>
+                )}
+              </div>
+              <button onClick={handleClick} className="absolute inset-0" aria-label={r.label} />
+              {canDelete && (
+                <button
+                  disabled={removingId === r.id}
+                  onClick={(e) => { e.stopPropagation(); handleRemove(r.id); }}
+                  className="absolute right-1.5 top-1.5 z-10 rounded bg-ink/80 p-1 text-muted opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 disabled:opacity-30"
+                >
+                  <Trash2 size={11} />
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {isMember && (
         <div className="mt-4">
           {showAdd ? (
             <form onSubmit={handleAdd} className="space-y-2 rounded-lg border border-rule bg-panel/50 p-3">
+              <div className="flex gap-1.5">
+                {[{ key: 'link', label: 'Link' }, { key: 'library-note', label: 'Library Note' }, { key: 'document', label: 'Document' }].map(({ key, label: btnLabel }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setAddSource(key)}
+                    className={`rounded border px-2.5 py-1 text-xs transition-colors ${addSource === key ? 'border-brass bg-brass/20 text-brass' : 'border-rule text-muted hover:text-parchment'}`}
+                  >
+                    {btnLabel}
+                  </button>
+                ))}
+              </div>
+
+              {addSource === 'link' && (
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="URL"
+                  type="url"
+                  className="w-full rounded border border-rule bg-ink px-3 py-1.5 text-sm text-parchment placeholder:text-muted/40 focus:border-brass focus:outline-none"
+                />
+              )}
+
+              {addSource === 'library-note' && (
+                <div className="max-h-36 space-y-1 overflow-y-auto">
+                  {libraryNotes === null ? (
+                    <p className="text-xs text-muted">Loading…</p>
+                  ) : libraryNotes.length === 0 ? (
+                    <p className="text-xs text-muted">No notes in your library.</p>
+                  ) : libraryNotes.map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => selectLibraryNote(n)}
+                      className={`w-full rounded border px-2.5 py-1.5 text-left text-xs transition-colors ${body === n.body ? 'border-brass bg-brass/10 text-brass' : 'border-rule text-muted hover:text-parchment'}`}
+                    >
+                      {n.title || n.reference || 'Untitled'}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {addSource === 'document' && (
+                <div className="max-h-36 space-y-1 overflow-y-auto">
+                  {libraryDocs === null ? (
+                    <p className="text-xs text-muted">Loading…</p>
+                  ) : libraryDocs.length === 0 ? (
+                    <p className="text-xs text-muted">No documents in your library.</p>
+                  ) : libraryDocs.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => selectDocument(d)}
+                      className={`w-full rounded border px-2.5 py-1.5 text-left text-xs transition-colors ${url === api.documentFileUrl(d.id) ? 'border-brass bg-brass/10 text-brass' : 'border-rule text-muted hover:text-parchment'}`}
+                    >
+                      {d.title}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="Label (e.g. Bible Project: John)"
-                autoFocus
-                className="w-full rounded border border-rule bg-ink px-3 py-1.5 text-sm text-parchment placeholder:text-muted/40 focus:border-brass"
-              />
-              <input
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="URL"
-                type="url"
-                className="w-full rounded border border-rule bg-ink px-3 py-1.5 text-sm text-parchment placeholder:text-muted/40 focus:border-brass"
+                placeholder="Label"
+                autoFocus={addSource === 'link'}
+                className="w-full rounded border border-rule bg-ink px-3 py-1.5 text-sm text-parchment placeholder:text-muted/40 focus:border-brass focus:outline-none"
               />
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  disabled={adding || !label.trim() || !url.trim()}
+                  disabled={addDisabled}
                   className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
                 >
                   {adding ? 'adding…' : 'add'}
@@ -760,16 +932,53 @@ function ResourcesSection({ scriptoriumId, isMember, currentUserId, isOwner }) {
               </div>
             </form>
           ) : (
-            <button
-              onClick={() => setShowAdd(true)}
-              className="flex items-center gap-1.5 text-xs text-muted hover:text-parchment"
-            >
+            <button onClick={openAddForm} className="flex items-center gap-1.5 text-xs text-muted hover:text-parchment">
               <Plus size={13} /> add resource
             </button>
           )}
         </div>
       )}
+
+      {viewingNote && (
+        <ScriptoriumNoteModal resource={viewingNote} onClose={() => setViewingNote(null)} />
+      )}
+      {viewingDocId && (
+        <DocumentModal
+          documentId={viewingDocId}
+          isLoggedIn
+          onClose={() => setViewingDocId(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function ScriptoriumNoteModal({ resource, onClose }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-black/70 sm:items-center sm:justify-center sm:px-6 sm:py-10"
+      onClick={onClose}
+    >
+      <div
+        className="flex h-full w-full flex-col overflow-hidden bg-page shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-xl sm:border sm:border-pageBorder"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-pageBorder px-5 py-4">
+          <h2 className="font-display text-lg text-pageText">{resource.label}</h2>
+          <button onClick={onClose} className="text-xs text-pageMuted hover:text-pageText">close</button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <RichContent colorMode="light">{resource.body}</RichContent>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -907,7 +1116,7 @@ function InviteModal({ scriptoriumId, existingMemberIds, onClose }) {
   );
 }
 
-function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy }) {
+function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel }) {
   const routerNavigate = useNavigate();
   const [scriptorium, setScriptorium] = useState(null);
   const [members, setMembers] = useState([]);
@@ -918,7 +1127,14 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
   const [leaving, setLeaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [removingId, setRemovingId] = useState(null);
-  const [section, setSection] = useState('scroll');
+  const [section, setSection] = useState(() => {
+    try { return localStorage.getItem(`scriptorium-section-${id}`) || 'scroll'; } catch { return 'scroll'; }
+  });
+
+  function changeSection(s) {
+    setSection(s);
+    try { localStorage.setItem(`scriptorium-section-${id}`, s); } catch {}
+  }
   const [wallPosts, setWallPosts] = useState([]);
   const [wallLoading, setWallLoading] = useState(true);
   const [wallError, setWallError] = useState(null);
@@ -1009,6 +1225,7 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
         onOpenInPassages={onOpenInPassages}
         onAskAiCompanionAbout={onAskAiCompanionAbout}
         onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+        onOpenBiblePanel={onOpenBiblePanel}
       />
     );
   }
@@ -1038,27 +1255,6 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
         </button>
 
         <div className="absolute right-6 top-3 z-10 flex flex-wrap gap-2">
-          {isOwner && (
-            <>
-              <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
-              <button
-                onClick={() => bannerInputRef.current?.click()}
-                disabled={uploadingBanner || generatingBanner}
-                className="flex items-center gap-1.5 rounded-md border border-parchment/20 bg-ink/50 px-2.5 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment disabled:opacity-50"
-              >
-                <Camera size={13} />
-                {uploadingBanner ? 'uploading…' : 'banner'}
-              </button>
-              <button
-                onClick={handleGenerateBanner}
-                disabled={generatingBanner || uploadingBanner}
-                className="flex items-center gap-1.5 rounded-md border border-parchment/20 bg-ink/50 px-2.5 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment disabled:opacity-50"
-              >
-                <Sparkles size={13} />
-                {generatingBanner ? 'generating…' : 'AI banner'}
-              </button>
-            </>
-          )}
           {isMember && (
             <button
               onClick={() => setShowInviteModal(true)}
@@ -1084,15 +1280,6 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
               {leaving ? '…' : 'leave'}
             </button>
           )}
-          {isOwner && (
-            <button
-              disabled={deleting}
-              onClick={handleDelete}
-              className="rounded-md border border-red-900/50 bg-ink/50 px-3 py-1.5 text-xs text-red-400/80 backdrop-blur-sm hover:border-red-400 hover:text-red-400 disabled:opacity-50"
-            >
-              {deleting ? '…' : 'delete'}
-            </button>
-          )}
         </div>
 
         <div className="absolute bottom-0 left-0 z-10 px-6 pb-4">
@@ -1106,7 +1293,7 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
               members={members}
               total={members.length}
               onMemberClick={null}
-              onOverflowClick={() => setSection('members')}
+              onOverflowClick={() => changeSection('members')}
             />
           </div>
         )}
@@ -1133,7 +1320,7 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
                 ].map(({ key, label }) => (
                   <button
                     key={key}
-                    onClick={() => setSection(key)}
+                    onClick={() => changeSection(key)}
                     className={`pb-2 ${section === key ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
                   >
                     {label}
@@ -1230,6 +1417,12 @@ function ScriptoriumDetail({ id, urlStudyId, onBack, currentUserId, onOpenInPass
           scriptorium={scriptorium}
           onClose={() => setShowEditModal(false)}
           onSaved={() => { setShowEditModal(false); refresh(); }}
+          bannerUrl={bannerUrl}
+          uploadingBanner={uploadingBanner}
+          generatingBanner={generatingBanner}
+          onBannerChange={handleBannerChange}
+          onGenerateBanner={handleGenerateBanner}
+          onDelete={() => { setShowEditModal(false); handleDelete(); }}
         />
       )}
     </div>

@@ -158,8 +158,8 @@ scriptoriumsRouter.get('/:id/resources', async (req, res, next) => {
 
 scriptoriumsRouter.post('/:id/resources', async (req, res, next) => {
   try {
-    const { label, url } = req.body;
-    res.status(201).json(await addResource(req.params.id, req.user.id, { label, url }));
+    const { type, label, url, body } = req.body;
+    res.status(201).json(await addResource(req.params.id, req.user.id, { type, label, url, body }));
   } catch (err) {
     next(err);
   }
