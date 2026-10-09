@@ -60,7 +60,42 @@ Optional but enables core features:
 - `ANTHROPIC_MODEL` — Default: `claude-sonnet-4-6`
 - `SWORD_MODULES_PATH` — Default: `/data/sword-modules`
 - `PDF_STORAGE_PATH` — Default: `/data/pdfs`
+- `MD_MODULES_PATH` — Default: `/data/md-modules` — directory for Markdown modules (see below)
 - `PORT` — Default: `8088`
+
+## Markdown Modules
+
+Markdown modules let you add commentaries, dictionaries, or Bible texts without compiling a SWORD module. Each module is a directory under `MD_MODULES_PATH` with:
+
+```
+my-commentary/
+  module.json          ← { "name": "...", "description": "...", "type": "COMMENTARY" }
+  john.md              ← content keyed by ## chapter:verse headings
+  genesis.md
+```
+
+Module types: `COMMENTARY`, `DICT`, `BIBLE`. They appear in the pane module pickers alongside SWORD modules (prefixed `md:` internally).
+
+**Commentary/Bible file format** — one file per book, named by lowercase book name (`john.md`, `1corinthians.md`):
+```markdown
+## 3:16
+For God so loved the world...
+
+## 3:17
+For God did not send his Son...
+```
+Use `## chapter` (e.g., `## 3`) for chapter-level content that appears as a fallback when no verse match exists.
+
+**Dictionary file format** — `## Entry Name` sections in any `.md` file in the module dir, OR one file per entry (filename = key):
+```markdown
+## Grace
+The Greek *charis* (χάρις)...
+
+## Faith
+*Pistis* (πίστις)...
+```
+
+MD commentary modules are automatically included in the Passage Guide AI context.
 
 ## Architecture
 

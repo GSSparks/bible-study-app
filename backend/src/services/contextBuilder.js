@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config.js';
 import { prisma } from '../db/prisma.js';
 import { swordService } from './swordService.js';
+import { listMdModules, getMdPassage, mdDirName, mdVersesToText } from './mdModuleService.js';
 
 const anthropic = config.anthropicApiKey ? new Anthropic({ apiKey: config.anthropicApiKey }) : null;
 
@@ -90,7 +91,7 @@ async function runWithPassageTool({ module, system, initialMessages }) {
   return "I wasn't able to finish gathering all the referenced passages — here's what I found so far, though the discussion may be incomplete.";
 }
 
-export async function buildPassageContext({ sources = [], noteIds = [], userId, includeAllCommentaries = false, includeWordStudies = false }) {
+export async function buildPassageContext({ sources = [], noteIds = [], userId, includeAllCommentaries = false, includeWordStudies = false, documentIds = [] }) {
   const passages = [];
 
   for (const src of sources) {
@@ -125,6 +126,24 @@ export async function buildPassageContext({ sources = [], noteIds = [], userId, 
             reference: primaryRef,
             text: swordService.versesToText(verses),
           });
+        } catch {
+          // skip
+        }
+      }
+      const mdCommentaries = await listMdModules('COMMENTARY');
+      for (const mod of mdCommentaries) {
+        if (alreadyIncluded.has(mod.name)) continue;
+        try {
+          const verses = await getMdPassage(mdDirName(mod.name), primaryRef);
+          if (verses && verses.length > 0) {
+            passages.push({
+              kind: 'commentary',
+              module: mod.name,
+              title: mod.description || mod.name,
+              reference: primaryRef,
+              text: mdVersesToText(verses),
+            });
+          }
         } catch {
           // skip
         }
@@ -181,6 +200,12 @@ export async function buildPassageContext({ sources = [], noteIds = [], userId, 
   const noteMap = new Map();
   for (const n of [...referenceNotes, ...attachedNotes]) noteMap.set(n.id, n);
 
+  const documents = documentIds.length
+    ? (await Promise.all(documentIds.map((id) => prisma.document.findUnique({ where: { id } }))))
+        .filter(Boolean)
+        .map((d) => ({ id: d.id, title: d.title, author: d.author, extractedText: d.extractedText, truncated: d.extractedText?.length >= 200_000 }))
+    : [];
+
   return {
     passages,
     wordStudies,
@@ -191,6 +216,7 @@ export async function buildPassageContext({ sources = [], noteIds = [], userId, 
       body: n.body,
       tags: n.tags,
     })),
+    documents,
   };
 }
 
@@ -460,6 +486,19 @@ function contextToPrompt(context) {
     for (const n of context.notes) {
       const label = [n.title, n.reference].filter(Boolean).join(' — ');
       lines.push(label ? `[${label}]` : '-', n.body, '');
+    }
+  }
+  if (context.documents?.length) {
+    for (const d of context.documents) {
+      const header = d.author ? `"${d.title}" by ${d.author}` : `"${d.title}"`;
+      lines.push(`=== Reference document: ${header} ===`);
+      if (d.extractedText) {
+        lines.push(d.extractedText);
+        if (d.truncated) lines.push('[Note: document text was truncated at 200,000 characters during ingestion]');
+      } else {
+        lines.push('[No extracted text available for this document]');
+      }
+      lines.push('');
     }
   }
   return lines.join('\n');

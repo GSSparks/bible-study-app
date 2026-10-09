@@ -4,6 +4,7 @@ import { swordService } from '../services/swordService.js';
 import { listPersonalModules } from '../services/personalModuleService.js';
 import { filterAvailableModules } from '../services/moduleVisibilityService.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { listMdModules, installMdModuleFromZip, removeMdModule, isMdModuleCode, mdDirName } from '../services/mdModuleService.js';
 
 export const modulesRouter = Router();
 
@@ -61,11 +62,12 @@ modulesRouter.get('/installed', async (req, res, next) => {
     if (req.user?.role !== 'admin') {
       swordModules = await filterAvailableModules(swordModules);
     }
+    const mdModules = await listMdModules(type);
     if (type === 'DICT' || type === 'COMMENTARY') {
       const personalModules = await listPersonalModules(type, req.user?.id);
-      return res.json([...swordModules, ...personalModules]);
+      return res.json([...swordModules, ...personalModules, ...mdModules]);
     }
-    res.json(swordModules);
+    res.json([...swordModules, ...mdModules]);
   } catch (err) {
     next(err);
   }
@@ -95,6 +97,18 @@ modulesRouter.post('/install', requireAdmin, async (req, res, next) => {
 modulesRouter.post('/upload', requireAdmin, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'file is required' });
+
+    // Auto-detect zip type: MD modules contain module.json; SWORD modules contain mods.d/
+    const AdmZip = (await import('adm-zip')).default;
+    const zip = new AdmZip(req.file.buffer);
+    const paths = zip.getEntries().map((e) => e.entryName.replace(/\\/g, '/'));
+    const isMd = paths.some((p) => p === 'module.json' || /^[^/]+\/module\.json$/.test(p));
+
+    if (isMd) {
+      const moduleCode = await installMdModuleFromZip(req.file.buffer);
+      return res.json({ status: 'installed', moduleCode });
+    }
+
     swordService.installModuleFromZip(req.file.buffer);
     res.json({
       status: 'installed',
@@ -108,8 +122,13 @@ modulesRouter.post('/upload', requireAdmin, upload.single('file'), async (req, r
 // DELETE /api/modules/:moduleCode — admin-only.
 modulesRouter.delete('/:moduleCode', requireAdmin, async (req, res, next) => {
   try {
-    await swordService.removeModule(req.params.moduleCode);
-    res.json({ status: 'removed', moduleCode: req.params.moduleCode });
+    const code = req.params.moduleCode;
+    if (isMdModuleCode(code)) {
+      await removeMdModule(mdDirName(code));
+      return res.json({ status: 'removed', moduleCode: code });
+    }
+    await swordService.removeModule(code);
+    res.json({ status: 'removed', moduleCode: code });
   } catch (err) {
     next(err);
   }

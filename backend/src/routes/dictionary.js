@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import { swordService } from '../services/swordService.js';
 import { isPersonalModuleCode, listPersonalKeys, getPersonalEntryByKey } from '../services/personalModuleService.js';
+import { isMdModuleCode, mdDirName, getMdDictionaryKeys, getMdDictionaryEntry } from '../services/mdModuleService.js';
 
 export const dictionaryRouter = Router();
 
 // GET /api/dictionary/:module/keys
 dictionaryRouter.get('/:module/keys', async (req, res, next) => {
   try {
+    if (isMdModuleCode(req.params.module)) {
+      return res.json(await getMdDictionaryKeys(mdDirName(req.params.module)));
+    }
     if (isPersonalModuleCode(req.params.module)) {
       if (!req.user) {
         const err = new Error('Login required to access a personal module.');
@@ -26,6 +30,15 @@ dictionaryRouter.get('/:module/entry', async (req, res, next) => {
   try {
     const { key } = req.query;
     if (!key) return res.status(400).json({ error: 'key query param is required' });
+    if (isMdModuleCode(req.params.module)) {
+      const html = await getMdDictionaryEntry(mdDirName(req.params.module), key);
+      if (!html) {
+        const err = new Error(`No entry found for "${key}"`);
+        err.status = 404;
+        throw err;
+      }
+      return res.json({ key, html });
+    }
     if (isPersonalModuleCode(req.params.module)) {
       if (!req.user) {
         const err = new Error('Login required to access a personal module.');

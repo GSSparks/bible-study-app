@@ -48,6 +48,11 @@ export const api = {
 
   // PDF library
   listDocuments: () => request('/pdf'),
+  getDocument: (id) => request(`/pdf/${id}`),
+  searchDocuments: (q) => request(`/pdf/search?q=${encodeURIComponent(q)}`),
+  updateDocument: (id, patch) => request(`/pdf/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  deleteDocument: (id) => request(`/pdf/${id}`, { method: 'DELETE' }),
+  ocrDocument: (id) => request(`/pdf/${id}/ocr`, { method: 'POST' }),
   documentFileUrl: (id) => `${BASE}/pdf/${id}/file`,
 
   // Strong's / dictionary & lexicon browsing
@@ -60,6 +65,7 @@ export const api = {
   buildContext: (payload) => request('/context/build', { method: 'POST', body: JSON.stringify(payload) }),
   askAssistant: (payload) => request('/context/ask', { method: 'POST', body: JSON.stringify(payload) }),
   listRecentSessions: () => request('/context/sessions'),
+  renameSession: (id, title) => request(`/context/sessions/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
   buildWordStudyContext: (payload) => request('/word-study', { method: 'POST', body: JSON.stringify(payload) }),
   askWordStudy: (payload) => request('/word-study/ask', { method: 'POST', body: JSON.stringify(payload) }),
   buildPhraseStudyContext: (payload) => request('/phrase-study', { method: 'POST', body: JSON.stringify(payload) }),
@@ -197,6 +203,7 @@ export const api = {
   markStudyLessonComplete: (lessonId) => request(`/studies/lessons/${lessonId}/complete`, { method: 'POST' }),
   unmarkStudyLessonComplete: (lessonId) => request(`/studies/lessons/${lessonId}/complete`, { method: 'DELETE' }),
   getStudyProgress: (studyId) => request(`/studies/${studyId}/progress`),
+  saveStudyLessonReflection: (lessonId, body) => request(`/studies/lessons/${lessonId}/reflection`, { method: 'PUT', body: JSON.stringify({ body }) }),
 
   listStudyComments: (lessonId) => request(`/studies/lessons/${lessonId}/comments`),
   createStudyComment: (lessonId, body) => request(`/studies/lessons/${lessonId}/comments`, { method: 'POST', body: JSON.stringify({ body }) }),
@@ -208,7 +215,16 @@ export const api = {
   getTodaysDevotional: () => request('/devotionals/today'),
   listDevotionalModules: () => request('/devotionals/modules'),
   setDevotionalModule: (moduleCode) => request('/devotionals/settings', { method: 'POST', body: JSON.stringify({ moduleCode }) }),
+  debugDevotional: (moduleCode) => request(`/devotionals/debug${moduleCode ? `?module=${encodeURIComponent(moduleCode)}` : ''}`),
 
+  // Reading plans
+  listReadingPlans: () => request('/reading-plans'),
+  getReadingPlan: (id) => request(`/reading-plans/${id}`),
+  getReadingPlanProgress: (id) => request(`/reading-plans/${id}/progress`),
+  markReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress`, { method: 'POST', body: JSON.stringify({ dayNumber }) }),
+  unmarkReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress/${dayNumber}`, { method: 'DELETE' }),
+
+  listStudyReflections: (studyId) => request(`/studies/${studyId}/reflections`),
   listStudyResources: (studyId) => request(`/studies/${studyId}/resources`),
   addStudyResource: (studyId, payload) => request(`/studies/${studyId}/resources`, { method: 'POST', body: JSON.stringify(payload) }),
   removeStudyResource: (resourceId) => request(`/studies/resources/${resourceId}`, { method: 'DELETE' }),

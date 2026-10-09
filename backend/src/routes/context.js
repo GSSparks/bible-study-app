@@ -15,12 +15,12 @@ contextRouter.use(requireLogin);
 // { sources: [{ module, reference, kind, title }], noteIds?: [], includeAllCommentaries?: bool, includeWordStudies?: bool }
 contextRouter.post('/build', async (req, res, next) => {
   try {
-    const { sources, noteIds, includeAllCommentaries, includeWordStudies } = req.body;
-    if (!Array.isArray(sources) || sources.length === 0) {
-      return res.status(400).json({ error: 'sources[] is required (nothing open to build context from)' });
+    const { sources, noteIds, includeAllCommentaries, includeWordStudies, documentIds } = req.body;
+    if ((!Array.isArray(sources) || sources.length === 0) && (!Array.isArray(documentIds) || documentIds.length === 0)) {
+      return res.status(400).json({ error: 'sources[] or documentIds[] is required' });
     }
     const context = await buildPassageContext({
-      sources,
+      sources: sources || [],
       noteIds: noteIds || [],
       // IMPORTANT: buildPassageContext auto-includes notes anchored to
       // the open reference — that query needs to be scoped by userId
@@ -31,6 +31,7 @@ contextRouter.post('/build', async (req, res, next) => {
       userId: req.user.id,
       includeAllCommentaries: Boolean(includeAllCommentaries),
       includeWordStudies: Boolean(includeWordStudies),
+      documentIds: Array.isArray(documentIds) ? documentIds : [],
     });
     res.json(context);
   } catch (err) {
@@ -117,6 +118,24 @@ contextRouter.get('/sessions/:reference', async (req, res, next) => {
         orderBy: { updatedAt: 'desc' },
       })
     );
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/context/sessions/:id — rename a session title
+contextRouter.patch('/sessions/:id', async (req, res, next) => {
+  try {
+    const { title } = req.body;
+    const existing = await prisma.studySession.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.userId !== req.user.id) {
+      return res.status(404).json({ error: 'Session not found.' });
+    }
+    const session = await prisma.studySession.update({
+      where: { id: req.params.id },
+      data: { title: title ?? existing.title },
+    });
+    res.json(session);
   } catch (err) {
     next(err);
   }
