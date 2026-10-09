@@ -26,6 +26,7 @@
     "marked": "^18.0.9",
     "multer": "^2.0.0",
     "node-sword-interface": "^1.0.124",
+    "mammoth": "^1.8.0",
     "pdf-parse": "^1.1.1"
   },
   "devDependencies": {

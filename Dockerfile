@@ -30,10 +30,14 @@ RUN npx prisma generate
 
 # --- Stage 3: runtime image ---
 FROM node:20-bookworm-slim AS runtime
-# Runtime still needs libcurl for SWORD's network module fetching
+# Runtime needs libcurl for SWORD, and tesseract+poppler for PDF OCR
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-gnutls-dev \
     ca-certificates \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    poppler-utils \
+    antiword \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
