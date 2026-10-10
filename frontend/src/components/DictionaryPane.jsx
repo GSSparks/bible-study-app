@@ -117,11 +117,42 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
   }
 
   function handleContentClick(e) {
+    // Prevent any <a> from escaping to the browser's URL handler
+    const linkEl = e.target.closest('a[href]');
+    if (linkEl) {
+      e.preventDefault();
+      const href = linkEl.getAttribute('href') || '';
+      // Strong's via href
+      const strongsM = href.match(/^(?:strongs?|lemma):([GH]\d{1,5})$/i)
+        || (!href.includes(':') && !href.includes('/') && href.match(/^([GH]\d{1,5})$/i));
+      if (strongsM) {
+        onStrongsClick?.(strongsM[1].toUpperCase(), e, null, linkEl.textContent.trim(), module);
+        return;
+      }
+      // Vine's / dict cross-ref via href
+      const dictM = href.match(/^Vines?:\s*(.+)$/i);
+      if (dictM) { setMode('keys'); pickKey(dictM[1].trim()); return; }
+      // Anything else with a legible href that looks like a dict key
+      if (href && !href.startsWith('http') && !href.startsWith('sword://') && !href.startsWith('#')) {
+        setMode('keys'); pickKey(href.trim()); return;
+      }
+      return;
+    }
+
     const dictXrefEl = e.target.closest('.dict-xref');
     if (dictXrefEl) {
       onOpenInDictionary?.(dictXrefEl.dataset.strongKey);
       return;
     }
+
+    // Dict entry cross-reference span (produced by backend processDictHyperlinks)
+    const entryRefEl = e.target.closest('.dict-entry-ref');
+    if (entryRefEl) {
+      const key = entryRefEl.dataset.key;
+      if (key) { setMode('keys'); pickKey(key); }
+      return;
+    }
+
     const footnoteEl = e.target.closest('.footnote-marker');
     if (footnoteEl) {
       setFootnotePopup({ text: footnoteEl.dataset.note, x: e.clientX, y: e.clientY });

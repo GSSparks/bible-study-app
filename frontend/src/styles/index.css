@@ -78,6 +78,22 @@
   color: theme('colors.pageAccent');
 }
 
+/* Strong's and dict cross-refs produced by processDictHyperlinks inside
+   dictionary entries (not scoped to .verse-content). */
+.strongs[data-strong] {
+  cursor: pointer;
+}
+.strongs[data-strong]:hover {
+  color: theme('colors.pageAccent');
+}
+.dict-entry-ref {
+  cursor: pointer;
+  color: theme('colors.verdigris');
+}
+.dict-entry-ref:hover {
+  color: theme('colors.pageAccent');
+}
+
 /* Bible references detected inside commentary/dictionary prose (e.g.
    "cf. John 3:16") and wrapped server-side — distinct color from
    Strong's words so the two affordances don't look identical, same

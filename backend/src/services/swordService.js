@@ -544,7 +544,72 @@ class SwordService {
       err.status = 404;
       throw err;
     }
-    return this.processVerseContent(this.stripRedundantWritingTransliteration(raw)).content;
+    const withLinksConverted = this.processDictHyperlinks(raw);
+    return this.processVerseContent(this.stripRedundantWritingTransliteration(withLinksConverted)).content;
+  }
+
+  /** Converts raw <a> hyperlinks from SWORD dict modules (Vine's, etc.)
+   *  into data-attribute spans the frontend already knows how to handle,
+   *  so they never escape to the browser's URL handler.
+   *
+   *  Patterns handled:
+   *    strongs:G3306  / strong:H123  → <span class="strongs" data-strong="…">
+   *    Vine: REMAIN   / Vines:REMAIN → <span class="dict-entry-ref" data-key="…">
+   *    sword://…      / http://…     → strip the link, keep inner text
+   *    anything else                 → strip the link, keep inner text
+   */
+  processDictHyperlinks(html) {
+    return html.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (match, attrs, inner) => {
+      const hrefMatch = attrs.match(/\bhref="([^"]*)"/i);
+      if (!hrefMatch) return inner;
+      const href = hrefMatch[1];
+
+      // Strong's number: strongs:G3306 or strong:H123
+      const strongsMatch = href.match(/^(?:strongs?|lemma):([GH]\d{1,5})$/i);
+      if (strongsMatch) {
+        return `<span class="strongs" data-strong="${strongsMatch[1]}">${inner}</span>`;
+      }
+
+      // Raw Strong's key as href: G3306 or H123
+      if (/^[GH]\d{1,5}$/i.test(href.trim())) {
+        return `<span class="strongs" data-strong="${href.trim().toUpperCase()}">${inner}</span>`;
+      }
+
+      // Vine's / dict cross-reference: "Vine: REMAIN", "Vines:REMAIN"
+      const dictMatch = href.match(/^Vines?:\s*(.+)$/i);
+      if (dictMatch) {
+        const entryKey = dictMatch[1].trim().replace(/"/g, '&quot;');
+        return `<span class="dict-entry-ref" data-key="${entryKey}">${inner}</span>`;
+      }
+
+      // SWORD protocol URIs: sword://StrongsRealGreek/03306
+      //                       sword://Vines/CONTINUE
+      // Format is always sword://MODULE_ID/KEY (two segments).
+      const swordMatch = href.match(/^sword:\/\/([^/]+)\/(.+)$/i);
+      if (swordMatch) {
+        const [, moduleId, key] = swordMatch;
+        // Greek Strong's (StrongsRealGreek, StrongsGreek, etc.)
+        if (/strongs.*greek/i.test(moduleId)) {
+          const num = key.replace(/^0+/, '') || '0'; // strip leading zeros
+          return `<span class="strongs" data-strong="G${num}">${inner}</span>`;
+        }
+        // Hebrew Strong's
+        if (/strongs.*hebrew/i.test(moduleId)) {
+          const num = key.replace(/^0+/, '') || '0';
+          return `<span class="strongs" data-strong="H${num}">${inner}</span>`;
+        }
+        // Key already has G/H prefix (some modules)
+        if (/^[GH]\d+$/i.test(key.trim())) {
+          return `<span class="strongs" data-strong="${key.trim().toUpperCase()}">${inner}</span>`;
+        }
+        // Any other dict module (Vines, etc.) → cross-ref entry in current module
+        const entryKey = decodeURIComponent(key).replace(/"/g, '&quot;');
+        return `<span class="dict-entry-ref" data-key="${entryKey}">${inner}</span>`;
+      }
+
+      // Anything else (http://, anchors, etc.) — strip link, keep text
+      return inner;
+    });
   }
 
   extractStrongsKeysFrom(html) {
