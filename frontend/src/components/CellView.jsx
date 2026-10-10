@@ -6,12 +6,13 @@ import { useWorkspaceLayout } from '../hooks/useWorkspaceLayout.js';
 import { simplifyForTopicalSearch } from '../utils/searchStem.js';
 
 const WINDOW_TOGGLES = [
-  { type: 'bible',        label: 'Bible', title: 'Bible' },
-  { type: 'commentary',   label: 'Cmnt',  title: 'Commentary' },
-  { type: 'dictionary',   label: 'Dict',  title: 'Dictionary' },
-  { type: 'crossrefs',    label: 'XRef',  title: 'Cross-References' },
-  { type: 'passageguide', label: 'Guide', title: 'Passage Guide' },
-  { type: 'document',     label: 'Docs',  title: 'Documents' },
+  { type: 'bible',        label: 'Bible',  title: 'Bible' },
+  { type: 'commentary',   label: 'Cmnt',   title: 'Commentary' },
+  { type: 'dictionary',   label: 'Dict',   title: 'Dictionary' },
+  { type: 'crossrefs',    label: 'XRef',   title: 'Cross-References' },
+  { type: 'passageguide', label: 'Guide',  title: 'Passage Guide' },
+  { type: 'document',     label: 'Docs',   title: 'Documents' },
+  { type: 'search',       label: 'Search', title: 'Search Results' },
 ];
 
 export default function CellView({
@@ -45,6 +46,7 @@ export default function CellView({
   const [pendingDictFilter, setPendingDictFilter] = useState(null);
   const [pendingDictTabId, setPendingDictTabId] = useState(null);
   const [pendingAiRequest, setPendingAiRequest] = useState(null);
+  const [pendingSearch, setPendingSearch] = useState(null);
 
   const layout = useWorkspaceLayout();
 
@@ -274,6 +276,16 @@ export default function CellView({
     });
   }
 
+  function routeToSearch(query) {
+    const hasSearch = layout.columns.some((c) => c.rows.some((r) => r.type === 'search'));
+    if (!hasSearch) {
+      const lastCol = layout.columns[layout.columns.length - 1];
+      const lastRow = lastCol.rows[lastCol.rows.length - 1];
+      layout.splitPane(lastCol.id, lastRow.id, 'search');
+    }
+    setPendingSearch({ query, module: firstBibleTab?.module || '', nonce: Date.now() });
+  }
+
   function togglePaneType(type) {
     const existing = [];
     for (const col of layout.columns) {
@@ -314,6 +326,7 @@ export default function CellView({
     pendingDictFilter,
     pendingDictTabId,
     pendingAiRequest,
+    pendingSearch,
     onAskAiAboutDocument: handleAskAiAboutDocument,
     strongsDrawer,
     setStrongsDrawer,
@@ -348,7 +361,7 @@ export default function CellView({
 
         {/* Search */}
         <div className="min-w-0 flex-1">
-          <SearchBar activeModule={firstBibleTab?.module} onJump={navigateFocus} />
+          <SearchBar activeModule={firstBibleTab?.module} onJump={navigateFocus} onSearch={routeToSearch} />
         </div>
 
         {/* Window toggles */}

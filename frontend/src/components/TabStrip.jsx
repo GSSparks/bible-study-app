@@ -1,4 +1,5 @@
 import ModulePicker from './ModulePicker.jsx';
+import { abbreviateTitle } from '../utils/abbreviateTitle.js';
 
 const KIND_LABEL = { bible: 'Bible', commentary: 'Commentary', dictionary: 'Dictionary' };
 
@@ -20,8 +21,9 @@ export default function TabStrip({ kind, tabs, activeTabId, onSetActiveTab, onCl
             <button
               onClick={() => onSetActiveTab(tab.id)}
               className={`px-2 py-1 ${tab.id === activeTabId ? '' : 'hover:text-parchment'}`}
+              title={tab.title}
             >
-              {tab.title}
+              {abbreviateTitle(tab.title)}
             </button>
             <ModulePicker
               kind={kind}

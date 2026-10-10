@@ -29,7 +29,11 @@ export const api = {
   comparePassage: (modules, ref) => request('/bible/compare', { method: 'POST', body: JSON.stringify({ modules, ref }) }),
 
   // Search
-  search: (q, module) => request(`/search?q=${encodeURIComponent(q)}${module ? `&module=${module}` : ''}`),
+  search: (q, module, searchType = 'multiWord') => {
+    const params = new URLSearchParams({ q, searchType });
+    if (module) params.set('module', module);
+    return request(`/search?${params}`);
+  },
 
   // Notes / highlights / bookmarks
   listNotes: ({ reference, q } = {}) => {

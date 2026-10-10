@@ -511,9 +511,18 @@ class SwordService {
    *  it's a short preview, not something meant for deep interaction —
    *  so stripHtml (plain text) rather than the full processVerseContent
    *  pipeline is the right level of processing here. */
-  async search(moduleCode, term, { searchType = 'multiWord', searchScope = 'BIBLE' } = {}) {
+  async search(moduleCode, term, { searchType = 'multiWord', searchScope = 'BIBLE', limit = 500 } = {}) {
     const results = await this.sword.getModuleSearchResults(moduleCode, term, () => {}, searchType, searchScope);
-    return results.map((r) => ({ ...r, content: this.stripHtml(r.content) }));
+    const total = results.length;
+    const slice = limit > 0 ? results.slice(0, limit) : results;
+    return {
+      total,
+      capped: total > slice.length,
+      verses: slice.map((r) => {
+        const { content } = this.processVerseContent(r.content);
+        return { ...r, content };
+      }),
+    };
   }
 
   getStrongsEntry(strongsKey) {

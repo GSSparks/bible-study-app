@@ -1,9 +1,11 @@
 import { Fragment, useRef, useState } from 'react';
 import { PANE_TYPES } from '../hooks/useWorkspaceLayout.js';
+import { abbreviateTitle } from '../utils/abbreviateTitle.js';
 import ReaderPane from './ReaderPane.jsx';
 import DictionaryPane from './DictionaryPane.jsx';
 import CrossRefPane from './CrossRefPane.jsx';
 import PassageGuidePane from './PassageGuidePane.jsx';
+import SearchResultsPane from './SearchResultsPane.jsx';
 import DocumentReader from './DocumentReader.jsx';
 import DocumentTabStrip from './DocumentTabStrip.jsx';
 import TabStrip from './TabStrip.jsx';
@@ -78,6 +80,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
     pendingDictTabId,
     onAskAiAboutDocument,
     pendingAiRequest,
+    pendingSearch,
     strongsDrawer,
     setStrongsDrawer,
     verseDrawer,
@@ -129,8 +132,8 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
             <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-rule bg-panel px-1 py-0.5">
               {row.tabs.map((tab) => {
                 const isActive = tab.id === row.activeTabId;
-                const tabLabel = [tab.module, ...(tab.parallels || []).map((p) => p.module)]
-                  .filter(Boolean).join(' | ') || 'Bible';
+                const tabLabel = [tab.title || tab.module, ...(tab.parallels || []).map((p) => p.title || p.module)]
+                  .filter(Boolean).map((t) => abbreviateTitle(t, 18)).join(' | ') || 'Bible';
                 return (
                   <div
                     key={tab.id}
@@ -141,6 +144,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                     <button
                       onClick={() => setActiveTab(col.id, row.id, tab.id)}
                       className={`px-2 py-1 ${isActive ? '' : 'hover:text-parchment'}`}
+                      title={[tab.title || tab.module, ...(tab.parallels || []).map((p) => p.title || p.module)].filter(Boolean).join(' | ') || undefined}
                     >
                       {tabLabel}
                     </button>
@@ -191,8 +195,8 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                         <ModulePicker
                           kind="bible"
                           excludeModules={[]}
-                          label={item.title || item.module || 'Bible'}
-                          title="Change translation"
+                          label={abbreviateTitle(item.title || item.module || 'Bible', 18)}
+                          title={item.title || item.module || 'Bible'}
                           onSelect={i === 0
                             ? (m, t) => swapTabModule(col.id, row.id, activeTab.id, m, t)
                             : (m, t) => swapTabParallel(col.id, row.id, activeTab.id, item.id, m, t)
@@ -363,6 +367,17 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
               module={defaultBibleModule}
               isLoggedIn={Boolean(auth?.user)}
               pendingAiRequest={pendingAiRequest}
+            />
+          </div>
+        );
+
+      case 'search':
+        return (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <SearchResultsPane
+              pendingSearch={pendingSearch}
+              onNavigate={onNavigate}
+              defaultBibleModule={defaultBibleModule}
             />
           </div>
         );

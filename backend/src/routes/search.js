@@ -20,13 +20,13 @@ export const searchRouter = Router();
 // than relying on a router-level gate the way those other files do.
 searchRouter.get('/', async (req, res, next) => {
   try {
-    const { module, q } = req.query;
+    const { module, q, searchType = 'multiWord' } = req.query;
     if (!q) return res.status(400).json({ error: 'q query param is required' });
 
     const reference = parseReferenceInfo(q);
 
-    const [bibleResults, documentResults, noteResults] = await Promise.all([
-      module ? swordService.search(module, q) : Promise.resolve([]),
+    const [bibleSearch, documentResults, noteResults] = await Promise.all([
+      module ? swordService.search(module, q, { searchType }) : Promise.resolve({ total: 0, capped: false, verses: [] }),
       searchDocuments(q),
       req.user
         ? prisma.note.findMany({
@@ -44,7 +44,15 @@ searchRouter.get('/', async (req, res, next) => {
         : Promise.resolve([]),
     ]);
 
-    res.json({ query: q, reference, bible: bibleResults, documents: documentResults, notes: noteResults });
+    res.json({
+      query: q,
+      reference,
+      bible: bibleSearch.verses,
+      total: bibleSearch.total,
+      capped: bibleSearch.capped,
+      documents: documentResults,
+      notes: noteResults,
+    });
   } catch (err) {
     next(err);
   }

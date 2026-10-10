@@ -10,6 +10,7 @@ export const PANE_TYPES = [
   { value: 'crossrefs', label: 'Cross-References', moduleType: null },
   { value: 'passageguide', label: 'Passage Guide', moduleType: null },
   { value: 'document', label: 'Documents', moduleType: 'document' },
+  { value: 'search', label: 'Search Results', moduleType: null },
 ];
 
 function makeTab(module = '', title = '') {
