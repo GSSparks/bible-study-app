@@ -52,7 +52,6 @@ const GET_PASSAGE_TOOL = {
 async function runWithPassageTool({ module, system, initialMessages }) {
   let messages = [...initialMessages];
   const MAX_ITERATIONS = 5;
-  const textParts = [];
 
   // Cache the system prompt — it's the largest stable input per request
   // and is repeated verbatim on every tool-result round-trip.
@@ -67,17 +66,11 @@ async function runWithPassageTool({ module, system, initialMessages }) {
       tools: [GET_PASSAGE_TOOL],
     });
 
-    // Claude can emit text blocks in the same turn it calls a tool —
-    // e.g. "Here are patterns 1–4… [get_passage call]". Collecting only
-    // the final turn's text dropped everything before the first tool call.
-    const turnText = response.content
-      .filter((b) => b.type === 'text')
-      .map((b) => b.text)
-      .join('\n');
-    if (turnText) textParts.push(turnText);
-
     if (response.stop_reason !== 'tool_use') {
-      return textParts.join('\n\n');
+      return response.content
+        .filter((b) => b.type === 'text')
+        .map((b) => b.text)
+        .join('\n');
     }
 
     messages.push({ role: 'assistant', content: response.content });
@@ -105,7 +98,7 @@ async function runWithPassageTool({ module, system, initialMessages }) {
     messages.push({ role: 'user', content: toolResults });
   }
 
-  return textParts.join('\n\n') || "I wasn't able to finish gathering all the referenced passages — here's what I found so far, though the discussion may be incomplete.";
+  return "I wasn't able to finish gathering all the referenced passages — here's what I found so far, though the discussion may be incomplete.";
 }
 
 export async function buildPassageContext({ sources = [], noteIds = [], userId, includeAllCommentaries = false, includeWordStudies = false, documentIds = [] }) {
@@ -327,6 +320,17 @@ export async function askWordStudy({ context }) {
   }
 
   const system = [
+    'RESPONSE RULES (follow these exactly):',
+    '1. Begin your response directly with the study content — no preamble,',
+    '   no "Thank you", no "I now have everything I need", no "Let me fetch",',
+    '   no announcements of what you are about to do.',
+    '2. If you need to call the get_passage tool, call it immediately with no',
+    '   preceding text. Write your full response only after all tool calls are',
+    '   resolved.',
+    '3. Every Markdown heading must be followed immediately by substantive',
+    '   prose. Never write a heading as a placeholder — only write a heading',
+    '   when you are about to write the content for that section right below it.',
+    '',
     "You are a Bible study assistant doing a word study on a single Strong's-",
     'tagged word. You are given its dictionary gloss and every verse in one',
     "translation where that Strong's number occurs (possibly truncated if",
@@ -340,14 +344,8 @@ export async function askWordStudy({ context }) {
     'occurrences, and do not claim the list is complete if it was truncated.',
     'If discussing a connection to a related verse outside this occurrence',
     'list would strengthen the study, use the get_passage tool to fetch its',
-    'actual text rather than relying on general knowledge of what it says —',
-    'the same grounding standard applies to any verse you bring in, not just',
-    'the ones already provided. Format your reply in Markdown.',
-    'Never open your response with an acknowledgment phrase ("Thank you",',
-    '"I now have everything I need", "I have all I need", or any similar',
-    'preamble) — begin directly with the study content. Every Markdown',
-    'heading must be followed immediately by substantive prose; never emit',
-    'a heading with nothing but more headings beneath it.',
+    'actual text rather than relying on general knowledge of what it says.',
+    'Format your reply in Markdown.',
     '',
     wordStudyContextToPrompt(context),
   ].join('\n');
@@ -447,6 +445,17 @@ export async function askPhraseStudy({ context }) {
       : 'This list was built by exact substring matching in this one translation only — it will not include verses where the same underlying phrase is translated with different English wording, and will not include occurrences in other translations.';
 
   const system = [
+    'RESPONSE RULES (follow these exactly):',
+    '1. Begin your response directly with the study content — no preamble,',
+    '   no "Thank you", no "I now have everything I need", no "Let me fetch",',
+    '   no announcements of what you are about to do.',
+    '2. If you need to call the get_passage tool, call it immediately with no',
+    '   preceding text. Write your full response only after all tool calls are',
+    '   resolved.',
+    '3. Every Markdown heading must be followed immediately by substantive',
+    '   prose. Never write a heading as a placeholder — only write a heading',
+    '   when you are about to write the content for that section right below it.',
+    '',
     'You are a Bible study assistant doing a phrase study — the person has',
     "selected a recurring phrase from the biblical text (not a single word)",
     'and wants to see how it is used across every occurrence found in one',
@@ -460,14 +469,8 @@ export async function askPhraseStudy({ context }) {
     'Be upfront about the matching method above if it materially affects',
     'how complete or precise this picture is. If discussing a connection',
     'to a related verse outside this occurrence list would strengthen the',
-    'study, use the get_passage tool to fetch its actual text rather than',
-    'relying on general knowledge of what it says. Format your reply in',
-    'Markdown.',
-    'Never open your response with an acknowledgment phrase ("Thank you",',
-    '"I now have everything I need", "I have all I need", or any similar',
-    'preamble) — begin directly with the study content. Every Markdown',
-    'heading must be followed immediately by substantive prose; never emit',
-    'a heading with nothing but more headings beneath it.',
+    'study, use the get_passage tool to fetch its actual text. Format your',
+    'reply in Markdown.',
     '',
     phraseStudyContextToPrompt(context),
   ].join('\n');
@@ -537,6 +540,17 @@ export async function askStudyAssistant({ context, messages }) {
   }
 
   const system = [
+    'RESPONSE RULES (follow these exactly):',
+    '1. Begin your response directly with the answer — no preamble, no',
+    '   "Thank you", no "I now have everything I need", no "Let me fetch",',
+    '   no announcements of what you are about to do.',
+    '2. If you need to call the get_passage tool, call it immediately with no',
+    '   preceding text. Write your full response only after all tool calls are',
+    '   resolved.',
+    '3. Every Markdown heading must be followed immediately by substantive',
+    '   prose. Never write a heading as a placeholder — only write a heading',
+    '   when you are about to write the content for that section right below it.',
+    '',
     'You are a Bible study assistant. You are given the text of whatever',
     'passages and commentary the person currently has open (possibly',
     'several translations, possibly more than one passage), possibly some',
@@ -547,11 +561,6 @@ export async function askStudyAssistant({ context, messages }) {
     'verse outside what was provided would strengthen the answer, use the',
     'get_passage tool to fetch its actual text first. Format your',
     'replies in Markdown (headings, bold, lists) where it aids readability.',
-    'Never open your response with an acknowledgment phrase ("Thank you",',
-    '"I now have everything I need", "I have all I need", or any similar',
-    'preamble) — begin directly with the answer. Every Markdown heading',
-    'must be followed immediately by substantive prose; never emit a',
-    'heading with nothing but more headings beneath it.',
     '',
     contextToPrompt(context),
   ].join('\n');
