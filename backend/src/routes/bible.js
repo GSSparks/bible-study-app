@@ -50,7 +50,11 @@ bibleRouter.post('/compare', async (req, res, next) => {
     }
     const passages = {};
     for (const m of modules) {
-      passages[m] = swordService.getPassage(m, ref);
+      if (isMdModuleCode(m)) {
+        passages[m] = await getMdPassage(mdDirName(m), ref) || [];
+      } else {
+        passages[m] = swordService.getPassage(m, ref);
+      }
     }
     res.json({ reference: ref, passages });
   } catch (err) {

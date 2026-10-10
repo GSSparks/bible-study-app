@@ -1,5 +1,5 @@
 import { readdir, readFile, mkdir, rm } from 'fs/promises';
-import { join, basename, resolve, normalize } from 'path';
+import { join, basename, resolve } from 'path';
 import { marked } from 'marked';
 import AdmZip from 'adm-zip';
 
@@ -112,7 +112,7 @@ export async function listMdModules(type = null) {
       if (type && meta.type !== type) continue;
       modules.push({
         name: `${MD_PREFIX}${entry.name}`,
-        description: meta.description || meta.name || entry.name,
+        description: meta.name || entry.name,
         source: 'markdown',
       });
     } catch {
@@ -187,6 +187,43 @@ export async function getMdDictionaryKeys(moduleDirName) {
     } catch {}
   }
   return keys.sort((a, b) => a.localeCompare(b));
+}
+
+export async function getMdBookChapters(moduleDirName) {
+  const modulePath = join(MD_MODULES_PATH, moduleDirName);
+  let files;
+  try {
+    files = await readdir(modulePath);
+  } catch {
+    return [];
+  }
+
+  const keys = [];
+  const mdFiles = files
+    .filter((f) => f !== 'module.json' && f.endsWith('.md'))
+    .sort();
+
+  for (const file of mdFiles) {
+    try {
+      const content = await readFile(join(modulePath, file), 'utf8');
+      const sections = parseSections(content);
+      if (sections.length > 0) {
+        sections.forEach((s) => keys.push(s.key));
+      } else {
+        keys.push(basename(file, '.md'));
+      }
+    } catch {}
+  }
+  return keys; // document order preserved — no sort
+}
+
+export async function getMdModuleType(moduleDirName) {
+  try {
+    const raw = await readFile(join(MD_MODULES_PATH, moduleDirName, 'module.json'), 'utf8');
+    return JSON.parse(raw).type || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getMdDictionaryEntry(moduleDirName, key) {
@@ -269,8 +306,8 @@ export async function installMdModuleFromZip(buffer) {
   } catch {
     throw new Error('module.json is not valid JSON.');
   }
-  if (!meta.type || !['BIBLE', 'COMMENTARY', 'DICT'].includes(meta.type)) {
-    throw new Error('module.json must have type: "BIBLE", "COMMENTARY", or "DICT".');
+  if (!meta.type || !['BIBLE', 'COMMENTARY', 'DICT', 'BOOK'].includes(meta.type)) {
+    throw new Error('module.json must have type: "BIBLE", "COMMENTARY", "DICT", or "BOOK".');
   }
 
   // Determine the directory name: use wrapper dir name, or explicit "id" field, or slugify "name"

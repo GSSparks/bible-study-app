@@ -65,7 +65,8 @@ modulesRouter.get('/installed', async (req, res, next) => {
     const mdModules = await listMdModules(type);
     if (type === 'DICT' || type === 'COMMENTARY') {
       const personalModules = await listPersonalModules(type, req.user?.id);
-      return res.json([...swordModules, ...personalModules, ...mdModules]);
+      const bookModules = type === 'DICT' ? await listMdModules('BOOK') : [];
+      return res.json([...swordModules, ...personalModules, ...mdModules, ...bookModules]);
     }
     res.json([...swordModules, ...mdModules]);
   } catch (err) {

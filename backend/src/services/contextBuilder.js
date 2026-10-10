@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config.js';
 import { prisma } from '../db/prisma.js';
 import { swordService } from './swordService.js';
-import { listMdModules, getMdPassage, mdDirName, mdVersesToText } from './mdModuleService.js';
+import { listMdModules, getMdPassage, mdDirName, mdVersesToText, isMdModuleCode } from './mdModuleService.js';
 
 const anthropic = config.anthropicApiKey ? new Anthropic({ apiKey: config.anthropicApiKey }) : null;
 
@@ -75,11 +75,17 @@ async function runWithPassageTool({ module, system, initialMessages }) {
       if (block.type !== 'tool_use') continue;
       let resultText;
       try {
-        const verses = swordService.getPassage(module, block.input.reference);
-        resultText =
-          verses.length > 0
+        if (isMdModuleCode(module)) {
+          const mdVerses = await getMdPassage(mdDirName(module), block.input.reference) || [];
+          resultText = mdVerses.length > 0
+            ? mdVersesToText(mdVerses)
+            : `No text found for "${block.input.reference}" in ${module}.`;
+        } else {
+          const verses = swordService.getPassage(module, block.input.reference);
+          resultText = verses.length > 0
             ? swordService.versesToText(verses)
             : `No text found for "${block.input.reference}" in ${module}.`;
+        }
       } catch (err) {
         resultText = `Could not resolve "${block.input.reference}": ${err.message}`;
       }

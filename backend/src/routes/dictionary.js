@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { swordService } from '../services/swordService.js';
 import { isPersonalModuleCode, listPersonalKeys, getPersonalEntryByKey } from '../services/personalModuleService.js';
-import { isMdModuleCode, mdDirName, getMdDictionaryKeys, getMdDictionaryEntry } from '../services/mdModuleService.js';
+import { isMdModuleCode, mdDirName, getMdDictionaryKeys, getMdDictionaryEntry, getMdBookChapters, getMdModuleType } from '../services/mdModuleService.js';
 
 export const dictionaryRouter = Router();
 
@@ -9,7 +9,12 @@ export const dictionaryRouter = Router();
 dictionaryRouter.get('/:module/keys', async (req, res, next) => {
   try {
     if (isMdModuleCode(req.params.module)) {
-      return res.json(await getMdDictionaryKeys(mdDirName(req.params.module)));
+      const dirName = mdDirName(req.params.module);
+      const type = await getMdModuleType(dirName);
+      const keys = type === 'BOOK'
+        ? await getMdBookChapters(dirName)
+        : await getMdDictionaryKeys(dirName);
+      return res.json(keys);
     }
     if (isPersonalModuleCode(req.params.module)) {
       if (!req.user) {
