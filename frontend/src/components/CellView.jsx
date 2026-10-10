@@ -5,6 +5,15 @@ import { api } from '../api/client.js';
 import { useWorkspaceLayout } from '../hooks/useWorkspaceLayout.js';
 import { simplifyForTopicalSearch } from '../utils/searchStem.js';
 
+const WINDOW_TOGGLES = [
+  { type: 'bible',        label: 'Bible', title: 'Bible' },
+  { type: 'commentary',   label: 'Cmnt',  title: 'Commentary' },
+  { type: 'dictionary',   label: 'Dict',  title: 'Dictionary' },
+  { type: 'crossrefs',    label: 'XRef',  title: 'Cross-References' },
+  { type: 'passageguide', label: 'Guide', title: 'Passage Guide' },
+  { type: 'document',     label: 'Docs',  title: 'Documents' },
+];
+
 export default function CellView({
   auth,
   onNavigateToLibrary,
@@ -265,6 +274,22 @@ export default function CellView({
     });
   }
 
+  function togglePaneType(type) {
+    const existing = [];
+    for (const col of layout.columns) {
+      for (const row of col.rows) {
+        if (row.type === type) existing.push({ colId: col.id, rowId: row.id });
+      }
+    }
+    if (existing.length > 0) {
+      existing.forEach(({ colId, rowId }) => layout.removePane(colId, rowId));
+    } else {
+      const lastCol = layout.columns[layout.columns.length - 1];
+      const lastRow = lastCol.rows[lastCol.rows.length - 1];
+      layout.splitPane(lastCol.id, lastRow.id, type);
+    }
+  }
+
   // Active Bible module comes from the first bible tab found across all columns
   const firstBibleTab = (() => {
     for (const col of layout.columns) {
@@ -324,6 +349,27 @@ export default function CellView({
         {/* Search */}
         <div className="min-w-0 flex-1">
           <SearchBar activeModule={firstBibleTab?.module} onJump={navigateFocus} />
+        </div>
+
+        {/* Window toggles */}
+        <div className="flex shrink-0 items-center gap-1">
+          {WINDOW_TOGGLES.map(({ type, label, title }) => {
+            const isActive = layout.columns.some((c) => c.rows.some((r) => r.type === type));
+            return (
+              <button
+                key={type}
+                onClick={() => togglePaneType(type)}
+                title={title}
+                className={`rounded border px-2 py-1 text-xs ${
+                  isActive
+                    ? 'border-brass text-brass'
+                    : 'border-rule text-muted hover:border-brass hover:text-parchment'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

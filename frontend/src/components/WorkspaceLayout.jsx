@@ -60,46 +60,6 @@ function ColDropZone({ colId, position, isActive, onDragOver, onDrop }) {
   );
 }
 
-// ─── Pane type selector popover ───────────────────────────────────────────────
-
-function PaneTypeSelector({ currentType, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const current = PANE_TYPES.find((p) => p.value === currentType) || PANE_TYPES[0];
-
-  return (
-    <div className="relative shrink-0">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
-        title="Change pane type"
-      >
-        {current.label}
-        <span className="text-[10px]">▾</span>
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full z-20 mt-1 min-w-[160px] rounded border border-rule bg-ink shadow-xl">
-            {PANE_TYPES.map((pt) => (
-              <button
-                key={pt.value}
-                onClick={() => { onSelect(pt.value); setOpen(false); }}
-                className={`block w-full px-3 py-1.5 text-left text-xs ${
-                  pt.value === currentType
-                    ? 'bg-panel text-brass'
-                    : 'text-muted hover:bg-panel hover:text-parchment'
-                }`}
-              >
-                {pt.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ─── Individual pane shell ────────────────────────────────────────────────────
 
 function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging, onDragStart, onDragEnd }) {
@@ -125,7 +85,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
     openVerseTab,
   } = shared;
 
-  const { removePane, splitPane, setPaneType, addTab, removeTab, setActiveTab, swapTabModule,
+  const { removePane, splitPane, addTab, removeTab, setActiveTab, swapTabModule,
           setBibleTabReference, addTabParallel, removeTabParallel, swapTabParallel } = layoutOps;
 
   const activeTab = row.tabs.find((t) => t.id === row.activeTabId) || null;
@@ -445,10 +405,9 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
         onDragEnd={onDragEnd}
         className="flex shrink-0 cursor-grab items-center border-b border-rule bg-panel px-1 py-0.5 active:cursor-grabbing"
       >
-        <PaneTypeSelector
-          currentType={row.type}
-          onSelect={(type) => setPaneType(col.id, row.id, type)}
-        />
+        <span className="px-1 text-xs text-muted">
+          {PANE_TYPES.find((p) => p.value === row.type)?.label || row.type}
+        </span>
         <div className="flex-1" />
         <div className="flex items-center gap-0.5">
           <button
@@ -590,7 +549,6 @@ export default function WorkspaceLayout({
   addColumn,
   removePane,
   splitPane,
-  setPaneType,
   resizeColumn,
   resizeRow,
   addTab,
@@ -620,7 +578,6 @@ export default function WorkspaceLayout({
   const layoutOps = {
     removePane,
     splitPane,
-    setPaneType,
     resizeColumn,
     resizeRow,
     addTab,
