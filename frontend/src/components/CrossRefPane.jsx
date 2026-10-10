@@ -1,55 +1,70 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 
-export default function CrossRefPane({ reference, module, onVerseRefClick }) {
-  const [items, setItems] = useState([]); // [{ verseLabel, refs: string[] }]
+export default function CrossRefPane({ reference, onVerseRefClick }) {
+  const [tskInstalled, setTskInstalled] = useState(null); // null = still checking
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!module || !reference) return;
+    api.listInstalledModules('COMMENTARY')
+      .then((mods) => setTskInstalled(mods.some((m) => m.name === 'TSK')))
+      .catch(() => setTskInstalled(false));
+  }, []);
+
+  useEffect(() => {
+    if (!tskInstalled || !reference) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    api
-      .getPassage(module, reference)
+    api.getPassage('TSK', reference)
       .then((res) => {
         if (cancelled) return;
-        const verses = res.verses || [];
-        const parsed = verses.map((v) => {
-          const refs = [];
-          // Extract data-refs from xref-marker elements via regex
-          const re = /data-refs="([^"]+)"/g;
+        const parsed = (res.verses || []).map((v) => {
+          const refs = new Set();
+          // verse-ref spans from wrapVerseReferences (data-ref, singular)
+          const re1 = /data-ref="([^"]+)"/g;
           let m;
-          while ((m = re.exec(v.content)) !== null) {
-            m[1]
-              .split(',')
-              .map((r) => r.trim())
-              .filter(Boolean)
-              .forEach((r) => refs.push(r));
+          while ((m = re1.exec(v.content)) !== null) {
+            const r = m[1].trim();
+            if (r) refs.add(r);
+          }
+          // xref-marker sups from normalizeCrossReferenceNotes (data-refs, plural, comma-separated)
+          const re2 = /data-refs="([^"]+)"/g;
+          while ((m = re2.exec(v.content)) !== null) {
+            m[1].split(',').map((r) => r.trim()).filter(Boolean).forEach((r) => refs.add(r));
           }
           return {
             verseLabel: `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`,
-            refs: [...new Set(refs)],
+            refs: [...refs],
           };
         });
         setItems(parsed.filter((p) => p.refs.length > 0));
       })
-      .catch((e) => {
-        if (!cancelled) setError(e.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch((e) => { if (!cancelled) setError(e.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [module, reference]);
+  }, [tskInstalled, reference]);
 
-  if (!module) {
+  if (tskInstalled === null) {
     return (
       <div className="flex h-full items-center justify-center bg-page px-6 text-center text-sm text-pageMuted">
-        No Bible module selected.
+        Checking for TSK…
+      </div>
+    );
+  }
+
+  if (!tskInstalled) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-page px-8 text-center">
+        <p className="text-sm text-pageText">Cross-References require the TSK module.</p>
+        <p className="text-xs text-pageMuted">
+          Install <span className="font-mono">TSK</span> (Treasury of Scripture Knowledge) via
+          Admin → Modules to enable this pane.
+        </p>
       </div>
     );
   }
@@ -59,7 +74,7 @@ export default function CrossRefPane({ reference, module, onVerseRefClick }) {
       {loading && <p className="text-sm text-pageMuted">Loading…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {!loading && !error && items.length === 0 && (
+      {!loading && !error && items.length === 0 && reference && (
         <p className="text-sm text-pageMuted">No cross-references found for this passage.</p>
       )}
 
