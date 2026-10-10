@@ -1,12 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import { osisToHuman } from '../utils/osisToHuman.js';
 
-export default function CrossRefPane({ reference, onVerseRefClick }) {
-  const [tskInstalled, setTskInstalled] = useState(null); // null = still checking
+function stripHtml(html) {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+export default function CrossRefPane({ reference, module, onVerseRefClick }) {
+  const [tskInstalled, setTskInstalled] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [tooltip, setTooltip] = useState(null); // { text, x, y }
+  const cacheRef = useRef(new Map()); // osis → snippet text
+  const hoverTimerRef = useRef(null);
 
   useEffect(() => {
     api.listInstalledModules('COMMENTARY')
@@ -25,14 +33,12 @@ export default function CrossRefPane({ reference, onVerseRefClick }) {
         if (cancelled) return;
         const parsed = (res.verses || []).map((v) => {
           const refs = new Set();
-          // verse-ref spans from wrapVerseReferences (data-ref, singular)
           const re1 = /data-ref="([^"]+)"/g;
           let m;
           while ((m = re1.exec(v.content)) !== null) {
             const r = m[1].trim();
             if (r) refs.add(r);
           }
-          // xref-marker sups from normalizeCrossReferenceNotes (data-refs, plural, comma-separated)
           const re2 = /data-refs="([^"]+)"/g;
           while ((m = re2.exec(v.content)) !== null) {
             m[1].split(',').map((r) => r.trim()).filter(Boolean).forEach((r) => refs.add(r));
@@ -49,6 +55,35 @@ export default function CrossRefPane({ reference, onVerseRefClick }) {
 
     return () => { cancelled = true; };
   }, [tskInstalled, reference]);
+
+  function handleMouseEnter(e, ref) {
+    if (!module) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.left;
+    const y = rect.bottom + 6;
+
+    // Small delay so quick mouse-passes don't fire fetches
+    hoverTimerRef.current = setTimeout(async () => {
+      let text = cacheRef.current.get(ref);
+      if (!text) {
+        try {
+          const res = await api.getPassage(module, ref);
+          const verses = res.verses || [];
+          text = verses.map((v) => `${v.verseNr} ${stripHtml(v.content)}`).join(' ');
+          if (text.length > 220) text = text.slice(0, 220).replace(/\s\S*$/, '') + '…';
+          cacheRef.current.set(ref, text || '');
+        } catch {
+          text = '';
+        }
+      }
+      if (text) setTooltip({ text, x, y });
+    }, 180);
+  }
+
+  function handleMouseLeave() {
+    clearTimeout(hoverTimerRef.current);
+    setTooltip(null);
+  }
 
   if (tskInstalled === null) {
     return (
@@ -87,7 +122,8 @@ export default function CrossRefPane({ reference, onVerseRefClick }) {
               <button
                 key={ref}
                 onClick={() => onVerseRefClick?.(ref)}
-                title={ref}
+                onMouseEnter={(e) => handleMouseEnter(e, ref)}
+                onMouseLeave={handleMouseLeave}
                 className="rounded border border-pageBorder px-2 py-0.5 text-xs text-verdigris hover:border-brass hover:text-brass"
               >
                 {osisToHuman(ref)}
@@ -96,6 +132,16 @@ export default function CrossRefPane({ reference, onVerseRefClick }) {
           </div>
         </div>
       ))}
+
+      {tooltip && createPortal(
+        <div
+          className="pointer-events-none fixed z-50 max-w-xs rounded-md border border-rule bg-panel px-3 py-2 shadow-xl"
+          style={{ left: Math.min(tooltip.x, window.innerWidth - 320), top: tooltip.y }}
+        >
+          <p className="font-display text-xs leading-relaxed text-parchment/90">{tooltip.text}</p>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

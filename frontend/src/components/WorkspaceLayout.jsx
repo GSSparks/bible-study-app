@@ -352,6 +352,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
             <div className="min-h-0 flex-1 overflow-hidden">
               <CrossRefPane
                 reference={focusedReference}
+                module={defaultBibleModule}
                 onVerseRefClick={onVerseRefClick}
               />
             </div>
