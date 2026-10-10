@@ -43,9 +43,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY --from=backend-build /app/backend ./
 COPY --from=frontend-build /app/frontend/dist ./public
+COPY modules/ ./seed-modules/
 
 ENV NODE_ENV=production
 ENV PORT=8088
 EXPOSE 8088
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node src/scripts/seedModules.js && node src/index.js"]
