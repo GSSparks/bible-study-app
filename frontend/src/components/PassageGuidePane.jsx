@@ -116,6 +116,9 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
   const [noteResults, setNoteResults] = useState([]);
   const [showNotePicker, setShowNotePicker] = useState(false);
   const [savedIdx, setSavedIdx] = useState(null);
+  const [savedDictIdx, setSavedDictIdx] = useState(null);
+  const [activeStudyKind, setActiveStudyKind] = useState(null); // 'wordStudy' | 'phraseStudy' | null
+  const [activeStudyKey, setActiveStudyKey] = useState(null);   // strongsKey or phrase text
 
   const messagesEndRef = useRef(null);
   const sessionIdRef = useRef(null);
@@ -157,6 +160,8 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
     setAttachedNotes([]);
     setInput('');
     setDropdownOpen(false);
+    setActiveStudyKind(null);
+    setActiveStudyKey(null);
   }
 
   function resumeSession(session) {
@@ -256,6 +261,8 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
     const isSeq = Array.isArray(strongsSequence) && strongsSequence.length > 0;
     const t = isSeq ? `"${phrase}" (original words)` : `"${phrase}"`;
     startNew();
+    setActiveStudyKind('phraseStudy');
+    setActiveStudyKey(phrase);
     setSessionTitle(t);
     setLoading(true);
     setLoadingLabel('Scanning the whole Bible for every occurrence — can take up to a minute the first time…');
@@ -296,6 +303,8 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
     const m = mod || module;
     const t = `${strongsKey} word study`;
     startNew();
+    setActiveStudyKind('wordStudy');
+    setActiveStudyKey(strongsKey);
     setSessionTitle(t);
     setLoading(true);
     setLoadingLabel('Scanning the whole Bible for every occurrence — can take up to a minute the first time…');
@@ -403,6 +412,22 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
       });
       setSavedIdx(idx);
       setTimeout(() => setSavedIdx((i) => (i === idx ? null : i)), 1500);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function saveAsDictEntry(content, idx) {
+    if (!activeStudyKey) return;
+    try {
+      await api.savePersonalModule({
+        type: 'DICT',
+        key: activeStudyKey,
+        title: sessionTitle || activeStudyKey,
+        body: content,
+      });
+      setSavedDictIdx(idx);
+      setTimeout(() => setSavedDictIdx((i) => (i === idx ? null : i)), 1500);
     } catch (e) {
       setError(e.message);
     }
@@ -592,6 +617,15 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
                   >
                     {savedIdx === i ? '✓ saved' : 'save as note'}
                   </button>
+                  {activeStudyKind && activeStudyKey && (
+                    <button
+                      onClick={() => saveAsDictEntry(m.content, i)}
+                      className="text-xs text-pageMuted hover:text-brass"
+                      title="Save to My Word Studies dictionary"
+                    >
+                      {savedDictIdx === i ? '✓ saved to My Word Studies' : 'save to My Word Studies'}
+                    </button>
+                  )}
                 </div>
               </div>
             );
