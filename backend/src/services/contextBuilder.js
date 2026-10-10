@@ -52,21 +52,32 @@ const GET_PASSAGE_TOOL = {
 async function runWithPassageTool({ module, system, initialMessages }) {
   let messages = [...initialMessages];
   const MAX_ITERATIONS = 5;
+  const textParts = [];
+
+  // Cache the system prompt — it's the largest stable input per request
+  // and is repeated verbatim on every tool-result round-trip.
+  const systemBlocks = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const response = await anthropic.messages.create({
       model: config.anthropicModel,
       max_tokens: 4096,
-      system,
+      system: systemBlocks,
       messages,
       tools: [GET_PASSAGE_TOOL],
     });
 
+    // Claude can emit text blocks in the same turn it calls a tool —
+    // e.g. "Here are patterns 1–4… [get_passage call]". Collecting only
+    // the final turn's text dropped everything before the first tool call.
+    const turnText = response.content
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n');
+    if (turnText) textParts.push(turnText);
+
     if (response.stop_reason !== 'tool_use') {
-      return response.content
-        .filter((block) => block.type === 'text')
-        .map((block) => block.text)
-        .join('\n');
+      return textParts.join('\n\n');
     }
 
     messages.push({ role: 'assistant', content: response.content });
@@ -94,7 +105,7 @@ async function runWithPassageTool({ module, system, initialMessages }) {
     messages.push({ role: 'user', content: toolResults });
   }
 
-  return "I wasn't able to finish gathering all the referenced passages — here's what I found so far, though the discussion may be incomplete.";
+  return textParts.join('\n\n') || "I wasn't able to finish gathering all the referenced passages — here's what I found so far, though the discussion may be incomplete.";
 }
 
 export async function buildPassageContext({ sources = [], noteIds = [], userId, includeAllCommentaries = false, includeWordStudies = false, documentIds = [] }) {

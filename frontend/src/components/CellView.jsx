@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search } from 'lucide-react';
 import SearchBar from './SearchBar.jsx';
 import WorkspaceLayout from './WorkspaceLayout.jsx';
 import { api } from '../api/client.js';
@@ -6,13 +7,13 @@ import { useWorkspaceLayout } from '../hooks/useWorkspaceLayout.js';
 import { simplifyForTopicalSearch } from '../utils/searchStem.js';
 
 const WINDOW_TOGGLES = [
-  { type: 'bible',        label: 'Bible',  title: 'Bible' },
-  { type: 'commentary',   label: 'Cmnt',   title: 'Commentary' },
-  { type: 'dictionary',   label: 'Dict',   title: 'Dictionary' },
-  { type: 'crossrefs',    label: 'XRef',   title: 'Cross-References' },
-  { type: 'passageguide', label: 'Guide',  title: 'Passage Guide' },
-  { type: 'document',     label: 'Docs',   title: 'Documents' },
-  { type: 'search',       label: 'Search', title: 'Search Results' },
+  { type: 'bible',        Icon: BookOpen,    title: 'Bible' },
+  { type: 'commentary',   Icon: ScrollText,  title: 'Commentary' },
+  { type: 'dictionary',   Icon: BookA,       title: 'Dictionary' },
+  { type: 'crossrefs',    Icon: GitBranch,   title: 'Cross-References' },
+  { type: 'passageguide', Icon: Compass,     title: 'Passage Guide' },
+  { type: 'document',     Icon: FileText,    title: 'Documents' },
+  { type: 'search',       Icon: Search,      title: 'Search Results' },
 ];
 
 export default function CellView({
@@ -365,21 +366,21 @@ export default function CellView({
         </div>
 
         {/* Window toggles */}
-        <div className="flex shrink-0 items-center gap-1">
-          {WINDOW_TOGGLES.map(({ type, label, title }) => {
+        <div className="flex shrink-0 items-center gap-0.5">
+          {WINDOW_TOGGLES.map(({ type, Icon, title }) => {
             const isActive = layout.columns.some((c) => c.rows.some((r) => r.type === type));
             return (
               <button
                 key={type}
                 onClick={() => togglePaneType(type)}
                 title={title}
-                className={`rounded border px-2 py-1 text-xs ${
+                className={`rounded p-1.5 transition-colors ${
                   isActive
-                    ? 'border-brass text-brass'
-                    : 'border-rule text-muted hover:border-brass hover:text-parchment'
+                    ? 'text-brass'
+                    : 'text-muted hover:text-parchment'
                 }`}
               >
-                {label}
+                <Icon size={16} strokeWidth={2} />
               </button>
             );
           })}
