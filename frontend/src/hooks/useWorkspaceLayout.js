@@ -7,20 +7,19 @@ export const PANE_TYPES = [
   { value: 'bible', label: 'Bible', moduleType: 'BIBLE' },
   { value: 'commentary', label: 'Commentary', moduleType: 'COMMENTARY' },
   { value: 'dictionary', label: 'Dictionary', moduleType: 'DICT' },
-  { value: 'parallel', label: 'Parallel Bible', moduleType: null },
   { value: 'crossrefs', label: 'Cross-References', moduleType: null },
   { value: 'passageguide', label: 'Passage Guide', moduleType: null },
   { value: 'document', label: 'Documents', moduleType: 'document' },
 ];
 
 function makeTab(module = '', title = '') {
-  return { id: uid(), module, title };
+  return { id: uid(), module, title, reference: null, parallels: [] };
 }
 
 function makePane(type = 'bible') {
   const needsTabs = ['bible', 'commentary', 'dictionary', 'document'].includes(type);
   const tabs = needsTabs ? [makeTab()] : [];
-  return { id: uid(), type, tabs, activeTabId: tabs[0]?.id ?? null, flex: 1 };
+  return { id: uid(), type, tabs, activeTabId: tabs[0]?.id ?? null, flex: 1, reference: null };
 }
 
 function makeColumn(type = 'bible', flex = 1) {
@@ -43,11 +42,16 @@ function loadFromStorage() {
       ...col,
       id: uid(),
       rows: (col.rows || []).map((row) => {
-        const tabs = (row.tabs || []).map((tab) => ({ ...tab, id: uid() }));
+        const tabs = (row.tabs || []).map((tab) => ({
+          ...tab,
+          id: uid(),
+          reference: tab.reference ?? null,
+          parallels: (tab.parallels || []).map((p) => ({ ...p, id: uid() })),
+        }));
         const idx = typeof row.activeTabIndex === 'number' ? row.activeTabIndex : 0;
         const activeTabId = tabs[idx]?.id ?? tabs[0]?.id ?? null;
         const type = row.type === 'aichat' ? 'passageguide' : row.type;
-        return { ...row, id: uid(), type, tabs, activeTabId };
+        return { ...row, id: uid(), type, tabs, activeTabId, reference: row.reference ?? null };
       }),
     }));
   } catch {
@@ -62,8 +66,14 @@ function saveToStorage(columns) {
       rows: col.rows.map((row) => ({
         type: row.type,
         flex: row.flex,
-        tabs: row.tabs.map(({ module, title }) => ({ module, title })),
+        tabs: row.tabs.map(({ module, title, reference, parallels }) => ({
+          module,
+          title,
+          reference: reference ?? null,
+          parallels: (parallels || []).map(({ module: pm, title: pt }) => ({ module: pm, title: pt })),
+        })),
         activeTabIndex: row.tabs.findIndex((t) => t.id === row.activeTabId),
+        reference: row.reference ?? null,
       })),
     }));
     localStorage.setItem('workspace-layout-v1', JSON.stringify(slim));
@@ -182,7 +192,7 @@ export function useWorkspaceLayout() {
     );
   }
 
-  function addTab(colId, rowId, module, title) {
+  function addTab(colId, rowId, module, title, initialReference = null) {
     let newId = null;
     update((cols) =>
       cols.map((col) =>
@@ -192,7 +202,7 @@ export function useWorkspaceLayout() {
               ...col,
               rows: col.rows.map((row) => {
                 if (row.id !== rowId) return row;
-                const tab = makeTab(module, title);
+                const tab = { ...makeTab(module, title), reference: initialReference };
                 newId = tab.id;
                 return { ...row, tabs: [...row.tabs, tab], activeTabId: tab.id };
               }),
@@ -282,6 +292,87 @@ export function useWorkspaceLayout() {
     });
   }
 
+  function setBibleTabReference(colId, rowId, tabId, ref) {
+    update((cols) =>
+      cols.map((col) =>
+        col.id !== colId ? col : {
+          ...col,
+          rows: col.rows.map((row) =>
+            row.id !== rowId ? row : {
+              ...row,
+              tabs: row.tabs.map((t) => t.id !== tabId ? t : { ...t, reference: ref }),
+            }
+          ),
+        }
+      )
+    );
+  }
+
+  function addTabParallel(colId, rowId, tabId, module, title) {
+    update((cols) =>
+      cols.map((col) =>
+        col.id !== colId ? col : {
+          ...col,
+          rows: col.rows.map((row) =>
+            row.id !== rowId ? row : {
+              ...row,
+              tabs: row.tabs.map((t) =>
+                t.id !== tabId ? t : {
+                  ...t,
+                  parallels: [...(t.parallels || []), { id: uid(), module, title }],
+                }
+              ),
+            }
+          ),
+        }
+      )
+    );
+  }
+
+  function removeTabParallel(colId, rowId, tabId, parallelId) {
+    update((cols) =>
+      cols.map((col) =>
+        col.id !== colId ? col : {
+          ...col,
+          rows: col.rows.map((row) =>
+            row.id !== rowId ? row : {
+              ...row,
+              tabs: row.tabs.map((t) =>
+                t.id !== tabId ? t : {
+                  ...t,
+                  parallels: (t.parallels || []).filter((p) => p.id !== parallelId),
+                }
+              ),
+            }
+          ),
+        }
+      )
+    );
+  }
+
+  function swapTabParallel(colId, rowId, tabId, parallelId, module, title) {
+    update((cols) =>
+      cols.map((col) =>
+        col.id !== colId ? col : {
+          ...col,
+          rows: col.rows.map((row) =>
+            row.id !== rowId ? row : {
+              ...row,
+              tabs: row.tabs.map((t) =>
+                t.id !== tabId ? t : {
+                  ...t,
+                  parallels: (t.parallels || []).map((p) =>
+                    p.id !== parallelId ? p : { ...p, module, title }
+                  ),
+                }
+              ),
+            }
+          ),
+        }
+      )
+    );
+  }
+
   function swapTabModule(colId, rowId, tabId, module, title) {
     update((cols) =>
       cols.map((col) =>
@@ -316,6 +407,10 @@ export function useWorkspaceLayout() {
     removeTab,
     setActiveTab,
     swapTabModule,
+    setBibleTabReference,
+    addTabParallel,
+    removeTabParallel,
+    swapTabParallel,
     movePane,
   };
 }

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import SearchBar from './SearchBar.jsx';
-import RefNav from './RefNav.jsx';
 import WorkspaceLayout from './WorkspaceLayout.jsx';
 import { api } from '../api/client.js';
 import { useWorkspaceLayout } from '../hooks/useWorkspaceLayout.js';
@@ -118,6 +117,15 @@ export default function CellView({
   function navigateFocus(reference) {
     if (reference === focusedReference) return;
     setFocusedReference(reference);
+    // Sync primary Bible pane's active tab so search bar and deep links keep it in step
+    for (const col of layout.columns) {
+      for (const row of col.rows) {
+        if (row.type === 'bible' && row.activeTabId) {
+          layout.setBibleTabReference(col.id, row.id, row.activeTabId, reference);
+          break;
+        }
+      }
+    }
     try { localStorage.setItem('cell-last-reference', reference); } catch {}
     setNavHistory((prev) => {
       const truncated = prev.entries.slice(0, prev.index + 1);
@@ -128,15 +136,27 @@ export default function CellView({
   function goBack() {
     if (navHistory.index <= 0) return;
     const newIndex = navHistory.index - 1;
-    setFocusedReference(navHistory.entries[newIndex]);
+    const ref = navHistory.entries[newIndex];
+    setFocusedReference(ref);
     setNavHistory({ ...navHistory, index: newIndex });
+    for (const col of layout.columns) {
+      for (const row of col.rows) {
+        if (row.type === 'bible' && row.activeTabId) { layout.setBibleTabReference(col.id, row.id, row.activeTabId, ref); break; }
+      }
+    }
   }
 
   function goForward() {
     if (navHistory.index >= navHistory.entries.length - 1) return;
     const newIndex = navHistory.index + 1;
-    setFocusedReference(navHistory.entries[newIndex]);
+    const ref = navHistory.entries[newIndex];
+    setFocusedReference(ref);
     setNavHistory({ ...navHistory, index: newIndex });
+    for (const col of layout.columns) {
+      for (const row of col.rows) {
+        if (row.type === 'bible' && row.activeTabId) { layout.setBibleTabReference(col.id, row.id, row.activeTabId, ref); break; }
+      }
+    }
   }
 
   function handleAskAboutPassage(module, reference) {
@@ -153,15 +173,21 @@ export default function CellView({
 
   function openVerseTab(module, osisRef) {
     setVerseDrawer(null);
-    navigateFocus(osisRef);
     const firstBibleCol = layout.columns.find((c) => c.rows.some((r) => r.type === 'bible'));
     const firstBibleRow = firstBibleCol?.rows.find((r) => r.type === 'bible');
     if (firstBibleCol && firstBibleRow) {
       const existingTab = firstBibleRow.tabs.find((t) => t.module === module);
-      if (!existingTab) {
+      if (existingTab) {
+        layout.setActiveTab(firstBibleCol.id, firstBibleRow.id, existingTab.id);
+        layout.setBibleTabReference(firstBibleCol.id, firstBibleRow.id, existingTab.id, osisRef);
+      } else {
+        // navigateFocus sets focusedReference — new tab falls back to it until navigated
+        navigateFocus(osisRef);
         layout.addTab(firstBibleCol.id, firstBibleRow.id, module, module);
+        return;
       }
     }
+    navigateFocus(osisRef);
   }
 
   function openStrongsInDictionary(strongsKey) {
@@ -243,10 +269,7 @@ export default function CellView({
   const firstBibleTab = (() => {
     for (const col of layout.columns) {
       for (const row of col.rows) {
-        if (row.type === 'bible') {
-          const active = row.tabs.find((t) => t.id === row.activeTabId);
-          if (active) return active;
-        }
+        if (row.type === 'bible' && row.tabs.length > 0) return row.tabs[0];
       }
     }
     return null;
@@ -297,11 +320,6 @@ export default function CellView({
             ›
           </button>
         </div>
-
-        {/* Segmented reference navigator */}
-        <div className="h-5 w-px shrink-0 bg-rule" />
-        <RefNav reference={focusedReference} onNavigate={navigateFocus} />
-        <div className="h-5 w-px shrink-0 bg-rule" />
 
         {/* Search */}
         <div className="min-w-0 flex-1">

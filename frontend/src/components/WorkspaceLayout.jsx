@@ -3,13 +3,14 @@ import { PANE_TYPES } from '../hooks/useWorkspaceLayout.js';
 import ReaderPane from './ReaderPane.jsx';
 import DictionaryPane from './DictionaryPane.jsx';
 import CrossRefPane from './CrossRefPane.jsx';
-import ParallelBiblePane from './ParallelBiblePane.jsx';
 import PassageGuidePane from './PassageGuidePane.jsx';
 import DocumentReader from './DocumentReader.jsx';
 import DocumentTabStrip from './DocumentTabStrip.jsx';
 import TabStrip from './TabStrip.jsx';
 import StrongsDrawer from './StrongsDrawer.jsx';
 import VerseDrawer from './VerseDrawer.jsx';
+import RefNav from './RefNav.jsx';
+import ModulePicker from './ModulePicker.jsx';
 
 // ─── Resize handles (shown when not dragging) ─────────────────────────────────
 
@@ -124,13 +125,22 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
     openVerseTab,
   } = shared;
 
-  const { removePane, splitPane, setPaneType, addTab, removeTab, setActiveTab, swapTabModule } =
-    layoutOps;
-
-  const tabStripKind =
-    ['bible', 'commentary', 'dictionary'].includes(row.type) ? row.type : undefined;
+  const { removePane, splitPane, setPaneType, addTab, removeTab, setActiveTab, swapTabModule,
+          setBibleTabReference, addTabParallel, removeTabParallel, swapTabParallel } = layoutOps;
 
   const activeTab = row.tabs.find((t) => t.id === row.activeTabId) || null;
+
+  const paneRef = row.type === 'bible'
+    ? (activeTab?.reference ?? focusedReference)
+    : focusedReference;
+
+  function handleBibleNavigate(ref) {
+    if (activeTab) setBibleTabReference(col.id, row.id, activeTab.id, ref);
+    onNavigate(ref);
+  }
+
+  const tabStripKind =
+    ['commentary', 'dictionary'].includes(row.type) ? row.type : undefined;
   const activeModule = activeTab?.module || '';
 
   const drawerTargetRowId = row.id;
@@ -147,27 +157,115 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
 
   function renderContent() {
     switch (row.type) {
-      case 'bible':
+      case 'bible': {
+        const activeParallels = activeTab?.parallels || [];
+        const allColumns = activeTab
+          ? [{ id: `_p_${activeTab.id}`, module: activeTab.module, title: activeTab.title }, ...activeParallels].filter((c) => c.module)
+          : [];
+
         return (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="min-h-0 flex-1 overflow-hidden">
-              {row.tabs.map((tab) => (
-                <div key={tab.id} className={tab.id === row.activeTabId ? 'h-full' : 'hidden'}>
-                  <ReaderPane
-                    module={tab.module}
-                    reference={focusedReference}
-                    focusMode
-                    onNavigate={onNavigate}
-                    onStrongsClick={onStrongsClick}
-                    onVerseRefClick={onVerseRefClick}
-                    onAnnotate={onAnnotate}
-                    onAskAboutPassage={onAskAboutPassage}
-                    onPhraseStudy={onPhraseStudy}
-                  />
-                </div>
-              ))}
-              {row.tabs.length === 0 && <EmptyPaneContent label="No Bible tab open — click + above to add one." />}
+            {/* Tab strip — each tab is an independent position */}
+            <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-rule bg-panel px-1 py-0.5">
+              {row.tabs.map((tab) => {
+                const isActive = tab.id === row.activeTabId;
+                const tabLabel = [tab.module, ...(tab.parallels || []).map((p) => p.module)]
+                  .filter(Boolean).join(' | ') || 'Bible';
+                return (
+                  <div
+                    key={tab.id}
+                    className={`flex shrink-0 items-center rounded text-xs whitespace-nowrap ${
+                      isActive ? 'bg-ink text-brass' : 'text-muted'
+                    }`}
+                  >
+                    <button
+                      onClick={() => setActiveTab(col.id, row.id, tab.id)}
+                      className={`px-2 py-1 ${isActive ? '' : 'hover:text-parchment'}`}
+                    >
+                      {tabLabel}
+                    </button>
+                    {row.tabs.length > 1 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeTab(col.id, row.id, tab.id); }}
+                        className="px-1.5 py-1 hover:text-red-400"
+                        title="Close tab"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              <ModulePicker
+                kind="bible"
+                excludeModules={[]}
+                label="+"
+                title="Open a new tab at a different position"
+                onSelect={(module, title) => addTab(col.id, row.id, module, title)}
+              />
             </div>
+
+            {/* RefNav header — reference for the active tab, with add-parallel button */}
+            {activeTab && (
+              <div className="flex shrink-0 items-center border-b border-rule bg-panel px-3 py-1.5">
+                <RefNav reference={paneRef} onNavigate={handleBibleNavigate} />
+                <div className="flex-1" />
+                <ModulePicker
+                  kind="bible"
+                  excludeModules={[]}
+                  label="∥"
+                  title="Show a parallel translation alongside this one"
+                  onSelect={(module, title) => addTabParallel(col.id, row.id, activeTab.id, module, title)}
+                />
+              </div>
+            )}
+
+            {/* Content — shared scroll container; columns side-by-side, scroll together */}
+            <div className="flex min-h-0 flex-1 overflow-y-auto bg-page">
+              <div className="flex min-h-full w-full">
+                {!activeTab && <EmptyPaneContent label="No Bible tab open — click + above to add one." />}
+                {allColumns.map((item, i) => (
+                  <div key={item.id} className="flex min-w-0 flex-1 flex-col">
+                    {allColumns.length > 1 && (
+                      <div className="sticky top-0 z-10 flex items-center border-b border-pageBorder bg-page px-3 py-1">
+                        <ModulePicker
+                          kind="bible"
+                          excludeModules={[]}
+                          label={item.title || item.module || 'Bible'}
+                          title="Change translation"
+                          onSelect={i === 0
+                            ? (m, t) => swapTabModule(col.id, row.id, activeTab.id, m, t)
+                            : (m, t) => swapTabParallel(col.id, row.id, activeTab.id, item.id, m, t)
+                          }
+                        />
+                        {i > 0 && (
+                          <button
+                            onClick={() => removeTabParallel(col.id, row.id, activeTab.id, item.id)}
+                            className="ml-1 rounded px-1 py-0.5 text-xs text-muted hover:text-red-400"
+                            title="Remove parallel"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <ReaderPane
+                      module={item.module}
+                      reference={paneRef}
+                      focusMode
+                      noScroll
+                      onNavigate={handleBibleNavigate}
+                      onStrongsClick={onStrongsClick}
+                      onVerseRefClick={onVerseRefClick}
+                      onAnnotate={onAnnotate}
+                      onAskAboutPassage={onAskAboutPassage}
+                      onPhraseStudy={onPhraseStudy}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {strongsDrawer?.targetRowId === row.id && (
               <StrongsDrawer
                 strongsKey={strongsDrawer.key}
@@ -190,6 +288,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
             )}
           </div>
         );
+      }
 
       case 'commentary':
         return (
@@ -294,13 +393,6 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 onOpenInTab={openVerseTab}
               />
             )}
-          </div>
-        );
-
-      case 'parallel':
-        return (
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <ParallelBiblePane reference={focusedReference} onNavigate={onNavigate} />
           </div>
         );
 
@@ -506,6 +598,10 @@ export default function WorkspaceLayout({
   removeTab,
   setActiveTab,
   swapTabModule,
+  setBibleTabReference,
+  addTabParallel,
+  removeTabParallel,
+  swapTabParallel,
   movePane,
   shared,
 }) {
@@ -532,6 +628,10 @@ export default function WorkspaceLayout({
     removeTab,
     setActiveTab,
     swapTabModule,
+    setBibleTabReference,
+    addTabParallel,
+    removeTabParallel,
+    swapTabParallel,
   };
 
   function handlePaneDragStart(colId, rowId) {

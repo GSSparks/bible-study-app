@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
-import BookChapterPicker from './BookChapterPicker.jsx';
 
 function groupVerses(verses) {
   const segments = [];
@@ -81,6 +80,7 @@ export default function ReaderPane({
   module,
   reference,
   focusMode = false,
+  noScroll = false,
   onNavigate,
   onStrongsClick,
   onVerseRefClick,
@@ -92,7 +92,6 @@ export default function ReaderPane({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
-  const [bookPicker, setBookPicker] = useState(null);
   const [selectedRange, setSelectedRange] = useState(null);
   const [phraseSelection, setPhraseSelection] = useState(null); // { text, strongsSequence, x, y }
   const [focusedVerseKey, setFocusedVerseKey] = useState(null);
@@ -296,25 +295,13 @@ export default function ReaderPane({
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-page px-6 py-6 text-pageText">
-      <header className="mb-4 flex items-baseline gap-3">
-        <h1 className="font-display text-2xl text-pageText">{reference || 'Select a passage'}</h1>
-        {module && <span className="font-mono text-xs uppercase tracking-wide text-pageMuted">{module}</span>}
-        <div className="ml-auto flex gap-2">
-          {onNavigate && (
-            <button
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setBookPicker({ x: rect.left, y: rect.bottom + 4 });
-              }}
-              className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
-              title="Browse by book and chapter"
-            >
-              Browse ▾
-            </button>
-          )}
+    <div className={`${noScroll ? '' : 'h-full overflow-y-auto '}bg-page px-6 py-6 text-pageText`}>
+      {!focusMode && (
+        <header className="mb-4 flex items-baseline gap-3">
+          <h1 className="font-display text-2xl text-pageText">{reference || 'Select a passage'}</h1>
+          {module && <span className="font-mono text-xs uppercase tracking-wide text-pageMuted">{module}</span>}
           {first && (
-            <>
+            <div className="ml-auto flex gap-2">
               <button
                 onClick={() => goToChapter(-1)}
                 className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
@@ -329,10 +316,10 @@ export default function ReaderPane({
               >
                 ›
               </button>
-            </>
+            </div>
           )}
-        </div>
-      </header>
+        </header>
+      )}
 
       {loading && <p className="text-pageMuted">Loading passage…</p>}
       {error && <p className="text-red-600">{error}</p>}
@@ -474,15 +461,6 @@ export default function ReaderPane({
           </>,
           document.body
         )}
-
-      {bookPicker && (
-        <BookChapterPicker
-          x={bookPicker.x}
-          y={bookPicker.y}
-          onSelectChapter={(chapterRef) => onNavigate?.(focusMode ? `${chapterRef}:1` : chapterRef)}
-          onClose={() => setBookPicker(null)}
-        />
-      )}
 
       {footnotePopup && (
         <FootnotePopup
