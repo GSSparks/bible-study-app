@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
+import { osisToHuman } from '../utils/osisToHuman.js';
 
 export default function CrossRefPane({ reference, onVerseRefClick }) {
   const [tskInstalled, setTskInstalled] = useState(null); // null = still checking
@@ -86,9 +87,10 @@ export default function CrossRefPane({ reference, onVerseRefClick }) {
               <button
                 key={ref}
                 onClick={() => onVerseRefClick?.(ref)}
+                title={ref}
                 className="rounded border border-pageBorder px-2 py-0.5 text-xs text-verdigris hover:border-brass hover:text-brass"
               >
-                {ref}
+                {osisToHuman(ref)}
               </button>
             ))}
           </div>
