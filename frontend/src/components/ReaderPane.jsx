@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Languages } from 'lucide-react';
 import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import VerseCommentaryEditor from './VerseCommentaryEditor.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
+import { parseVerseTokens, collectStrongsKeys, cleanMorph } from '../utils/parseInterlinear.js';
 
 function groupVerses(verses) {
   const segments = [];
@@ -117,6 +119,8 @@ export default function ReaderPane({
   const [highlightMap, setHighlightMap] = useState(new Map()); // verseRef → { id, color }
   const [noteCount, setNoteCount] = useState(0);
   const [verseNoteRef, setVerseNoteRef] = useState(null); // { reference, x, y }
+  const [interlinearMode, setInterlinearMode] = useState(false);
+  const [strongsCache, setStrongsCache] = useState(new Map()); // strongsKey → transcription
   const verseRefs = useRef(new Map());
 
   useEffect(() => {
@@ -183,6 +187,26 @@ export default function ReaderPane({
     const el = verseRefs.current.get(focusedVerseKey);
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [focusMode, focusedVerseKey, verses]);
+
+  // Fetch Strong's transcriptions for all words in the passage when
+  // interlinear mode is active. Results are cached so toggling off/on
+  // doesn't re-fetch. Uses the existing /api/strongs/:key endpoint.
+  useEffect(() => {
+    if (!interlinearMode || verses.length === 0) return;
+    const keys = collectStrongsKeys(verses);
+    const missing = keys.filter((k) => !strongsCache.has(k));
+    if (missing.length === 0) return;
+    Promise.allSettled(missing.map((k) => api.getStrongsEntry(k).then((e) => [k, e?.transcription || ''])))
+      .then((results) => {
+        setStrongsCache((prev) => {
+          const next = new Map(prev);
+          for (const r of results) {
+            if (r.status === 'fulfilled') next.set(r.value[0], r.value[1]);
+          }
+          return next;
+        });
+      });
+  }, [interlinearMode, verses]);
 
   const indexedVerses = useMemo(() => verses.map((v, i) => ({ ...v, __index: i })), [verses]);
   const segments = useMemo(() => groupVerses(indexedVerses), [indexedVerses]);
@@ -525,12 +549,21 @@ export default function ReaderPane({
 
       {!loading && !error && verses.length > 0 && (
         <div className="flex gap-3">
-          <button
-            className={`marginalia-tick mt-2 shrink-0 cursor-pointer${highlightMap.size > 0 || noteCount > 0 ? ' marginalia-tick--active' : ''}`}
-            title={noteCount > 0 ? `${noteCount} note${noteCount !== 1 ? 's' : ''} on this passage` : 'Add a note or highlight on this passage'}
-            onClick={() => onAnnotate?.(reference)}
-            aria-label="Annotate this passage"
-          />
+          <div className="flex shrink-0 flex-col items-center gap-2 pt-1">
+            <button
+              className={`marginalia-tick cursor-pointer${highlightMap.size > 0 || noteCount > 0 ? ' marginalia-tick--active' : ''}`}
+              title={noteCount > 0 ? `${noteCount} note${noteCount !== 1 ? 's' : ''} on this passage` : 'Add a note or highlight on this passage'}
+              onClick={() => onAnnotate?.(reference)}
+              aria-label="Annotate this passage"
+            />
+            <button
+              onClick={() => setInterlinearMode((m) => !m)}
+              title={interlinearMode ? 'Switch to normal reading mode' : 'Switch to interlinear mode'}
+              className={`rounded p-0.5 transition-colors ${interlinearMode ? 'text-brass' : 'text-pageMuted/40 hover:text-pageMuted'}`}
+            >
+              <Languages size={13} strokeWidth={2} />
+            </button>
+          </div>
           <SelectableNoteRegion
             reference={reference}
             module={module}
@@ -551,39 +584,84 @@ export default function ReaderPane({
                 {seg.sectionTitles.length > 0 && (
                   <h3 className="mb-2 mt-1 font-display text-lg italic text-pageAccent">{seg.sectionTitles.join(' — ')}</h3>
                 )}
-                <p>
-                  {seg.verses.map((v) => {
-                    const verseKey = `${v.chapter}-${v.verseNr}`;
-                    const isFocused = focusMode && verseKey === focusedVerseKey;
-                    const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
-                    const hlColor = highlightMap.get(verseRef)?.color;
-                    return (
-                      <span
-                        key={verseKey}
-                        ref={(el) => {
-                          if (el) verseRefs.current.set(verseKey, el);
-                          else verseRefs.current.delete(verseKey);
-                        }}
-                        className={[
-                          isIndexSelected(v.__index) ? 'rounded bg-pageAccent/20' : '',
-                          isFocused ? 'border-l-2 border-pageAccent bg-pageAccent/10 pl-1' : '',
-                          hlColor ? (HIGHLIGHT_BG[hlColor] ?? 'bg-amber-300/30') : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                      >
-                        <sup
-                          className="mr-1 cursor-pointer text-xs text-pageAccent hover:text-brass"
-                          title={focusMode ? 'Click to focus this verse, shift-click to select a range' : 'Click to select, shift-click to select a range'}
-                          onClick={(e) => handleVerseNumberClick(e, v)}
+                {interlinearMode ? (
+                  <div className="flex flex-wrap items-end gap-x-2 gap-y-4">
+                    {seg.verses.map((v) => {
+                      const verseKey = `${v.chapter}-${v.verseNr}`;
+                      const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
+                      const hlColor = highlightMap.get(verseRef)?.color;
+                      const tokens = parseVerseTokens(v.content);
+                      return (
+                        <span
+                          key={verseKey}
+                          ref={(el) => { if (el) verseRefs.current.set(verseKey, el); else verseRefs.current.delete(verseKey); }}
+                          className={`inline-flex flex-wrap items-end gap-x-2 gap-y-4 ${hlColor ? (HIGHLIGHT_BG[hlColor] ?? 'bg-amber-300/30') : ''}`}
                         >
-                          {v.verseNr}
-                        </sup>
-                        <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
-                      </span>
-                    );
-                  })}
-                </p>
+                          <sup
+                            className="self-start cursor-pointer text-xs text-pageAccent hover:text-brass"
+                            onClick={(e) => handleVerseNumberClick(e, v)}
+                          >
+                            {v.verseNr}
+                          </sup>
+                          {tokens.map((tok, ti) =>
+                            tok.type === 'text' ? (
+                              tok.text.trim() ? (
+                                <span key={ti} className="self-end pb-0.5 font-display text-sm text-pageText">{tok.text}</span>
+                              ) : null
+                            ) : (
+                              <span key={ti} className="inline-flex flex-col items-center gap-0.5 text-center">
+                                <span className="font-display text-sm leading-snug text-pageText">{tok.word}</span>
+                                <button
+                                  className="font-mono text-[10px] leading-none text-verdigris hover:text-brass"
+                                  onClick={(e) => onStrongsClick?.(tok.strong, e, tok.morph, tok.word, module)}
+                                >
+                                  {tok.strong.split(',')[0]}
+                                </button>
+                                <span className="text-[10px] leading-none italic text-pageMuted">
+                                  {strongsCache.get(tok.strong.split(',')[0]) || '…'}
+                                </span>
+                              </span>
+                            )
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p>
+                    {seg.verses.map((v) => {
+                      const verseKey = `${v.chapter}-${v.verseNr}`;
+                      const isFocused = focusMode && verseKey === focusedVerseKey;
+                      const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
+                      const hlColor = highlightMap.get(verseRef)?.color;
+                      return (
+                        <span
+                          key={verseKey}
+                          ref={(el) => {
+                            if (el) verseRefs.current.set(verseKey, el);
+                            else verseRefs.current.delete(verseKey);
+                          }}
+                          className={[
+                            isIndexSelected(v.__index) ? 'rounded bg-pageAccent/20' : '',
+                            isFocused ? 'border-l-2 border-pageAccent bg-pageAccent/10 pl-1' : '',
+                            hlColor ? (HIGHLIGHT_BG[hlColor] ?? 'bg-amber-300/30') : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                        >
+                          <sup
+                            className="mr-1 cursor-pointer text-xs text-pageAccent hover:text-brass"
+                            title={focusMode ? 'Click to focus this verse, shift-click to select a range' : 'Click to select, shift-click to select a range'}
+                            onClick={(e) => handleVerseNumberClick(e, v)}
+                          >
+                            {v.verseNr}
+                          </sup>
+                          <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
+                        </span>
+                      );
+                    })}
+                  </p>
+                )}
               </div>
             ))}
           </SelectableNoteRegion>
