@@ -16,7 +16,7 @@ function extractStrongsData(target) {
   return null;
 }
 
-export default function DictionaryPane({ module, focusedReference, onVerseRefClick, onStrongsClick, onOpenInDictionary, initialKey, initialFilter }) {
+export default function DictionaryPane({ module, focusedReference, onVerseRefClick, onStrongsClick, onOpenInDictionary, initialKey, initialFilter, refreshNonce }) {
   const [mode, setMode] = useState('probing');
   const [refVerses, setRefVerses] = useState([]);
   const [keys, setKeys] = useState([]);
@@ -57,7 +57,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
     return () => {
       cancelled = true;
     };
-  }, [module, focusedReference]);
+  }, [module, focusedReference, refreshNonce]);
 
   useEffect(() => {
     setSelectedKey(null);
@@ -74,7 +74,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
       .then(setKeys)
       .catch((e) => setError(e.message))
       .finally(() => setLoadingKeys(false));
-  }, [mode, module]);
+  }, [mode, module, refreshNonce]);
 
   useEffect(() => {
     if (initialKey) {

@@ -95,7 +95,7 @@ function markdownToHtml(md) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function PassageGuidePane({ reference, module, isLoggedIn, pendingAiRequest }) {
+export default function PassageGuidePane({ reference, module, isLoggedIn, pendingAiRequest, onPersonalDictionarySaved }) {
   const [sessions, setSessions] = useState([]);
   const [sessionSearch, setSessionSearch] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -428,6 +428,7 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
       });
       setSavedDictIdx(idx);
       setTimeout(() => setSavedDictIdx((i) => (i === idx ? null : i)), 1500);
+      onPersonalDictionarySaved?.();
     } catch (e) {
       setError(e.message);
     }

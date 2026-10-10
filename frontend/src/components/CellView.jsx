@@ -48,6 +48,8 @@ export default function CellView({
   const [pendingDictTabId, setPendingDictTabId] = useState(null);
   const [pendingAiRequest, setPendingAiRequest] = useState(null);
   const [pendingSearch, setPendingSearch] = useState(null);
+  const [commentaryRefreshNonce, setCommentaryRefreshNonce] = useState(0);
+  const [dictionaryRefreshNonce, setDictionaryRefreshNonce] = useState(0);
 
   const layout = useWorkspaceLayout();
 
@@ -334,6 +336,10 @@ export default function CellView({
     verseDrawer,
     setVerseDrawer,
     openVerseTab,
+    commentaryRefreshNonce,
+    dictionaryRefreshNonce,
+    onPersonalCommentarySaved: () => setCommentaryRefreshNonce((n) => n + 1),
+    onPersonalDictionarySaved: () => setDictionaryRefreshNonce((n) => n + 1),
   };
 
   return (

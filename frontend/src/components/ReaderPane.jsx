@@ -104,6 +104,8 @@ export default function ReaderPane({
   onAnnotate,
   onAskAboutPassage,
   onPhraseStudy,
+  refreshNonce,
+  onPersonalCommentarySaved,
 }) {
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -174,7 +176,7 @@ export default function ReaderPane({
     return () => {
       cancelled = true;
     };
-  }, [module, reference, focusMode]);
+  }, [module, reference, focusMode, refreshNonce]);
 
   useEffect(() => {
     if (!focusMode || !focusedVerseKey) return;
@@ -752,10 +754,14 @@ export default function ReaderPane({
       {verseNoteRef && (
         <VerseCommentaryEditor
           reference={verseNoteRef.reference}
+          initialQuote={verseNoteRef.initialQuote}
           x={verseNoteRef.x}
           y={verseNoteRef.y}
           onClose={() => setVerseNoteRef(null)}
-          onSaved={() => setNoteCount((n) => n + 1)}
+          onSaved={() => {
+            setNoteCount((n) => n + 1);
+            onPersonalCommentarySaved?.();
+          }}
         />
       )}
 

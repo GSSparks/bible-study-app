@@ -86,6 +86,10 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
     verseDrawer,
     setVerseDrawer,
     openVerseTab,
+    commentaryRefreshNonce,
+    dictionaryRefreshNonce,
+    onPersonalCommentarySaved,
+    onPersonalDictionarySaved,
   } = shared;
 
   const { removePane, splitPane, addTab, removeTab, setActiveTab, swapTabModule,
@@ -224,6 +228,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                       onAnnotate={onAnnotate}
                       onAskAboutPassage={onAskAboutPassage}
                       onPhraseStudy={onPhraseStudy}
+                      onPersonalCommentarySaved={onPersonalCommentarySaved}
                     />
                   </div>
                 ))}
@@ -270,6 +275,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                     onAnnotate={onAnnotate}
                     onAskAboutPassage={onAskAboutPassage}
                     onPhraseStudy={onPhraseStudy}
+                    refreshNonce={commentaryRefreshNonce}
                   />
                 </div>
               ))}
@@ -312,6 +318,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                     onOpenInDictionary={openStrongsInDictionary}
                     initialKey={tab.id === pendingDictTabId ? pendingDictKey : null}
                     initialFilter={tab.id === pendingDictTabId ? pendingDictFilter : null}
+                    refreshNonce={dictionaryRefreshNonce}
                   />
                 </div>
               ))}
@@ -367,6 +374,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
               module={defaultBibleModule}
               isLoggedIn={Boolean(auth?.user)}
               pendingAiRequest={pendingAiRequest}
+              onPersonalDictionarySaved={onPersonalDictionarySaved}
             />
           </div>
         );
