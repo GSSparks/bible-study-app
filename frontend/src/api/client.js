@@ -47,8 +47,14 @@ export const api = {
   createNote: (note) => request('/notes', { method: 'POST', body: JSON.stringify(note) }),
   updateNote: (id, patch) => request(`/notes/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
-  listHighlights: (reference) => request(`/notes/highlights?reference=${encodeURIComponent(reference)}`),
+  listHighlights: ({ reference, prefix } = {}) => {
+    const params = new URLSearchParams();
+    if (reference) params.set('reference', reference);
+    if (prefix) params.set('prefix', prefix);
+    return request(`/notes/highlights?${params}`);
+  },
   createHighlight: (h) => request('/notes/highlights', { method: 'POST', body: JSON.stringify(h) }),
+  deleteHighlight: (id) => request(`/notes/highlights/${id}`, { method: 'DELETE' }),
 
   // PDF library
   listDocuments: () => request('/pdf'),
@@ -75,6 +81,9 @@ export const api = {
   buildPhraseStudyContext: (payload) => request('/phrase-study', { method: 'POST', body: JSON.stringify(payload) }),
   askPhraseStudy: (payload) => request('/phrase-study/ask', { method: 'POST', body: JSON.stringify(payload) }),
   savePersonalModule: (payload) => request('/personal-modules/save', { method: 'POST', body: JSON.stringify(payload) }),
+  getCommentaryEntry: (reference) => request(`/personal-modules/commentary-entry?reference=${encodeURIComponent(reference)}`),
+  saveCommentaryNote: ({ reference, title, bodyMd }) =>
+    request('/personal-modules/commentary-entry', { method: 'PUT', body: JSON.stringify({ reference, title, bodyMd }) }),
 
   // User profiles
   getUserProfile: (username) => request(`/users/${encodeURIComponent(username)}`),

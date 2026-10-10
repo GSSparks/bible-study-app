@@ -33,9 +33,13 @@ export default function SelectionNotePopup({ quote, reference, module, x, y, onC
           confirming here, it's a short note, not a big form). */}
       <div className="fixed inset-0 z-30" onClick={onClose} />
       <div className="fixed z-40 w-80 rounded-lg border border-rule bg-panel p-3 shadow-2xl" style={style}>
-        <blockquote className="mb-2 border-l-2 border-verdigris pl-2 text-xs italic text-muted line-clamp-4">
-          {quote}
-        </blockquote>
+        {quote ? (
+          <blockquote className="mb-2 border-l-2 border-verdigris pl-2 text-xs italic text-muted line-clamp-4">
+            {quote}
+          </blockquote>
+        ) : reference ? (
+          <p className="mb-2 font-mono text-xs text-verdigris">{reference}</p>
+        ) : null}
         <textarea
           autoFocus
           value={body}

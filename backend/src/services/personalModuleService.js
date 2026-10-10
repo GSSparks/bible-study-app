@@ -157,6 +157,41 @@ function osisOverlaps(aItem, bItem) {
   return aStartAbs <= bEndAbs && bStartAbs <= aEndAbs;
 }
 
+/** Fetches an existing commentary entry for the given human reference
+ *  from the user's default "My Studies" personal module, or null if none
+ *  exists. Used by the verse note editor to pre-fill existing content. */
+export async function getPersonalCommentaryEntry(reference, userId) {
+  if (!userId) return null;
+  const mod = await prisma.personalModule.findFirst({
+    where: { type: 'COMMENTARY', name: 'My Studies', userId },
+  });
+  if (!mod) return null;
+  return prisma.personalEntry.findFirst({ where: { moduleId: mod.id, reference } });
+}
+
+/** Creates or updates a personal commentary entry for the given reference.
+ *  If an entry already exists with that exact reference in the user's
+ *  "My Studies" module, it is updated in place (no duplicates). */
+export async function upsertPersonalCommentaryEntry({ reference, title, bodyMd, userId }) {
+  if (!userId) {
+    const err = new Error('Login required.');
+    err.status = 401;
+    throw err;
+  }
+  const html = marked.parse(bodyMd || '');
+  const mod = await getOrCreateDefaultPersonalModule('COMMENTARY', userId);
+  const existing = await prisma.personalEntry.findFirst({ where: { moduleId: mod.id, reference } });
+  if (existing) {
+    return prisma.personalEntry.update({
+      where: { id: existing.id },
+      data: { title, body: html, bodyMd },
+    });
+  }
+  return prisma.personalEntry.create({
+    data: { moduleId: mod.id, reference, title, body: html, bodyMd },
+  });
+}
+
 /** COMMENTARY-type: every saved entry whose own reference overlaps the
  *  queried one — not an exact string match, since a conversation saved
  *  about "John 3:16-18" should still surface when focus lands on just

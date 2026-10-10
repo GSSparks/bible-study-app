@@ -55,6 +55,13 @@
   border-color: theme('colors.pageAccent');
   opacity: 1;
 }
+.marginalia-tick--active::before {
+  border-color: theme('colors.brass');
+  opacity: 1;
+}
+.marginalia-tick--active:hover::before {
+  border-color: theme('colors.pageAccent');
+}
 
 /* SWORD renders Strong's/morphology markup as inline elements once
    enableMarkup() is on — normalized server-side into `.strongs` +

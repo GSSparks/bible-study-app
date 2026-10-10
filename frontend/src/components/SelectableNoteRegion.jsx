@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import SelectionNotePopup from './SelectionNotePopup.jsx';
 
-export default function SelectableNoteRegion({ reference, module, className, onClick, onContextMenu, onMouseUp, children }) {
+export default function SelectableNoteRegion({ reference, module, showNoteButton = true, className, onClick, onContextMenu, onMouseUp, children }) {
   const contentRef = useRef(null);
   const [selection, setSelection] = useState(null); // { text, x, y }
   const [showPopup, setShowPopup] = useState(false);
@@ -38,6 +38,7 @@ export default function SelectableNoteRegion({ reference, module, className, onC
 
       {selection &&
         !showPopup &&
+        showNoteButton &&
         createPortal(
           <button
             onMouseDown={(e) => e.preventDefault()} // don't collapse the selection on click

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
+import VerseCommentaryEditor from './VerseCommentaryEditor.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
 
 function groupVerses(verses) {
@@ -76,6 +77,22 @@ function extractCleanSelectionText(range) {
   return container.textContent.trim().replace(/\s+/g, ' ');
 }
 
+const HIGHLIGHT_BG = {
+  yellow: 'bg-amber-300/30',
+  blue: 'bg-sky-300/30',
+  green: 'bg-emerald-300/25',
+  pink: 'bg-rose-300/25',
+  purple: 'bg-violet-300/25',
+};
+
+const HIGHLIGHT_SWATCH = {
+  yellow: 'bg-amber-400',
+  blue: 'bg-sky-400',
+  green: 'bg-emerald-400',
+  pink: 'bg-rose-400',
+  purple: 'bg-violet-400',
+};
+
 export default function ReaderPane({
   module,
   reference,
@@ -95,6 +112,9 @@ export default function ReaderPane({
   const [selectedRange, setSelectedRange] = useState(null);
   const [phraseSelection, setPhraseSelection] = useState(null); // { text, strongsSequence, x, y }
   const [focusedVerseKey, setFocusedVerseKey] = useState(null);
+  const [highlightMap, setHighlightMap] = useState(new Map()); // verseRef → { id, color }
+  const [noteCount, setNoteCount] = useState(0);
+  const [verseNoteRef, setVerseNoteRef] = useState(null); // { reference, x, y }
   const verseRefs = useRef(new Map());
 
   useEffect(() => {
@@ -103,24 +123,48 @@ export default function ReaderPane({
     setLoading(true);
     setError(null);
     setSelectedRange(null);
+    setHighlightMap(new Map());
+    setNoteCount(0);
+
+    async function loadAnnotations(loadedVerses) {
+      if (!loadedVerses.length) return;
+      const v0 = loadedVerses[0];
+      const chapterRef = `${v0.bibleBookShortTitle} ${v0.chapter}`;
+      try {
+        const [hls, nts] = await Promise.all([
+          api.listHighlights({ prefix: `${chapterRef}:` }),
+          api.listNotes({ reference: chapterRef }),
+        ]);
+        if (cancelled) return;
+        const hMap = new Map();
+        for (const h of hls) hMap.set(h.reference, { id: h.id, color: h.color });
+        setHighlightMap(hMap);
+        setNoteCount(nts.length);
+      } catch {} // non-fatal
+    }
 
     async function load() {
+      let loadedVerses;
       if (!focusMode) {
         const res = await api.getPassage(module, reference);
-        if (!cancelled) setVerses(res.verses || []);
-        return;
+        loadedVerses = res.verses || [];
+        if (!cancelled) setVerses(loadedVerses);
+      } else {
+        const anchorRes = await api.getPassage(module, reference);
+        const anchor = anchorRes.verses?.[0];
+        if (!anchor) {
+          loadedVerses = anchorRes.verses || [];
+          if (!cancelled) setVerses(loadedVerses);
+        } else {
+          const chapterRes = await api.getPassage(module, `${anchor.bibleBookShortTitle} ${anchor.chapter}`);
+          loadedVerses = chapterRes.verses || [];
+          if (!cancelled) {
+            setVerses(loadedVerses);
+            setFocusedVerseKey(`${anchor.chapter}-${anchor.verseNr}`);
+          }
+        }
       }
-      const anchorRes = await api.getPassage(module, reference);
-      const anchor = anchorRes.verses?.[0];
-      if (!anchor) {
-        if (!cancelled) setVerses(anchorRes.verses || []);
-        return;
-      }
-      const chapterRes = await api.getPassage(module, `${anchor.bibleBookShortTitle} ${anchor.chapter}`);
-      if (!cancelled) {
-        setVerses(chapterRes.verses || []);
-        setFocusedVerseKey(`${anchor.chapter}-${anchor.verseNr}`);
-      }
+      await loadAnnotations(loadedVerses || []);
     }
 
     load()
@@ -141,6 +185,33 @@ export default function ReaderPane({
   const indexedVerses = useMemo(() => verses.map((v, i) => ({ ...v, __index: i })), [verses]);
   const segments = useMemo(() => groupVerses(indexedVerses), [indexedVerses]);
   const first = verses[0];
+
+  const selectionVerseCount = useMemo(() => {
+    if (!selectedRange) return 0;
+    return Math.abs(selectedRange.focus - selectedRange.anchor) + 1;
+  }, [selectedRange]);
+
+  const selectionHasHighlight = useMemo(() => {
+    if (!selectedRange) return false;
+    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
+    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
+    for (let i = lo; i <= hi; i++) {
+      const v = verses[i];
+      if (v && highlightMap.has(`${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`)) return true;
+    }
+    return false;
+  }, [selectedRange, verses, highlightMap]);
+
+  const phraseSelectionHasHighlight = useMemo(() => {
+    if (!phraseSelection?.verseIndices) return false;
+    const [loIdx, hiIdx] = phraseSelection.verseIndices;
+    if (loIdx === null || hiIdx === null) return false;
+    for (let i = loIdx; i <= hiIdx; i++) {
+      const v = verses[i];
+      if (v && highlightMap.has(`${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`)) return true;
+    }
+    return false;
+  }, [phraseSelection, verses, highlightMap]);
 
   function goToChapter(delta) {
     if (!first) return;
@@ -208,6 +279,122 @@ export default function ReaderPane({
     setSelectedRange(null);
   }
 
+  async function handleHighlight(color) {
+    if (!selectedRange) return;
+    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
+    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
+    const refs = [];
+    for (let i = lo; i <= hi; i++) {
+      const v = verses[i];
+      if (v) refs.push(`${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`);
+    }
+    // Optimistic update (no ID yet)
+    setHighlightMap((prev) => {
+      const next = new Map(prev);
+      for (const ref of refs) next.set(ref, { id: null, color });
+      return next;
+    });
+    setSelectedRange(null);
+    try {
+      const created = await Promise.all(refs.map((ref) => api.createHighlight({ reference: ref, module, color })));
+      // Fill in real IDs
+      setHighlightMap((prev) => {
+        const next = new Map(prev);
+        refs.forEach((ref, i) => { if (created[i]?.id) next.set(ref, { id: created[i].id, color }); });
+        return next;
+      });
+    } catch (e) {
+      console.error('Failed to save highlight:', e);
+    }
+  }
+
+  async function handleRemoveHighlight() {
+    if (!selectedRange) return;
+    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
+    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
+    const idsToDelete = [];
+    const refsToRemove = [];
+    for (let i = lo; i <= hi; i++) {
+      const v = verses[i];
+      if (!v) continue;
+      const ref = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
+      const hl = highlightMap.get(ref);
+      if (hl) {
+        refsToRemove.push(ref);
+        if (hl.id) idsToDelete.push(hl.id);
+      }
+    }
+    setHighlightMap((prev) => {
+      const next = new Map(prev);
+      for (const ref of refsToRemove) next.delete(ref);
+      return next;
+    });
+    setSelectedRange(null);
+    try {
+      await Promise.all(idsToDelete.map((id) => api.deleteHighlight(id)));
+    } catch (e) {
+      console.error('Failed to delete highlight:', e);
+    }
+  }
+
+  async function handleHighlightFromPhrase(color) {
+    if (!phraseSelection?.verseIndices) return;
+    const [loIdx, hiIdx] = phraseSelection.verseIndices;
+    if (loIdx === null || hiIdx === null) return;
+    const refs = [];
+    for (let i = loIdx; i <= hiIdx; i++) {
+      const v = verses[i];
+      if (v) refs.push(`${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`);
+    }
+    setHighlightMap((prev) => {
+      const next = new Map(prev);
+      for (const ref of refs) next.set(ref, { id: null, color });
+      return next;
+    });
+    setPhraseSelection(null);
+    window.getSelection()?.removeAllRanges();
+    try {
+      const created = await Promise.all(refs.map((ref) => api.createHighlight({ reference: ref, module, color })));
+      setHighlightMap((prev) => {
+        const next = new Map(prev);
+        refs.forEach((ref, i) => { if (created[i]?.id) next.set(ref, { id: created[i].id, color }); });
+        return next;
+      });
+    } catch (e) {
+      console.error('Failed to save highlight:', e);
+    }
+  }
+
+  async function handleRemoveHighlightFromPhrase() {
+    if (!phraseSelection?.verseIndices) return;
+    const [loIdx, hiIdx] = phraseSelection.verseIndices;
+    if (loIdx === null || hiIdx === null) return;
+    const idsToDelete = [];
+    const refsToRemove = [];
+    for (let i = loIdx; i <= hiIdx; i++) {
+      const v = verses[i];
+      if (!v) continue;
+      const ref = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
+      const hl = highlightMap.get(ref);
+      if (hl) {
+        refsToRemove.push(ref);
+        if (hl.id) idsToDelete.push(hl.id);
+      }
+    }
+    setHighlightMap((prev) => {
+      const next = new Map(prev);
+      for (const ref of refsToRemove) next.delete(ref);
+      return next;
+    });
+    setPhraseSelection(null);
+    window.getSelection()?.removeAllRanges();
+    try {
+      await Promise.all(idsToDelete.map((id) => api.deleteHighlight(id)));
+    } catch (e) {
+      console.error('Failed to delete highlight:', e);
+    }
+  }
+
   function handleContentClick(e) {
     const footnoteEl = e.target.closest('.footnote-marker');
     if (footnoteEl) {
@@ -259,10 +446,6 @@ export default function ReaderPane({
     }
     setSelectedRange(null);
 
-    // Use the cleaned text (marker elements stripped) as the actual
-    // phrase, not the raw selection string — see
-    // extractCleanSelectionText's comment for why the raw string can be
-    // silently corrupted by a swept-up cross-reference marker.
     const text = extractCleanSelectionText(range);
     if (!text) return;
 
@@ -275,12 +458,26 @@ export default function ReaderPane({
       }
     }
 
+    // Find which verse indices are spanned by this text selection so
+    // the phrase toolbar can apply highlights and open the note editor
+    // with the correct reference.
+    const verseByKey = new Map(verses.map((v, i) => [`${v.chapter}-${v.verseNr}`, i]));
+    const spannedIndices = [];
+    for (const [key, el] of verseRefs.current) {
+      if (range.intersectsNode(el)) {
+        const idx = verseByKey.get(key);
+        if (idx !== undefined) spannedIndices.push(idx);
+      }
+    }
+    const loIdx = spannedIndices.length ? Math.min(...spannedIndices) : null;
+    const hiIdx = spannedIndices.length ? Math.max(...spannedIndices) : null;
+    const firstVerse = loIdx !== null ? verses[loIdx] : null;
+    const verseRef = firstVerse
+      ? `${firstVerse.bibleBookShortTitle} ${firstVerse.chapter}:${firstVerse.verseNr}`
+      : null;
+
     const rect = range.getBoundingClientRect();
-    // Offset further down than SelectableNoteRegion's own "+note"
-    // button (which lands at rect.bottom + 6) — both react to the same
-    // selection now, so without this gap the two floating toolbars
-    // would land almost exactly on top of each other.
-    setPhraseSelection({ text, strongsSequence, x: rect.left, y: rect.bottom + 40 });
+    setPhraseSelection({ text, strongsSequence, x: rect.left, y: rect.bottom + 8, verseIndices: [loIdx, hiIdx], verseRef });
   }
 
   function handlePhraseStudyClick(useOriginalWords) {
@@ -327,14 +524,15 @@ export default function ReaderPane({
       {!loading && !error && verses.length > 0 && (
         <div className="flex gap-3">
           <button
-            className="marginalia-tick mt-2 shrink-0 cursor-pointer"
-            title="Add a note or highlight on this passage"
+            className={`marginalia-tick mt-2 shrink-0 cursor-pointer${highlightMap.size > 0 || noteCount > 0 ? ' marginalia-tick--active' : ''}`}
+            title={noteCount > 0 ? `${noteCount} note${noteCount !== 1 ? 's' : ''} on this passage` : 'Add a note or highlight on this passage'}
             onClick={() => onAnnotate?.(reference)}
             aria-label="Annotate this passage"
           />
           <SelectableNoteRegion
             reference={reference}
             module={module}
+            showNoteButton={false}
             className={`verse-content max-w-2xl flex-1 space-y-4 font-display text-base leading-relaxed text-pageText ${
               focusMode ? '' : 'markdown-body markdown-body-page'
             }`}
@@ -355,6 +553,8 @@ export default function ReaderPane({
                   {seg.verses.map((v) => {
                     const verseKey = `${v.chapter}-${v.verseNr}`;
                     const isFocused = focusMode && verseKey === focusedVerseKey;
+                    const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
+                    const hlColor = highlightMap.get(verseRef)?.color;
                     return (
                       <span
                         key={verseKey}
@@ -365,6 +565,7 @@ export default function ReaderPane({
                         className={[
                           isIndexSelected(v.__index) ? 'rounded bg-pageAccent/20' : '',
                           isFocused ? 'border-l-2 border-pageAccent bg-pageAccent/10 pl-1' : '',
+                          hlColor ? (HIGHLIGHT_BG[hlColor] ?? 'bg-amber-300/30') : '',
                         ]
                           .filter(Boolean)
                           .join(' ')}
@@ -399,7 +600,42 @@ export default function ReaderPane({
               className="fixed z-40 flex items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
               style={{ left: selectedRange.x, top: selectedRange.y }}
             >
-              <span className="px-1 font-mono text-xs text-muted">{getSelectedReference()}</span>
+              <span className="px-1 font-mono text-xs text-muted">
+                {getSelectedReference()}
+                {selectionVerseCount > 1 && (
+                  <span className="ml-1 text-muted/60">({selectionVerseCount}v)</span>
+                )}
+              </span>
+              <div className="flex items-center gap-0.5 border-r border-rule pr-1.5">
+                {Object.entries(HIGHLIGHT_SWATCH).map(([color, swatchCls]) => (
+                  <button
+                    key={color}
+                    onClick={() => handleHighlight(color)}
+                    className={`h-4 w-4 rounded-full ring-1 ring-rule/60 hover:ring-2 hover:ring-rule ${swatchCls}`}
+                    title={`Highlight ${color}`}
+                  />
+                ))}
+                {selectionHasHighlight && (
+                  <button
+                    onClick={handleRemoveHighlight}
+                    className="flex h-4 w-4 items-center justify-center rounded-full ring-1 ring-rule/60 hover:bg-red-900/30 hover:ring-red-400"
+                    title="Remove highlight"
+                  >
+                    <span className="text-[9px] leading-none text-muted">✕</span>
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  const ref = getSelectedReference();
+                  if (ref) setVerseNoteRef({ reference: ref, x: selectedRange.x, y: selectedRange.y + 28 });
+                  setSelectedRange(null);
+                }}
+                className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-verdigris hover:text-parchment"
+                title="Write a note on this verse"
+              >
+                Note
+              </button>
               <button
                 onClick={handleCopySelection}
                 className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
@@ -427,32 +663,83 @@ export default function ReaderPane({
         )}
 
       {phraseSelection &&
-        onPhraseStudy &&
         createPortal(
           <>
-            <div className="fixed inset-0 z-30" onClick={() => setPhraseSelection(null)} />
             <div
-              className="fixed z-40 flex max-w-md items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
+              className="fixed inset-0 z-30"
+              onClick={() => { setPhraseSelection(null); window.getSelection()?.removeAllRanges(); }}
+            />
+            <div
+              className="fixed z-40 flex max-w-lg flex-wrap items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
               style={{ left: phraseSelection.x, top: phraseSelection.y }}
             >
-              <button
-                onClick={() => handlePhraseStudyClick(false)}
-                className="rounded bg-brass px-2 py-1 text-xs font-medium text-ink hover:bg-brass/90"
-                title="Search this exact wording across the whole Bible in this translation"
-              >
-                Study this phrase (exact wording) →
-              </button>
-              {phraseSelection.strongsSequence.length > 0 && (
+              {/* Highlight swatches — only if we know which verse(s) are spanned */}
+              {phraseSelection.verseIndices[0] !== null && (
+                <div className="flex items-center gap-0.5 border-r border-rule pr-1.5">
+                  {Object.entries(HIGHLIGHT_SWATCH).map(([color, swatchCls]) => (
+                    <button
+                      key={color}
+                      onClick={() => handleHighlightFromPhrase(color)}
+                      className={`h-4 w-4 rounded-full ring-1 ring-rule/60 hover:ring-2 hover:ring-rule ${swatchCls}`}
+                      title={`Highlight ${color}`}
+                    />
+                  ))}
+                  {phraseSelectionHasHighlight && (
+                    <button
+                      onClick={handleRemoveHighlightFromPhrase}
+                      className="flex h-4 w-4 items-center justify-center rounded-full ring-1 ring-rule/60 hover:bg-red-900/30 hover:ring-red-400"
+                      title="Remove highlight"
+                    >
+                      <span className="text-[9px] leading-none text-muted">✕</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Note — opens commentary editor pre-filled with the selected quote */}
+              {phraseSelection.verseRef && (
                 <button
-                  onClick={() => handlePhraseStudyClick(true)}
-                  className="rounded bg-verdigris px-2 py-1 text-xs font-medium text-ink hover:bg-verdigris/90"
-                  title="Search for the same underlying original-language words, regardless of English wording"
+                  onClick={() => {
+                    setVerseNoteRef({
+                      reference: phraseSelection.verseRef,
+                      x: phraseSelection.x,
+                      y: phraseSelection.y + 32,
+                      initialQuote: phraseSelection.text,
+                    });
+                    setPhraseSelection(null);
+                    window.getSelection()?.removeAllRanges();
+                  }}
+                  className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-verdigris hover:text-parchment"
                 >
-                  Study this phrase (original words) →
+                  Note
                 </button>
               )}
+
+              {/* Phrase AI study — only when that feature is wired up */}
+              {onPhraseStudy && (
+                <>
+                  <span className="text-muted/30">|</span>
+                  <button
+                    onClick={() => handlePhraseStudyClick(false)}
+                    className="rounded bg-brass px-2 py-1 text-xs font-medium text-ink hover:bg-brass/90"
+                    title="Search this exact wording across the whole Bible in this translation"
+                  >
+                    Study exact wording →
+                  </button>
+                  {phraseSelection.strongsSequence.length > 0 && (
+                    <button
+                      onClick={() => handlePhraseStudyClick(true)}
+                      className="rounded bg-verdigris px-2 py-1 text-xs font-medium text-ink hover:bg-verdigris/90"
+                      title="Search for the same underlying original-language words, regardless of English wording"
+                    >
+                      Study original words →
+                    </button>
+                  )}
+                </>
+              )}
+
               <button
-                onClick={() => setPhraseSelection(null)}
+                onClick={() => { setPhraseSelection(null); window.getSelection()?.removeAllRanges(); }}
                 className="rounded px-1.5 py-1 text-xs text-muted hover:text-parchment"
               >
                 ✕
@@ -461,6 +748,16 @@ export default function ReaderPane({
           </>,
           document.body
         )}
+
+      {verseNoteRef && (
+        <VerseCommentaryEditor
+          reference={verseNoteRef.reference}
+          x={verseNoteRef.x}
+          y={verseNoteRef.y}
+          onClose={() => setVerseNoteRef(null)}
+          onSaved={() => setNoteCount((n) => n + 1)}
+        />
+      )}
 
       {footnotePopup && (
         <FootnotePopup

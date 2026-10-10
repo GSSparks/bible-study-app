@@ -99,6 +99,7 @@ model PersonalEntry {
   reference      String?
   title          String
   body           String
+  bodyMd         String?
   createdAt      DateTime       @default(now())
 
   @@index([moduleId, key])

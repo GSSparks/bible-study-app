@@ -16,9 +16,10 @@ notesRouter.use(requireLogin);
 // GET /api/notes                           -> everything, most recent first
 notesRouter.get('/', async (req, res, next) => {
   try {
-    const { reference, q } = req.query;
+    const { reference, prefix, q } = req.query;
     const where = { userId: req.user.id };
     if (reference) where.reference = reference;
+    else if (prefix) where.reference = { startsWith: prefix };
     if (q) {
       where.OR = [
         { title: { contains: q, mode: 'insensitive' } },
@@ -63,7 +64,19 @@ notesRouter.get('/highlights', async (req, res, next) => {
   try {
     const where = { userId: req.user.id };
     if (req.query.reference) where.reference = req.query.reference;
+    else if (req.query.prefix) where.reference = { startsWith: req.query.prefix };
     res.json(await prisma.highlight.findMany({ where }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+notesRouter.delete('/highlights/:id', async (req, res, next) => {
+  try {
+    const existing = await prisma.highlight.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
+    await prisma.highlight.delete({ where: { id: req.params.id } });
+    res.status(204).end();
   } catch (err) {
     next(err);
   }
