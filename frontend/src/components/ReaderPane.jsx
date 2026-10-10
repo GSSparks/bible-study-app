@@ -100,6 +100,7 @@ export default function ReaderPane({
   reference,
   focusMode = false,
   noScroll = false,
+  showMarginalia = true,
   onNavigate,
   onStrongsClick,
   onVerseRefClick,
@@ -133,7 +134,7 @@ export default function ReaderPane({
     setNoteCount(0);
 
     async function loadAnnotations(loadedVerses) {
-      if (!loadedVerses.length) return;
+      if (!showMarginalia || !loadedVerses.length) return;
       const v0 = loadedVerses[0];
       const chapterRef = `${v0.bibleBookShortTitle} ${v0.chapter}`;
       try {
@@ -549,21 +550,23 @@ export default function ReaderPane({
 
       {!loading && !error && verses.length > 0 && (
         <div className="flex gap-3">
-          <div className="flex shrink-0 flex-col items-center gap-2 pt-1">
-            <button
-              className={`marginalia-tick cursor-pointer${highlightMap.size > 0 || noteCount > 0 ? ' marginalia-tick--active' : ''}`}
-              title={noteCount > 0 ? `${noteCount} note${noteCount !== 1 ? 's' : ''} on this passage` : 'Add a note or highlight on this passage'}
-              onClick={() => onAnnotate?.(reference)}
-              aria-label="Annotate this passage"
-            />
-            <button
-              onClick={() => setInterlinearMode((m) => !m)}
-              title={interlinearMode ? 'Switch to normal reading mode' : 'Switch to interlinear mode'}
-              className={`rounded p-0.5 transition-colors ${interlinearMode ? 'text-brass' : 'text-pageMuted/40 hover:text-pageMuted'}`}
-            >
-              <Languages size={13} strokeWidth={2} />
-            </button>
-          </div>
+          {showMarginalia && (
+            <div className="flex shrink-0 flex-col items-center gap-2 pt-1">
+              <button
+                className={`marginalia-tick cursor-pointer${highlightMap.size > 0 || noteCount > 0 ? ' marginalia-tick--active' : ''}`}
+                title={noteCount > 0 ? `${noteCount} note${noteCount !== 1 ? 's' : ''} on this passage` : 'Add a note or highlight on this passage'}
+                onClick={() => onAnnotate?.(reference)}
+                aria-label="Annotate this passage"
+              />
+              <button
+                onClick={() => setInterlinearMode((m) => !m)}
+                title={interlinearMode ? 'Switch to normal reading mode' : 'Switch to interlinear mode'}
+                className={`rounded p-0.5 transition-colors ${interlinearMode ? 'text-brass' : 'text-pageMuted/40 hover:text-pageMuted'}`}
+              >
+                <Languages size={13} strokeWidth={2} />
+              </button>
+            </div>
+          )}
           <SelectableNoteRegion
             reference={reference}
             module={module}
@@ -589,7 +592,7 @@ export default function ReaderPane({
                     {seg.verses.map((v) => {
                       const verseKey = `${v.chapter}-${v.verseNr}`;
                       const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
-                      const hlColor = highlightMap.get(verseRef)?.color;
+                      const hlColor = showMarginalia ? highlightMap.get(verseRef)?.color : null;
                       const tokens = parseVerseTokens(v.content);
                       return (
                         <span
@@ -633,7 +636,7 @@ export default function ReaderPane({
                       const verseKey = `${v.chapter}-${v.verseNr}`;
                       const isFocused = focusMode && verseKey === focusedVerseKey;
                       const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
-                      const hlColor = highlightMap.get(verseRef)?.color;
+                      const hlColor = showMarginalia ? highlightMap.get(verseRef)?.color : null;
                       return (
                         <span
                           key={verseKey}

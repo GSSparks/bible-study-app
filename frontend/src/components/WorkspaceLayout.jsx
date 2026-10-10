@@ -269,10 +269,10 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                   <ReaderPane
                     module={tab.module}
                     reference={focusedReference}
+                    showMarginalia={false}
                     onNavigate={onNavigate}
                     onStrongsClick={onStrongsClick}
                     onVerseRefClick={onVerseRefClick}
-                    onAnnotate={onAnnotate}
                     onAskAboutPassage={onAskAboutPassage}
                     onPhraseStudy={onPhraseStudy}
                     refreshNonce={commentaryRefreshNonce}
