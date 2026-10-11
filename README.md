@@ -68,6 +68,7 @@ The Cell is a small window manager. Panes tile into resizable columns and rows; 
 | Cross-References | Human-readable cross-reference list with hover verse previews |
 | Passage Guide | AI-powered study assistant contextualised to the open passage |
 | Documents | PDF viewer/reader for uploaded reference books |
+| Search Results | Unified results across Bible text, notes, and PDFs |
 
 **Within each pane:**
 
