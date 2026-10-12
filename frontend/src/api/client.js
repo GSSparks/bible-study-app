@@ -75,6 +75,7 @@ export const api = {
 
   // Topic / Factbook cross-module search
   searchTopics: (q) => request(`/topics?q=${encodeURIComponent(q)}`),
+  getWikipediaEntry: (q) => request(`/wikipedia?q=${encodeURIComponent(q)}`),
 
   // Strong's / dictionary & lexicon browsing
   getStrongsEntry: (key) => request(`/strongs/${encodeURIComponent(key)}`),

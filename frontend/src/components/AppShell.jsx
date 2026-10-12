@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, BookMarked, Box, Library as LibraryIcon, Settings as SettingsIcon, Shield, Menu, X } from 'lucide-react';
+import { BookOpen, BookMarked, Box, Compass, Library as LibraryIcon, Settings as SettingsIcon, Shield, Menu, X } from 'lucide-react';
 import BiblePanel from './BiblePanel.jsx';
 import CellView from './CellView.jsx';
+import TopicGuidePane from './TopicGuidePane.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
 import SettingsView from './SettingsView.jsx';
 import AdminView from './AdminView.jsx';
@@ -17,6 +18,7 @@ import { api } from '../api/client.js';
 const NAV_GROUPS = [
   [
     { key: 'cell', label: 'Cell', Icon: BookOpen },
+    { key: 'factbook', label: 'Factbook', Icon: Compass },
     { key: 'plans', label: 'Plans', Icon: BookMarked },
     { key: 'scriptoriums', label: 'Scriptoriums', Icon: Box, requiresAuth: true },
     { key: 'library', label: 'Library', Icon: LibraryIcon },
@@ -266,6 +268,9 @@ export default function AppShell({ auth }) {
             onAiDocumentConsumed={() => setPendingAiDocument(null)}
           />
         </div>
+        <div className={activeView === 'factbook' ? 'h-full' : 'hidden'}>
+          <TopicGuidePane isLoggedIn={Boolean(auth.user)} />
+        </div>
         {activeView === 'settings' && (
           <SettingsView
             username={auth.user?.username}
@@ -301,6 +306,7 @@ export default function AppShell({ auth }) {
           />
         </div>
         {activeView !== 'cell' &&
+          activeView !== 'factbook' &&
           activeView !== 'settings' &&
           activeView !== 'admin' &&
           activeView !== 'plans' &&

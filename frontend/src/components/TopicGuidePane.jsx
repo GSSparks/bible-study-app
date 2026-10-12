@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { ExternalLink, Search, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import FootnotePopup from './FootnotePopup.jsx';
+
+const WIKIPEDIA_MODULE = '__wikipedia__';
 
 export default function TopicGuidePane({
   initialQuery,
@@ -10,30 +12,45 @@ export default function TopicGuidePane({
   isLoggedIn = false,
 }) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);   // [{module, description, key}]
-  const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState(null); // {module, description, key}
+  const [results, setResults] = useState([]);         // [{module, description, key}]
+  const [loadingDict, setLoadingDict] = useState(false);
+  const [wikipediaResult, setWikipediaResult] = useState(null); // {title, html, thumbnail, url}
+  const [loadingWiki, setLoadingWiki] = useState(false);
+  const [selected, setSelected] = useState(null);     // {module, description, key} — module may be WIKIPEDIA_MODULE
   const [entryHtml, setEntryHtml] = useState('');
   const [loadingEntry, setLoadingEntry] = useState(false);
   const [entryError, setEntryError] = useState(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
   const inputRef = useRef(null);
 
-  // Debounced search
+  // ── Debounced search across DICT modules + Wikipedia ──────────────────────
   useEffect(() => {
     const q = query.trim();
-    if (!q || q.length < 2) { setResults([]); return; }
-    setLoading(true);
+    if (!q || q.length < 2) {
+      setResults([]);
+      setWikipediaResult(null);
+      return;
+    }
+    setLoadingDict(true);
+    setLoadingWiki(true);
     const timer = setTimeout(() => {
       api.searchTopics(q)
         .then(setResults)
         .catch(() => setResults([]))
-        .finally(() => setLoading(false));
+        .finally(() => setLoadingDict(false));
+      api.getWikipediaEntry(q)
+        .then(setWikipediaResult)
+        .catch(() => setWikipediaResult(null))
+        .finally(() => setLoadingWiki(false));
     }, 300);
-    return () => { clearTimeout(timer); setLoading(false); };
+    return () => {
+      clearTimeout(timer);
+      setLoadingDict(false);
+      setLoadingWiki(false);
+    };
   }, [query]);
 
-  // Respond to external triggers (Strong's drawer Factbook button, etc.)
+  // ── Respond to external triggers (Strong's drawer "Factbook" button) ──────
   useEffect(() => {
     if (initialQuery?.term) {
       setQuery(initialQuery.term);
@@ -41,16 +58,20 @@ export default function TopicGuidePane({
     }
   }, [initialQuery?.nonce]);
 
-  // Auto-select first result when results arrive, unless selection still valid
+  // ── Auto-select first DICT result when results arrive ─────────────────────
   useEffect(() => {
     if (results.length === 0) return;
-    const stillValid = selected && results.some((r) => r.module === selected.module && r.key === selected.key);
-    if (!stillValid) setSelected(results[0]);
+    const isWiki = selected?.module === WIKIPEDIA_MODULE;
+    const stillValid = !isWiki && selected && results.some((r) => r.module === selected.module && r.key === selected.key);
+    if (!stillValid && !isWiki) setSelected(results[0]);
   }, [results]);
 
-  // Fetch entry HTML when selection changes
+  // ── Fetch entry HTML when a DICT entry is selected ────────────────────────
   useEffect(() => {
-    if (!selected) { setEntryHtml(''); return; }
+    if (!selected || selected.module === WIKIPEDIA_MODULE) {
+      if (!selected) setEntryHtml('');
+      return;
+    }
     let cancelled = false;
     setLoadingEntry(true);
     setEntryError(null);
@@ -61,7 +82,7 @@ export default function TopicGuidePane({
     return () => { cancelled = true; };
   }, [selected?.module, selected?.key]);
 
-  // Group results by module for the nav panel
+  // ── Group DICT results by module ──────────────────────────────────────────
   const grouped = useMemo(() => {
     const map = new Map();
     for (const r of results) {
@@ -71,9 +92,12 @@ export default function TopicGuidePane({
     return [...map.entries()].map(([module, { description, keys }]) => ({ module, description, keys }));
   }, [results]);
 
-  // Navigate to a cross-referenced key: try same module first, then search
+  const loading = loadingDict || loadingWiki;
+  const hasResults = results.length > 0 || !!wikipediaResult;
+
+  // ── Cross-reference navigation within the same module ─────────────────────
   async function navigateToKey(key) {
-    if (!key) return;
+    if (!key || selected?.module === WIKIPEDIA_MODULE) { setQuery(key); return; }
     if (selected) {
       try {
         const res = await api.getDictionaryEntry(selected.module, key);
@@ -110,13 +134,23 @@ export default function TopicGuidePane({
     if (verseRefEl) { onVerseRefClick?.(verseRefEl.dataset.ref, e); return; }
   }
 
+  function selectWikipedia() {
+    if (!wikipediaResult) return;
+    setSelected({ module: WIKIPEDIA_MODULE, description: 'Wikipedia', key: wikipediaResult.title });
+    setEntryHtml('');
+    setEntryError(null);
+  }
+
   function clearSearch() {
     setQuery('');
     setResults([]);
+    setWikipediaResult(null);
     setSelected(null);
     setEntryHtml('');
     inputRef.current?.focus();
   }
+
+  const isWikiSelected = selected?.module === WIKIPEDIA_MODULE;
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -146,10 +180,10 @@ export default function TopicGuidePane({
 
         {/* Results list */}
         <div className="min-h-0 flex-1 overflow-y-auto py-1">
-          {loading && (
+          {loading && !hasResults && (
             <p className="px-3 py-2 text-xs text-muted">Searching…</p>
           )}
-          {!loading && query.trim().length >= 2 && results.length === 0 && (
+          {!loading && query.trim().length >= 2 && !hasResults && (
             <p className="px-3 py-2 text-xs text-muted">No results for "{query.trim()}".</p>
           )}
           {!query.trim() && (
@@ -157,6 +191,8 @@ export default function TopicGuidePane({
               Type a person, place, or topic to search all installed reference modules.
             </p>
           )}
+
+          {/* DICT module results */}
           {grouped.map(({ module, description, keys }) => (
             <div key={module} className="mb-2">
               <p className="px-3 pb-0.5 pt-2 font-sans text-[9px] uppercase tracking-widest text-muted/60">
@@ -180,6 +216,37 @@ export default function TopicGuidePane({
               })}
             </div>
           ))}
+
+          {/* Wikipedia result */}
+          {(wikipediaResult || loadingWiki) && query.trim().length >= 2 && (
+            <div className="mt-1 border-t border-rule/30 pt-1">
+              <p className="px-3 pb-0.5 pt-2 font-sans text-[9px] uppercase tracking-widest text-muted/60">
+                Wikipedia
+              </p>
+              {loadingWiki && !wikipediaResult && (
+                <p className="px-3 py-1 text-xs text-muted">Loading…</p>
+              )}
+              {wikipediaResult && (
+                <button
+                  onClick={selectWikipedia}
+                  className={`flex w-full items-center gap-2 truncate px-3 py-1.5 text-left text-sm transition-colors ${
+                    isWikiSelected
+                      ? 'bg-verdigris/20 text-brass'
+                      : 'text-parchment/80 hover:bg-ink/40 hover:text-parchment'
+                  }`}
+                >
+                  {wikipediaResult.thumbnail && (
+                    <img
+                      src={wikipediaResult.thumbnail}
+                      alt=""
+                      className="h-5 w-5 shrink-0 rounded-sm object-cover"
+                    />
+                  )}
+                  <span className="truncate">{wikipediaResult.title}</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -189,22 +256,20 @@ export default function TopicGuidePane({
           <div className="mt-12 text-center text-pageMuted">
             <Search size={32} className="mx-auto mb-3 opacity-20" />
             <p className="text-sm">Search for a topic, person, or place</p>
-            <p className="mt-1 text-xs opacity-60">Results drawn from all installed dictionaries and reference modules</p>
+            <p className="mt-1 text-xs opacity-60">Searches installed dictionaries and Wikipedia</p>
           </div>
         )}
         {!selected && query.trim() && !loading && (
           <p className="text-sm text-pageMuted">Select an entry from the list.</p>
         )}
 
-        {selected && (
+        {/* DICT entry */}
+        {selected && !isWikiSelected && (
           <>
-            {/* Entry header */}
             <div className="mb-5 border-b border-pageBorder pb-4">
               <h1 className="font-display text-2xl font-normal text-pageText">{selected.key}</h1>
               <p className="mt-1 font-sans text-xs text-pageMuted">{selected.description}</p>
             </div>
-
-            {/* Entry content */}
             {loadingEntry && <p className="text-sm text-pageMuted">Loading…</p>}
             {entryError && <p className="text-sm text-red-600">{entryError}</p>}
             {!loadingEntry && !entryError && entryHtml && (
@@ -213,6 +278,46 @@ export default function TopicGuidePane({
                 dangerouslySetInnerHTML={{ __html: entryHtml }}
                 onClick={handleContentClick}
               />
+            )}
+          </>
+        )}
+
+        {/* Wikipedia entry */}
+        {selected && isWikiSelected && wikipediaResult && (
+          <>
+            <div className="mb-5 border-b border-pageBorder pb-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h1 className="font-display text-2xl font-normal text-pageText">{wikipediaResult.title}</h1>
+                  <p className="mt-1 font-sans text-xs text-pageMuted">Wikipedia</p>
+                </div>
+                {wikipediaResult.thumbnail && (
+                  <img
+                    src={wikipediaResult.thumbnail}
+                    alt={wikipediaResult.title}
+                    className="h-20 w-20 shrink-0 rounded object-cover shadow"
+                  />
+                )}
+              </div>
+            </div>
+
+            {wikipediaResult.html && (
+              <div
+                className="mb-5 max-w-2xl font-display text-base leading-relaxed text-pageText"
+                dangerouslySetInnerHTML={{ __html: wikipediaResult.html }}
+              />
+            )}
+
+            {wikipediaResult.url && (
+              <a
+                href={wikipediaResult.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm text-verdigris hover:text-brass"
+              >
+                Read full article on Wikipedia
+                <ExternalLink size={12} />
+              </a>
             )}
           </>
         )}
