@@ -562,7 +562,11 @@ export default function ReaderPane({
               <button
                 className={`marginalia-tick cursor-pointer${highlightMap.size > 0 || noteCount > 0 ? ' marginalia-tick--active' : ''}`}
                 title={noteCount > 0 ? `${noteCount} note${noteCount !== 1 ? 's' : ''} on this passage` : 'Add a note or highlight on this passage'}
-                onClick={() => onAnnotate?.(reference)}
+                onClick={(e) => {
+                  if (verses.length === 0) return;
+                  setPhraseSelection(null);
+                  setSelectedRange({ anchor: 0, focus: verses.length - 1, x: e.clientX, y: e.clientY + 16 });
+                }}
                 aria-label="Annotate this passage"
               />
               <button

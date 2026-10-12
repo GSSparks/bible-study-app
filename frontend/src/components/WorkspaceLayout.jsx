@@ -323,6 +323,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                     initialKey={tab.id === pendingDictTabId ? pendingDictKey : null}
                     initialFilter={tab.id === pendingDictTabId ? pendingDictFilter : null}
                     refreshNonce={dictionaryRefreshNonce}
+                    isLoggedIn={Boolean(auth?.user)}
                   />
                 </div>
               ))}

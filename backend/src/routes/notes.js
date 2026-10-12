@@ -94,7 +94,9 @@ notesRouter.post('/highlights', async (req, res, next) => {
 // --- Bookmarks ---
 notesRouter.get('/bookmarks', async (req, res, next) => {
   try {
-    res.json(await prisma.bookmark.findMany({ where: { userId: req.user.id }, orderBy: { createdAt: 'desc' } }));
+    const where = { userId: req.user.id };
+    if (req.query.module) where.module = req.query.module;
+    res.json(await prisma.bookmark.findMany({ where, orderBy: { createdAt: 'desc' } }));
   } catch (err) {
     next(err);
   }
@@ -104,6 +106,17 @@ notesRouter.post('/bookmarks', async (req, res, next) => {
   try {
     const { reference, module, label } = req.body;
     res.status(201).json(await prisma.bookmark.create({ data: { userId: req.user.id, reference, module, label } }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+notesRouter.delete('/bookmarks/:id', async (req, res, next) => {
+  try {
+    const existing = await prisma.bookmark.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
+    await prisma.bookmark.delete({ where: { id: req.params.id } });
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

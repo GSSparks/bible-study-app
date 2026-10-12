@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Bookmark, ChevronDown } from 'lucide-react';
 import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
@@ -39,7 +39,7 @@ function extractStrongsData(target) {
   return null;
 }
 
-export default function DictionaryPane({ module, focusedReference, onVerseRefClick, onStrongsClick, onOpenInDictionary, initialKey, initialFilter, refreshNonce }) {
+export default function DictionaryPane({ module, focusedReference, onVerseRefClick, onStrongsClick, onOpenInDictionary, initialKey, initialFilter, refreshNonce, isLoggedIn = false }) {
   const [mode, setMode] = useState('probing');
   const [refVerses, setRefVerses] = useState([]);
   const [keys, setKeys] = useState([]);
@@ -51,7 +51,35 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
   const [error, setError] = useState(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [bookmarks, setBookmarks] = useState([]);
   const filterInputRef = useRef(null);
+
+  const bookmarkedSet = useMemo(() => new Set(bookmarks.map((b) => b.reference)), [bookmarks]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !module) return;
+    api.listBookmarks({ module }).then(setBookmarks).catch(() => {});
+  }, [module, refreshNonce, isLoggedIn]);
+
+  async function toggleBookmark() {
+    if (!selectedKey) return;
+    if (bookmarkedSet.has(selectedKey)) {
+      const bm = bookmarks.find((b) => b.reference === selectedKey);
+      if (!bm) return;
+      setBookmarks((prev) => prev.filter((b) => b.id !== bm.id));
+      api.deleteBookmark(bm.id).catch(() => {
+        setBookmarks((prev) => [...prev, bm]);
+      });
+    } else {
+      const optimistic = { id: `__opt_${Date.now()}`, reference: selectedKey, module };
+      setBookmarks((prev) => [optimistic, ...prev]);
+      api.createBookmark({ module, reference: selectedKey }).then((created) => {
+        setBookmarks((prev) => prev.map((b) => (b.id === optimistic.id ? created : b)));
+      }).catch(() => {
+        setBookmarks((prev) => prev.filter((b) => b.id !== optimistic.id));
+      });
+    }
+  }
 
   useEffect(() => {
     if (!module) return;
@@ -280,6 +308,23 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
             <div className="fixed inset-0 z-10" onClick={() => { setShowDropdown(false); setFilter(''); }} />
             {/* Dropdown list */}
             <div className="absolute left-3 right-3 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded border border-rule bg-ink shadow-lg">
+              {!filter.trim() && bookmarks.length > 0 && (
+                <div className="border-b border-rule/30 pb-1 mb-1">
+                  <p className="px-3 py-1 text-xs text-muted">Bookmarks</p>
+                  {bookmarks.map((bm) => (
+                    <button
+                      key={bm.id}
+                      onMouseDown={(e) => { e.preventDefault(); pickKey(bm.reference); }}
+                      className={`flex w-full items-center gap-2 truncate px-3 py-1.5 text-left text-sm ${
+                        selectedKey === bm.reference ? 'bg-verdigris/20 text-brass' : 'text-parchment/90 hover:bg-panel'
+                      }`}
+                    >
+                      <Bookmark size={12} className="shrink-0 fill-brass text-brass" />
+                      {bm.reference}
+                    </button>
+                  ))}
+                </div>
+              )}
               {loadingKeys && <p className="px-3 py-2 text-xs text-muted">Loading…</p>}
               {!loadingKeys && filteredKeys.length === 0 && (
                 <p className="px-3 py-2 text-xs text-muted">No matches.</p>
@@ -314,7 +359,22 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
             className="markdown-body markdown-body-page max-w-2xl font-display text-base leading-relaxed text-pageText"
             onClick={handleContentClick}
           >
-            <h2 className="mb-3 font-sans text-xs uppercase tracking-wide text-verdigris">{selectedKey}</h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-sans text-xs uppercase tracking-wide text-verdigris">{selectedKey}</h2>
+              {isLoggedIn && (
+                <button
+                  onClick={toggleBookmark}
+                  className="ml-2 shrink-0 rounded p-0.5"
+                  title={bookmarkedSet.has(selectedKey) ? 'Remove bookmark' : 'Bookmark this entry'}
+                >
+                  <Bookmark
+                    size={14}
+                    strokeWidth={2}
+                    className={bookmarkedSet.has(selectedKey) ? 'fill-brass text-brass' : 'text-muted hover:text-brass'}
+                  />
+                </button>
+              )}
+            </div>
             <div dangerouslySetInnerHTML={{ __html: entryHtml }} />
           </SelectableNoteRegion>
         )}
