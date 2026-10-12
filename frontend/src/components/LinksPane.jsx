@@ -108,22 +108,29 @@ export default function LinksPane({
   }
 
   function toggleCommentary(code) {
-    const willExpand = !expandedMods.has(code);
     setExpandedMods((prev) => {
       const next = new Set(prev);
       if (next.has(code)) { next.delete(code); } else { next.add(code); }
       return next;
     });
-    if (willExpand && focusedReference) loadCommentary(code, focusedReference);
   }
 
-  // Re-fetch all currently-expanded commentaries when reference changes
+  // Probe every module when the reference changes so we know which ones have
+  // content before the user tries to expand them. The loadedForRef guard makes
+  // this a no-op for anything already fetched for this reference.
   useEffect(() => {
-    if (!focusedReference) return;
-    for (const code of expandedMods) {
-      loadCommentary(code, focusedReference);
+    if (!focusedReference || commentaryModules.length === 0) return;
+    for (const mod of commentaryModules) {
+      loadCommentary(mod.name, focusedReference);
     }
-  }, [focusedReference]);
+  }, [focusedReference, commentaryModules]);
+
+  // Only surface modules that either are still loading or have actual content —
+  // silently drop anything that came back empty.
+  const visibleCommentaries = commentaryModules.filter((mod) => {
+    const data = commentaryData.get(mod.name);
+    return !data || data.loading || data.verses.length > 0;
+  });
 
   // ─── Notes ──────────────────────────────────────────────────────────────────
   const [notes, setNotes] = useState([]);
@@ -198,15 +205,15 @@ export default function LinksPane({
       {/* ── Commentaries ── */}
       <Section
         title="Commentaries"
-        badge={commentaryModules.length > 0 ? commentaryModules.length : null}
+        badge={visibleCommentaries.length > 0 ? visibleCommentaries.length : null}
         open={sections.commentaries}
         onToggle={() => toggle('commentaries')}
       >
-        {commentaryModules.length === 0 && (
-          <p className="px-3 py-2 text-xs text-pageMuted">No commentary modules installed.</p>
+        {visibleCommentaries.length === 0 && (
+          <p className="px-3 py-2 text-xs text-pageMuted">No commentaries for this passage.</p>
         )}
         <div className="divide-y divide-rule/10">
-          {commentaryModules.map((mod) => {
+          {visibleCommentaries.map((mod) => {
             const code = mod.name;
             const isExpanded = expandedMods.has(code);
             const data = commentaryData.get(code);
