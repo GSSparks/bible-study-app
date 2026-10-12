@@ -9,6 +9,7 @@ export const PANE_TYPES = [
   { value: 'dictionary', label: 'Dictionary', moduleType: 'DICT' },
   { value: 'crossrefs', label: 'Cross-References', moduleType: null },
   { value: 'passageguide', label: 'Passage Guide', moduleType: null },
+  { value: 'links', label: 'Resource Links', moduleType: null },
   { value: 'document', label: 'Documents', moduleType: 'document' },
   { value: 'search', label: 'Search Results', moduleType: null },
 ];

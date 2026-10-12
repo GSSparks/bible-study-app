@@ -13,6 +13,7 @@ import StrongsDrawer from './StrongsDrawer.jsx';
 import VerseDrawer from './VerseDrawer.jsx';
 import RefNav from './RefNav.jsx';
 import ModulePicker from './ModulePicker.jsx';
+import LinksPane from './LinksPane.jsx';
 
 // ─── Resize handles (shown when not dragging) ─────────────────────────────────
 
@@ -385,6 +386,41 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
           </div>
         );
 
+      case 'links':
+        return (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <LinksPane
+                focusedReference={focusedReference}
+                defaultBibleModule={defaultBibleModule}
+                onStrongsClick={onStrongsClick}
+                onVerseRefClick={onVerseRefClick}
+                isLoggedIn={Boolean(auth?.user)}
+              />
+            </div>
+            {strongsDrawer?.targetRowId === row.id && (
+              <StrongsDrawer
+                strongsKey={strongsDrawer.key}
+                morph={strongsDrawer.morph}
+                wordText={strongsDrawer.wordText}
+                module={strongsDrawer.module}
+                onClose={() => setStrongsDrawer(null)}
+                onNavigateKey={(key) => setStrongsDrawer((prev) => ({ ...prev, key, morph: undefined }))}
+                onOpenInDictionary={openStrongsInDictionary}
+                onSearchTopical={openTopicalSearch}
+              />
+            )}
+            {verseDrawer?.targetRowId === row.id && (
+              <VerseDrawer
+                osisRef={verseDrawer.osisRef}
+                module={defaultBibleModule}
+                onClose={() => setVerseDrawer(null)}
+                onOpenInTab={openVerseTab}
+              />
+            )}
+          </div>
+        );
+
       case 'search':
         return (
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -733,15 +769,24 @@ export default function WorkspaceLayout({
         />
       )}
 
-      {/* Add column button — hidden while dragging to avoid accidental clicks */}
+      {/* Add column buttons — hidden while dragging to avoid accidental clicks */}
       {!isAnyDragging && (
-        <button
-          onClick={() => addColumn('commentary')}
-          className="flex shrink-0 items-center self-stretch border-l border-rule bg-panel/50 px-1.5 text-sm text-muted hover:bg-panel hover:text-parchment"
-          title="Add a new column"
-        >
-          +
-        </button>
+        <div className="flex shrink-0 self-stretch flex-col border-l border-rule divide-y divide-rule">
+          <button
+            onClick={() => addColumn('commentary')}
+            className="flex flex-1 items-center bg-panel/50 px-1.5 text-sm text-muted hover:bg-panel hover:text-parchment"
+            title="Add Commentary column"
+          >
+            +
+          </button>
+          <button
+            onClick={() => addColumn('links')}
+            className="flex flex-1 items-center bg-panel/50 px-1.5 text-[11px] text-muted hover:bg-panel hover:text-parchment"
+            title="Add Resource Links panel"
+          >
+            ≡
+          </button>
+        </div>
       )}
     </div>
   );
