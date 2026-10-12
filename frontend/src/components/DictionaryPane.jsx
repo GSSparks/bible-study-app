@@ -94,14 +94,32 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
 
   useEffect(() => {
     if (!selectedKey || mode !== 'keys') return;
+    let cancelled = false;
     setLoadingEntry(true);
     setError(null);
     setEntryHtml('');
     api
       .getDictionaryEntry(module, selectedKey)
-      .then((res) => setEntryHtml(res.html))
-      .catch((e) => setError(e.message))
-      .finally(() => setLoadingEntry(false));
+      .then((res) => { if (!cancelled) setEntryHtml(res.html); })
+      .catch(() => {
+        if (cancelled) return;
+        // Exact key not found — try a prefix match from the loaded keys list.
+        // Handles cases like selectedKey="MEASURE" when the entry is
+        // "MEASURE (NOUN AND VERB)" or "MEASURE, NOUN".
+        const q = selectedKey.toLowerCase();
+        const match = keys.find((k) => {
+          const kl = k.toLowerCase();
+          return kl === q || kl.startsWith(q + ' ') || kl.startsWith(q + ',') || kl.startsWith(q + '(');
+        });
+        if (match && match !== selectedKey) {
+          cancelled = true; // keep loadingEntry=true; re-run with resolved key takes over
+          setSelectedKey(match);
+          return;
+        }
+        setError(`No entry found for "${selectedKey}"`);
+      })
+      .finally(() => { if (!cancelled) setLoadingEntry(false); });
+    return () => { cancelled = true; };
   }, [module, selectedKey, mode]);
 
   const filteredKeys = useMemo(() => {
