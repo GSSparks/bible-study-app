@@ -21,22 +21,21 @@ factbookRouter.get('/summary', async (req, res, next) => {
     const cached = await getCachedSummary(normalized);
     if (cached) return res.json({ ...cached, cached: true });
 
-    // Gather context for generation
-    const [swordModules, wikipediaExtract] = await Promise.all([
-      swordService.listInstalledModules('DICT').then(async (mods) => {
-        return req.user?.role !== 'admin' ? filterAvailableModules(mods) : mods;
-      }),
+    // Gather context for generation — wiki fetch runs in parallel with dict key search
+    let swordModules = swordService.listInstalledModules('DICT');
+    if (req.user?.role !== 'admin') swordModules = await filterAvailableModules(swordModules);
+
+    const [keyResults, wikipediaExtract] = await Promise.all([
+      Promise.allSettled(swordModules.slice(0, 6).map(async (mod) => {
+        try {
+          const keys = isMdModuleCode(mod.name)
+            ? await getMdDictionaryKeys(mdDirName(mod.name))
+            : swordService.getDictionaryKeys(mod.name);
+          return keys.filter((k) => k.toLowerCase().includes(normalized)).slice(0, 5);
+        } catch { return []; }
+      })),
       fetchWikipediaExtract(q),
     ]);
-
-    const keyResults = await Promise.allSettled(swordModules.slice(0, 6).map(async (mod) => {
-      try {
-        const keys = isMdModuleCode(mod.name)
-          ? await getMdDictionaryKeys(mdDirName(mod.name))
-          : swordService.getDictionaryKeys(mod.name);
-        return keys.filter((k) => k.toLowerCase().includes(normalized)).slice(0, 5);
-      } catch { return []; }
-    }));
     const allDictKeys = [...new Set(
       keyResults.flatMap((r) => r.status === 'fulfilled' ? r.value : [])
     )].slice(0, 20);

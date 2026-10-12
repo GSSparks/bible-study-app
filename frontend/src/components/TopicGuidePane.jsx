@@ -194,6 +194,8 @@ export default function TopicGuidePane({
     if (xrefEl) { handleVerseRefClick(xrefEl.dataset.refs, e); return; }
     const verseRefEl = e.target.closest('.verse-ref');
     if (verseRefEl) { handleVerseRefClick(verseRefEl.dataset.ref, e); return; }
+    const topicRefEl = e.target.closest('.factbook-topic-ref');
+    if (topicRefEl?.dataset.query) { setQuery(topicRefEl.dataset.query); return; }
   }
 
   function selectWikipedia() {

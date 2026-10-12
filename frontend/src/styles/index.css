@@ -160,6 +160,18 @@
   color: theme('colors.pageAccent');
 }
 
+/* Factbook related-topic links in AI Overview — same verdigris affordance as
+   verse-refs but bold to signal "search for this" rather than "preview verse". */
+.factbook-topic-ref {
+  cursor: pointer;
+  color: theme('colors.verdigris');
+  font-weight: 600;
+}
+.factbook-topic-ref:hover {
+  color: theme('colors.pageAccent');
+  text-decoration: underline;
+}
+
 /* Basic markdown styling for the study assistant's replies — no
    typography plugin installed, so these are the minimal rules needed
    for headings/lists/code/bold to actually look different from
