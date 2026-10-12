@@ -89,7 +89,7 @@ export default function TopicGuidePane({
 
   // ── Fetch entry HTML when a DICT entry is selected ────────────────────────
   useEffect(() => {
-    if (!selected || selected.module === WIKIPEDIA_MODULE) {
+    if (!selected || selected.module === WIKIPEDIA_MODULE || selected.module === SUMMARY_MODULE) {
       if (!selected) setEntryHtml('');
       return;
     }

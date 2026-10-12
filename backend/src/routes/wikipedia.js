@@ -37,7 +37,8 @@ wikipediaRouter.get('/', async (req, res, next) => {
       thumbnail: summary.thumbnail?.source || null,
       url: summary.content_urls?.desktop?.page || null,
     });
-  } catch (err) {
-    next(err);
+  } catch {
+    // Network unreachable, timeout, etc. — treat the same as a failed lookup.
+    res.json(null);
   }
 });
