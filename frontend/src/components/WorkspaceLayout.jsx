@@ -14,6 +14,7 @@ import VerseDrawer from './VerseDrawer.jsx';
 import RefNav from './RefNav.jsx';
 import ModulePicker from './ModulePicker.jsx';
 import LinksPane from './LinksPane.jsx';
+import TopicGuidePane from './TopicGuidePane.jsx';
 
 // ─── Resize handles (shown when not dragging) ─────────────────────────────────
 
@@ -93,6 +94,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
     dictionaryRefreshNonce,
     onPersonalCommentarySaved,
     onPersonalDictionarySaved,
+    pendingTopicQuery,
   } = shared;
 
   const { removePane, splitPane, addTab, removeTab, setActiveTab, swapTabModule,
@@ -393,6 +395,40 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
               <LinksPane
                 focusedReference={focusedReference}
                 defaultBibleModule={defaultBibleModule}
+                onStrongsClick={onStrongsClick}
+                onVerseRefClick={onVerseRefClick}
+                isLoggedIn={Boolean(auth?.user)}
+              />
+            </div>
+            {strongsDrawer?.targetRowId === row.id && (
+              <StrongsDrawer
+                strongsKey={strongsDrawer.key}
+                morph={strongsDrawer.morph}
+                wordText={strongsDrawer.wordText}
+                module={strongsDrawer.module}
+                onClose={() => setStrongsDrawer(null)}
+                onNavigateKey={(key) => setStrongsDrawer((prev) => ({ ...prev, key, morph: undefined }))}
+                onOpenInDictionary={openStrongsInDictionary}
+                onSearchTopical={openTopicalSearch}
+              />
+            )}
+            {verseDrawer?.targetRowId === row.id && (
+              <VerseDrawer
+                osisRef={verseDrawer.osisRef}
+                module={defaultBibleModule}
+                onClose={() => setVerseDrawer(null)}
+                onOpenInTab={openVerseTab}
+              />
+            )}
+          </div>
+        );
+
+      case 'topicguide':
+        return (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <TopicGuidePane
+                initialQuery={pendingTopicQuery}
                 onStrongsClick={onStrongsClick}
                 onVerseRefClick={onVerseRefClick}
                 isLoggedIn={Boolean(auth?.user)}

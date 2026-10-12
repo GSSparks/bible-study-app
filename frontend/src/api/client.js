@@ -73,6 +73,9 @@ export const api = {
   ocrDocument: (id) => request(`/pdf/${id}/ocr`, { method: 'POST' }),
   documentFileUrl: (id) => `${BASE}/pdf/${id}/file`,
 
+  // Topic / Factbook cross-module search
+  searchTopics: (q) => request(`/topics?q=${encodeURIComponent(q)}`),
+
   // Strong's / dictionary & lexicon browsing
   getStrongsEntry: (key) => request(`/strongs/${encodeURIComponent(key)}`),
   listDictionaryKeys: (module) => request(`/dictionary/${encodeURIComponent(module)}/keys`),

@@ -46,6 +46,7 @@ export default function CellView({
   const [pendingDictKey, setPendingDictKey] = useState(null);
   const [pendingDictFilter, setPendingDictFilter] = useState(null);
   const [pendingDictTabId, setPendingDictTabId] = useState(null);
+  const [pendingTopicQuery, setPendingTopicQuery] = useState(null); // {term, nonce}
   const [pendingAiRequest, setPendingAiRequest] = useState(null);
   const [pendingSearch, setPendingSearch] = useState(null);
   const [commentaryRefreshNonce, setCommentaryRefreshNonce] = useState(0);
@@ -247,36 +248,13 @@ export default function CellView({
   function openTopicalSearch(word) {
     if (!word) return;
     const searchTerm = simplifyForTopicalSearch(word);
-    api.listInstalledModules('DICT').then((mods) => {
-      const match = mods.find((m) => /topical|nave/i.test(`${m.name} ${m.description || ''}`));
-      if (!match) return;
-
-      let dictCol = layout.columns.find((c) => c.rows.some((r) => r.type === 'dictionary'));
-      let dictRow = dictCol?.rows.find((r) => r.type === 'dictionary');
-
-      let targetColId, targetRowId;
-      if (!dictCol || !dictRow) {
-        dictCol = layout.columns[layout.columns.length - 1];
-        const newPaneId = layout.splitPane(dictCol.id, dictCol.rows[dictCol.rows.length - 1].id, 'dictionary');
-        targetColId = dictCol.id;
-        targetRowId = newPaneId;
-      } else {
-        targetColId = dictCol.id;
-        targetRowId = dictRow.id;
-      }
-
-      const existingTab = dictRow?.tabs.find((t) => t.module === match.name);
-      let targetTabId;
-      if (existingTab) {
-        layout.setActiveTab(targetColId, targetRowId, existingTab.id);
-        targetTabId = existingTab.id;
-      } else {
-        targetTabId = layout.addTab(targetColId, targetRowId, match.name, match.description || match.name);
-      }
-      setPendingDictKey(null);
-      setPendingDictFilter(searchTerm);
-      setPendingDictTabId(targetTabId);
-    });
+    // Find or create a Factbook pane
+    const topicCol = layout.columns.find((c) => c.rows.some((r) => r.type === 'topicguide'));
+    if (!topicCol) {
+      const lastCol = layout.columns[layout.columns.length - 1];
+      layout.splitPane(lastCol.id, lastCol.rows[lastCol.rows.length - 1].id, 'topicguide');
+    }
+    setPendingTopicQuery({ term: searchTerm, nonce: Date.now() });
   }
 
   function routeToSearch(query) {
@@ -338,6 +316,7 @@ export default function CellView({
     openVerseTab,
     commentaryRefreshNonce,
     dictionaryRefreshNonce,
+    pendingTopicQuery,
     onPersonalCommentarySaved: () => setCommentaryRefreshNonce((n) => n + 1),
     onPersonalDictionarySaved: () => setDictionaryRefreshNonce((n) => n + 1),
   };

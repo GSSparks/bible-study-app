@@ -30,6 +30,7 @@ import { usersRouter } from './routes/users.js';
 import { uploadsRouter } from './routes/uploads.js';
 import { devotionalsRouter } from './routes/devotionals.js';
 import { readingPlansRouter } from './routes/readingPlans.js';
+import { topicsRouter } from './routes/topics.js';
 import { ensureBuiltInPlans } from './services/readingPlanService.js';
 import { UPLOADS_PATH } from './middleware/upload.js';
 
@@ -115,6 +116,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/devotionals', devotionalsRouter);
 app.use('/api/reading-plans', readingPlansRouter);
+app.use('/api/topics', topicsRouter);
 
 // User-uploaded files — served before the SPA static files so the
 // /uploads path doesn't get swallowed by the catch-all.
