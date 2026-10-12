@@ -76,6 +76,16 @@ export const api = {
   // Topic / Factbook cross-module search
   searchTopics: (q) => request(`/topics?q=${encodeURIComponent(q)}`),
   getWikipediaEntry: (q) => request(`/wikipedia?q=${encodeURIComponent(q)}`),
+  getFactbookSummary: (q) => request(`/factbook/summary?q=${encodeURIComponent(q)}`),
+
+  // Admin: Factbook cache management
+  listFactbookCache: () => request('/admin/factbook'),
+  deleteFactbookEntry: (id) => request(`/admin/factbook/${id}`, { method: 'DELETE' }),
+  exportFactbookModule: async () => {
+    const res = await fetch('/api/admin/factbook/export');
+    if (!res.ok) throw new Error('Export failed');
+    return res.blob();
+  },
 
   // Strong's / dictionary & lexicon browsing
   getStrongsEntry: (key) => request(`/strongs/${encodeURIComponent(key)}`),

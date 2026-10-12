@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { promises as fs } from 'fs';
 import path from 'path';
+import AdmZip from 'adm-zip';
 import { requireAdmin } from '../middleware/auth.js';
 import { getDbHealth, getUserMetrics, getContentMetrics } from '../services/metricsService.js';
 import { listVisibilityOverrides, setModuleAvailability } from '../services/moduleVisibilityService.js';
 import { swordService } from '../services/swordService.js';
 import { UPLOADS_PATH } from '../middleware/upload.js';
 import { prisma } from '../db/prisma.js';
+import { listAllCached, deleteById } from '../services/factbookSummaryService.js';
 
 export const adminRouter = Router();
 
@@ -159,4 +161,48 @@ adminRouter.delete('/media', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// ── Factbook cache management ─────────────────────────────────────────────────
+
+// GET /api/admin/factbook — list all cached AI summaries
+adminRouter.get('/factbook', async (req, res, next) => {
+  try {
+    const entries = await listAllCached();
+    res.json(entries);
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/admin/factbook/:id — remove a cached summary (forces re-generation next time)
+adminRouter.delete('/factbook/:id', async (req, res, next) => {
+  try {
+    await deleteById(Number(req.params.id));
+    res.status(204).end();
+  } catch (err) { next(err); }
+});
+
+// GET /api/admin/factbook/export — download all summaries as a DICT markdown module zip
+adminRouter.get('/factbook/export', async (req, res, next) => {
+  try {
+    const entries = await listAllCached();
+
+    const moduleJson = JSON.stringify({
+      name: 'Factbook AI Summaries',
+      description: 'AI-generated topic overviews exported from Scriptorium.',
+      type: 'DICT',
+    }, null, 2);
+
+    const entriesMd = entries.length === 0
+      ? '<!-- No summaries cached yet -->\n'
+      : entries.map((e) => `## ${e.title}\n\n${e.summaryMd}`).join('\n\n---\n\n');
+
+    const zip = new AdmZip();
+    zip.addFile('factbook-ai-summaries/module.json', Buffer.from(moduleJson, 'utf8'));
+    zip.addFile('factbook-ai-summaries/entries.md', Buffer.from(entriesMd, 'utf8'));
+
+    const buf = zip.toBuffer();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="factbook-ai-summaries.zip"');
+    res.send(buf);
+  } catch (err) { next(err); }
 });

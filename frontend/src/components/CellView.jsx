@@ -28,6 +28,7 @@ export default function CellView({
   onAiPhraseStudyConsumed,
   pendingAiDocument,
   onAiDocumentConsumed,
+  onOpenFactbook,
 }) {
   const cellInit = useRef(null);
   if (cellInit.current === null) {
@@ -46,7 +47,6 @@ export default function CellView({
   const [pendingDictKey, setPendingDictKey] = useState(null);
   const [pendingDictFilter, setPendingDictFilter] = useState(null);
   const [pendingDictTabId, setPendingDictTabId] = useState(null);
-  const [pendingTopicQuery, setPendingTopicQuery] = useState(null); // {term, nonce}
   const [pendingAiRequest, setPendingAiRequest] = useState(null);
   const [pendingSearch, setPendingSearch] = useState(null);
   const [commentaryRefreshNonce, setCommentaryRefreshNonce] = useState(0);
@@ -248,13 +248,7 @@ export default function CellView({
   function openTopicalSearch(word) {
     if (!word) return;
     const searchTerm = simplifyForTopicalSearch(word);
-    // Find or create a Factbook pane
-    const topicCol = layout.columns.find((c) => c.rows.some((r) => r.type === 'topicguide'));
-    if (!topicCol) {
-      const lastCol = layout.columns[layout.columns.length - 1];
-      layout.splitPane(lastCol.id, lastCol.rows[lastCol.rows.length - 1].id, 'topicguide');
-    }
-    setPendingTopicQuery({ term: searchTerm, nonce: Date.now() });
+    onOpenFactbook?.(searchTerm);
   }
 
   function routeToSearch(query) {
@@ -316,7 +310,6 @@ export default function CellView({
     openVerseTab,
     commentaryRefreshNonce,
     dictionaryRefreshNonce,
-    pendingTopicQuery,
     onPersonalCommentarySaved: () => setCommentaryRefreshNonce((n) => n + 1),
     onPersonalDictionarySaved: () => setDictionaryRefreshNonce((n) => n + 1),
   };

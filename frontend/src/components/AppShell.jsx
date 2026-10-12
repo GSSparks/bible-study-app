@@ -84,6 +84,7 @@ export default function AppShell({ auth }) {
   const [pendingAiOverview, setPendingAiOverview] = useState(null);
   const [pendingAiPhraseStudy, setPendingAiPhraseStudy] = useState(null);
   const [pendingAiDocument, setPendingAiDocument] = useState(null);
+  const [pendingFactbookQuery, setPendingFactbookQuery] = useState(null);
 
   function navigate(key) {
     routerNavigate('/' + key);
@@ -113,6 +114,11 @@ export default function AppShell({ auth }) {
   function askAiCompanionAboutDocument(docId) {
     setPendingAiDocument({ id: docId, nonce: Date.now() });
     navigate('cell');
+  }
+
+  function openFactbook(term) {
+    setPendingFactbookQuery({ term, nonce: Date.now() });
+    navigate('factbook');
   }
 
   useEffect(() => {
@@ -266,10 +272,15 @@ export default function AppShell({ auth }) {
             onAiPhraseStudyConsumed={() => setPendingAiPhraseStudy(null)}
             pendingAiDocument={pendingAiDocument}
             onAiDocumentConsumed={() => setPendingAiDocument(null)}
+            onOpenFactbook={openFactbook}
           />
         </div>
         <div className={activeView === 'factbook' ? 'h-full' : 'hidden'}>
-          <TopicGuidePane isLoggedIn={Boolean(auth.user)} />
+          <TopicGuidePane
+            isLoggedIn={Boolean(auth.user)}
+            initialQuery={pendingFactbookQuery}
+            defaultBibleModule={defaultBibleModule}
+          />
         </div>
         {activeView === 'settings' && (
           <SettingsView

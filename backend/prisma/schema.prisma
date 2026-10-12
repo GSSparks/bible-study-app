@@ -439,3 +439,12 @@ model ReadingPlanProgress {
   @@index([userId])
   @@index([planId])
 }
+
+model FactbookCache {
+  id        Int      @id @default(autoincrement())
+  query     String   @unique  // normalized: trimmed lowercase
+  title     String            // human-readable display title (original case)
+  summaryMd String            // LLM-generated markdown summary
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
