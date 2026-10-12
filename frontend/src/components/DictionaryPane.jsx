@@ -4,6 +4,29 @@ import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
 
+// Maps base Greek letters (after NFD + diacritic stripping) to Latin equivalents.
+const GREEK_LATIN = {
+  'α':'a',  'β':'b',  'γ':'g',  'δ':'d',  'ε':'e',
+  'ζ':'z',  'η':'e',  'θ':'th', 'ι':'i',  'κ':'k',
+  'λ':'l',  'μ':'m',  'ν':'n',  'ξ':'x',  'ο':'o',
+  'π':'p',  'ρ':'r',  'σ':'s',  'ς':'s',  'τ':'t',
+  'υ':'y',  'φ':'ph', 'χ':'ch', 'ψ':'ps', 'ω':'o',
+  'Α':'a',  'Β':'b',  'Γ':'g',  'Δ':'d',  'Ε':'e',
+  'Ζ':'z',  'Η':'e',  'Θ':'th', 'Ι':'i',  'Κ':'k',
+  'Λ':'l',  'Μ':'m',  'Ν':'n',  'Ξ':'x',  'Ο':'o',
+  'Π':'p',  'Ρ':'r',  'Σ':'s',  'Τ':'t',  'Υ':'y',
+  'Φ':'ph', 'Χ':'ch', 'Ψ':'ps', 'Ω':'o',
+};
+
+// Converts a Greek string to a Latin approximation for fuzzy search.
+// Strips diacritics via NFD decomposition then maps base Greek codepoints.
+function transliterateGreek(str) {
+  return str
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .split('').map((ch) => GREEK_LATIN[ch] ?? ch).join('');
+}
+
 function extractStrongsData(target) {
   let el = target;
   for (let depth = 0; el && depth < 4; depth++, el = el.parentElement) {
@@ -125,7 +148,12 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
   const filteredKeys = useMemo(() => {
     if (!filter.trim()) return keys.slice(0, 500);
     const f = filter.toLowerCase();
-    return keys.filter((k) => k.toLowerCase().includes(f)).slice(0, 500);
+    return keys.filter((k) => {
+      if (k.toLowerCase().includes(f)) return true;
+      // Also match Latin transliteration of Greek keys so typing e.g. "agalma"
+      // finds the entry "ἄγαλμα".
+      return transliterateGreek(k).toLowerCase().includes(f);
+    }).slice(0, 500);
   }, [keys, filter]);
 
   function pickKey(k) {

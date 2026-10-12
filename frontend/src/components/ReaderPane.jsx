@@ -101,6 +101,8 @@ export default function ReaderPane({
   focusMode = false,
   noScroll = false,
   showMarginalia = true,
+  interlinearMode: controlledInterlinearMode,
+  onInterlinearToggle,
   onNavigate,
   onStrongsClick,
   onVerseRefClick,
@@ -120,7 +122,12 @@ export default function ReaderPane({
   const [highlightMap, setHighlightMap] = useState(new Map()); // verseRef → { id, color }
   const [noteCount, setNoteCount] = useState(0);
   const [verseNoteRef, setVerseNoteRef] = useState(null); // { reference, x, y }
-  const [interlinearMode, setInterlinearMode] = useState(false);
+  const [_interlinearMode, _setInterlinearMode] = useState(false);
+  const interlinearMode = controlledInterlinearMode !== undefined ? controlledInterlinearMode : _interlinearMode;
+  function toggleInterlinear() {
+    if (onInterlinearToggle) onInterlinearToggle();
+    else _setInterlinearMode((m) => !m);
+  }
   const [strongsCache, setStrongsCache] = useState(new Map()); // strongsKey → transcription
   const verseRefs = useRef(new Map());
 
@@ -559,7 +566,7 @@ export default function ReaderPane({
                 aria-label="Annotate this passage"
               />
               <button
-                onClick={() => setInterlinearMode((m) => !m)}
+                onClick={toggleInterlinear}
                 title={interlinearMode ? 'Switch to normal reading mode' : 'Switch to interlinear mode'}
                 className={`rounded p-0.5 transition-colors ${interlinearMode ? 'text-brass' : 'text-pageMuted/40 hover:text-pageMuted'}`}
               >
@@ -588,7 +595,7 @@ export default function ReaderPane({
                   <h3 className="mb-2 mt-1 font-display text-lg italic text-pageAccent">{seg.sectionTitles.join(' — ')}</h3>
                 )}
                 {interlinearMode ? (
-                  <div className="flex flex-wrap items-end gap-x-2 gap-y-4">
+                  <div className="flex flex-wrap items-start gap-x-2 gap-y-4">
                     {seg.verses.map((v) => {
                       const verseKey = `${v.chapter}-${v.verseNr}`;
                       const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
@@ -598,10 +605,10 @@ export default function ReaderPane({
                         <span
                           key={verseKey}
                           ref={(el) => { if (el) verseRefs.current.set(verseKey, el); else verseRefs.current.delete(verseKey); }}
-                          className={`inline-flex flex-wrap items-end gap-x-2 gap-y-4 ${hlColor ? (HIGHLIGHT_BG[hlColor] ?? 'bg-amber-300/30') : ''}`}
+                          className={`inline-flex flex-wrap items-start gap-x-2 gap-y-4 ${hlColor ? (HIGHLIGHT_BG[hlColor] ?? 'bg-amber-300/30') : ''}`}
                         >
                           <sup
-                            className="self-start cursor-pointer text-xs text-pageAccent hover:text-brass"
+                            className="cursor-pointer text-xs text-pageAccent hover:text-brass"
                             onClick={(e) => handleVerseNumberClick(e, v)}
                           >
                             {v.verseNr}
@@ -609,7 +616,7 @@ export default function ReaderPane({
                           {tokens.map((tok, ti) =>
                             tok.type === 'text' ? (
                               tok.text.trim() ? (
-                                <span key={ti} className="self-end pb-0.5 font-display text-sm text-pageText">{tok.text}</span>
+                                <span key={ti} className="font-display text-sm text-pageText">{tok.text}</span>
                               ) : null
                             ) : (
                               <span key={ti} className="inline-flex flex-col items-center gap-0.5 text-center">

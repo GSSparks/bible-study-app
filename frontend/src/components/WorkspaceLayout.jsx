@@ -65,6 +65,8 @@ function ColDropZone({ colId, position, isActive, onDragOver, onDrop }) {
 // ─── Individual pane shell ────────────────────────────────────────────────────
 
 function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging, onDragStart, onDragEnd }) {
+  const [interlinearMode, setInterlinearMode] = useState(false);
+
   const {
     focusedReference,
     onNavigate,
@@ -222,6 +224,8 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                       reference={paneRef}
                       focusMode
                       noScroll
+                      interlinearMode={interlinearMode}
+                      onInterlinearToggle={() => setInterlinearMode((m) => !m)}
                       onNavigate={handleBibleNavigate}
                       onStrongsClick={onStrongsClick}
                       onVerseRefClick={onVerseRefClick}
