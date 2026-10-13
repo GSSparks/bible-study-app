@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, Search, Sparkles, Volume2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, List, Search, Sparkles, Volume2, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import FootnotePopup from './FootnotePopup.jsx';
 import { osisToHuman } from '../utils/osisToHuman.js';
@@ -95,6 +95,9 @@ export default function TopicGuidePane({
   const [entryHtml, setEntryHtml] = useState('');
   const [loadingEntry, setLoadingEntry] = useState(false);
   const [entryError, setEntryError] = useState(null);
+  const [toc, setToc] = useState([]);
+  const [tocOpen, setTocOpen] = useState(false);
+  const contentRef = useRef(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
   const [versePreview, setVersePreview] = useState(null); // { ref, loading, html, x, y }
   const [summaryState, setSummaryState] = useState(null); // { loading, html, error, cached }
@@ -164,6 +167,12 @@ export default function TopicGuidePane({
       .catch((e) => setSummaryState({ loading: false, html: null, error: e.message, cached: false }));
   }, [selected?.module === SUMMARY_MODULE ? selected.key : null]);
 
+  // ── Reset TOC when navigating to any entry ────────────────────────────────
+  useEffect(() => {
+    setToc([]);
+    setTocOpen(false);
+  }, [selected?.module, selected?.key]);
+
   // ── Fetch entry HTML when a DICT entry is selected ────────────────────────
   useEffect(() => {
     if (!selected || selected.module === WIKIPEDIA_MODULE || selected.module === MERRIAM_MODULE || selected.module === SUMMARY_MODULE) {
@@ -174,7 +183,12 @@ export default function TopicGuidePane({
     setLoadingEntry(true);
     setEntryError(null);
     api.getDictionaryEntry(selected.module, selected.key)
-      .then((res) => { if (!cancelled) setEntryHtml(injectTocLinks(wrapSeeReferences(res.html))); })
+      .then((res) => {
+        if (cancelled) return;
+        const { html, toc: newToc } = injectTocLinks(wrapSeeReferences(res.html));
+        setEntryHtml(html);
+        setToc(newToc);
+      })
       .catch((e) => { if (!cancelled) setEntryError(e.message); })
       .finally(() => { if (!cancelled) setLoadingEntry(false); });
     return () => { cancelled = true; };
@@ -260,7 +274,7 @@ export default function TopicGuidePane({
       // TOC anchor — scroll within the content panel
       if (href.startsWith('#')) {
         const targetId = href.slice(1);
-        const target = e.currentTarget.querySelector(`#${CSS.escape(targetId)}`);
+        const target = contentRef.current?.querySelector(`#${CSS.escape(targetId)}`);
         target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
@@ -306,6 +320,8 @@ export default function TopicGuidePane({
     setMerriamResult(null);
     setNav({ stack: [], index: -1 });
     setEntryHtml('');
+    setToc([]);
+    setTocOpen(false);
     inputRef.current?.focus();
   }
 
@@ -314,6 +330,15 @@ export default function TopicGuidePane({
     navigateTo({ module: MERRIAM_MODULE, description: 'Merriam-Webster', key: merriamResult.headword });
     setEntryHtml('');
     setEntryError(null);
+  }
+
+  function jumpToSection(id) {
+    if (!contentRef.current) return;
+    const target = contentRef.current.querySelector(`#${CSS.escape(id)}`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTocOpen(false);
+    }
   }
 
   const isWikiSelected = selected?.module === WIKIPEDIA_MODULE;
@@ -466,7 +491,50 @@ export default function TopicGuidePane({
       </div>
 
       {/* ── Right content panel (parchment) ── */}
-      <div className="min-w-0 flex-1 overflow-y-auto bg-page px-7 py-6">
+      <div className="relative flex min-w-0 flex-1 overflow-hidden bg-page">
+
+        {/* TOC sidebar — slides in from the left when a DICT entry has sections */}
+        {toc.length > 0 && (
+          <div
+            className={`shrink-0 overflow-y-auto border-r border-pageBorder transition-[width] duration-300 ease-in-out ${
+              tocOpen ? 'w-44' : 'w-0'
+            }`}
+          >
+            <div className="min-w-44 px-3 py-5">
+              <p className="mb-2 font-sans text-[9px] uppercase tracking-widest text-pageMuted">Contents</p>
+              <nav className="space-y-0.5">
+                {toc.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => jumpToSection(item.id)}
+                    className={`block w-full truncate text-left text-xs leading-snug transition-colors hover:text-pageAccent ${
+                      item.major
+                        ? 'py-1 font-sans font-semibold text-pageText/80'
+                        : 'py-0.5 pl-3 text-pageMuted'
+                    }`}
+                  >
+                    {item.text}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
+        )}
+
+        {/* Tab button — floats at the left edge, slides right with the sidebar */}
+        {toc.length > 0 && (
+          <button
+            onClick={() => setTocOpen((o) => !o)}
+            title={tocOpen ? 'Close contents' : 'Open contents'}
+            style={{ left: tocOpen ? '11rem' : 0 }}
+            className="absolute top-20 z-10 flex h-8 w-5 items-center justify-center rounded-r border border-l-0 border-pageBorder bg-page text-pageMuted shadow-sm transition-[left] duration-300 ease-in-out hover:text-pageAccent"
+          >
+            <List size={11} />
+          </button>
+        )}
+
+        {/* Scrollable article */}
+        <div ref={contentRef} className="min-w-0 flex-1 overflow-y-auto px-7 py-6">
         {!selected && !query.trim() && (
           <div className="mt-12 text-center text-pageMuted">
             <Search size={32} className="mx-auto mb-3 opacity-20" />
@@ -738,7 +806,8 @@ export default function TopicGuidePane({
             )}
           </>
         )}
-      </div>
+        </div>{/* end scrollable article */}
+      </div>{/* end right content panel */}
 
       {footnotePopup && (
         <FootnotePopup

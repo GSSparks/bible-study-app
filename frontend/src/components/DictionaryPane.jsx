@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, ChevronDown } from 'lucide-react';
+import { Bookmark, ChevronDown, List } from 'lucide-react';
 import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import { injectTocLinks } from '../utils/dictHtml.js';
@@ -53,7 +53,10 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
   const [footnotePopup, setFootnotePopup] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [bookmarks, setBookmarks] = useState([]);
+  const [toc, setToc] = useState([]);
+  const [tocOpen, setTocOpen] = useState(false);
   const filterInputRef = useRef(null);
+  const contentRef = useRef(null);
 
   const bookmarkedSet = useMemo(() => new Set(bookmarks.map((b) => b.reference)), [bookmarks]);
 
@@ -116,6 +119,8 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
     setEntryHtml('');
     setError(null);
     setFilter('');
+    setToc([]);
+    setTocOpen(false);
   }, [module]);
 
   useEffect(() => {
@@ -150,9 +155,16 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
     setLoadingEntry(true);
     setError(null);
     setEntryHtml('');
+    setToc([]);
+    setTocOpen(false);
     api
       .getDictionaryEntry(module, selectedKey)
-      .then((res) => { if (!cancelled) setEntryHtml(injectTocLinks(res.html)); })
+      .then((res) => {
+        if (cancelled) return;
+        const { html, toc: newToc } = injectTocLinks(res.html);
+        setEntryHtml(html);
+        setToc(newToc);
+      })
       .catch(() => {
         if (cancelled) return;
         // Exact key not found — try a prefix match from the loaded keys list.
@@ -191,16 +203,24 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
     setFilter('');
   }
 
+  function jumpToSection(id) {
+    if (!contentRef.current) return;
+    const target = contentRef.current.querySelector(`#${CSS.escape(id)}`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTocOpen(false);
+    }
+  }
+
   function handleContentClick(e) {
     // Prevent any <a> from escaping to the browser's URL handler
     const linkEl = e.target.closest('a[href]');
     if (linkEl) {
       e.preventDefault();
       const href = linkEl.getAttribute('href') || '';
-      // TOC anchor — scroll within the entry content
       if (href.startsWith('#')) {
         const targetId = href.slice(1);
-        const target = e.currentTarget.querySelector(`#${CSS.escape(targetId)}`);
+        const target = contentRef.current?.querySelector(`#${CSS.escape(targetId)}`);
         target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
@@ -356,36 +376,80 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
         )}
       </div>
 
-      {/* Entry content */}
-      <div className="min-h-0 flex-1 overflow-y-auto bg-page px-6 py-6 text-pageText">
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {!selectedKey && <p className="text-pageMuted">Search or browse entries above.</p>}
-        {loadingEntry && <p className="text-pageMuted">Loading…</p>}
-        {selectedKey && !loadingEntry && (
-          <SelectableNoteRegion
-            module={module}
-            className="markdown-body markdown-body-page max-w-2xl font-display text-base leading-relaxed text-pageText"
-            onClick={handleContentClick}
+      {/* Entry content — relative flex wrapper for TOC sidebar */}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden bg-page text-pageText">
+
+        {/* TOC sidebar */}
+        {toc.length > 0 && (
+          <div
+            className={`shrink-0 overflow-y-auto border-r border-pageBorder transition-[width] duration-300 ease-in-out ${
+              tocOpen ? 'w-44' : 'w-0'
+            }`}
           >
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-sans text-xs uppercase tracking-wide text-verdigris">{selectedKey}</h2>
-              {isLoggedIn && (
-                <button
-                  onClick={toggleBookmark}
-                  className="ml-2 shrink-0 rounded p-0.5"
-                  title={bookmarkedSet.has(selectedKey) ? 'Remove bookmark' : 'Bookmark this entry'}
-                >
-                  <Bookmark
-                    size={14}
-                    strokeWidth={2}
-                    className={bookmarkedSet.has(selectedKey) ? 'fill-brass text-brass' : 'text-muted hover:text-brass'}
-                  />
-                </button>
-              )}
+            <div className="min-w-44 px-3 py-4">
+              <p className="mb-2 font-sans text-[9px] uppercase tracking-widest text-pageMuted">Contents</p>
+              <nav className="space-y-0.5">
+                {toc.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => jumpToSection(item.id)}
+                    className={`block w-full truncate text-left text-xs leading-snug transition-colors hover:text-pageAccent ${
+                      item.major
+                        ? 'py-1 font-sans font-semibold text-pageText/80'
+                        : 'py-0.5 pl-3 text-pageMuted'
+                    }`}
+                  >
+                    {item.text}
+                  </button>
+                ))}
+              </nav>
             </div>
-            <div dangerouslySetInnerHTML={{ __html: entryHtml }} />
-          </SelectableNoteRegion>
+          </div>
         )}
+
+        {/* Tab button */}
+        {toc.length > 0 && (
+          <button
+            onClick={() => setTocOpen((o) => !o)}
+            title={tocOpen ? 'Close contents' : 'Open contents'}
+            style={{ left: tocOpen ? '11rem' : 0 }}
+            className="absolute top-16 z-10 flex h-8 w-5 items-center justify-center rounded-r border border-l-0 border-pageBorder bg-page text-pageMuted shadow-sm transition-[left] duration-300 ease-in-out hover:text-pageAccent"
+          >
+            <List size={11} />
+          </button>
+        )}
+
+        {/* Scrollable entry */}
+        <div ref={contentRef} className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          {!selectedKey && <p className="text-pageMuted">Search or browse entries above.</p>}
+          {loadingEntry && <p className="text-pageMuted">Loading…</p>}
+          {selectedKey && !loadingEntry && (
+            <SelectableNoteRegion
+              module={module}
+              className="markdown-body markdown-body-page max-w-2xl font-display text-base leading-relaxed text-pageText"
+              onClick={handleContentClick}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-sans text-xs uppercase tracking-wide text-verdigris">{selectedKey}</h2>
+                {isLoggedIn && (
+                  <button
+                    onClick={toggleBookmark}
+                    className="ml-2 shrink-0 rounded p-0.5"
+                    title={bookmarkedSet.has(selectedKey) ? 'Remove bookmark' : 'Bookmark this entry'}
+                  >
+                    <Bookmark
+                      size={14}
+                      strokeWidth={2}
+                      className={bookmarkedSet.has(selectedKey) ? 'fill-brass text-brass' : 'text-muted hover:text-brass'}
+                    />
+                  </button>
+                )}
+              </div>
+              <div dangerouslySetInnerHTML={{ __html: entryHtml }} />
+            </SelectableNoteRegion>
+          )}
+        </div>
       </div>
 
       {footnotePopup && (

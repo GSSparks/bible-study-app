@@ -94,34 +94,14 @@
   color: theme('colors.pageAccent');
 }
 
-/* Dictionary TOC items — injected client-side by injectTocLinks() when an
-   entry has a Table of Contents before its first section heading. Appears
-   on the parchment reading surface so inherits pageAccent for the link color. */
-.dict-toc-link {
-  display: block;
-  color: theme('colors.verdigris');
-  font-family: theme('fontFamily.sans');
-  font-size: 0.8rem;
-  line-height: 1.6;
-  padding: 0.1em 0;
-  text-decoration: none;
-}
-.dict-toc-link:hover {
-  color: theme('colors.pageAccent');
-  text-decoration: underline;
-}
-
-/* Hairline rule separating the TOC from the article body. */
+/* Hairline rule inserted by injectTocLinks() before the first article heading. */
 .dict-toc-separator {
   border: none;
   border-top: 1px solid theme('colors.pageBorder');
   margin: 1.25rem 0 1.5rem;
 }
 
-/* Paragraph-level section headings produced by SWORD modules (e.g. ISBE)
-   that use <div class="sword-section-title"> — converted to <p> by
-   processDictEntryContent, then given this class by injectTocLinks so they
-   render visually as headings rather than body text. */
+/* Paragraph-level section headings produced by SWORD modules (e.g. ISBE). */
 .dict-section-heading {
   font-family: theme('fontFamily.sans');
   font-size: 0.875rem;

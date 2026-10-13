@@ -8,12 +8,6 @@ function slugify(text) {
     .slice(0, 60) || 'section';
 }
 
-// Lowercase, strip trailing punctuation, collapse whitespace — used to match
-// TOC items to their article headings across case/punctuation differences:
-//   "I. NAME AND GENEALOGY"  →  "i. name and genealogy"
-//   "I. Name and Genealogy." →  "i. name and genealogy"   ← same ✓
-//   "1. Shepherd"            →  "1. shepherd"
-//   "1. Shepherd:"           →  "1. shepherd"             ← same ✓
 function normalizeForMatch(text) {
   return text.trim()
     .toLowerCase()
@@ -21,8 +15,6 @@ function normalizeForMatch(text) {
     .replace(/\s+/g, ' ');
 }
 
-// <p> whose only child is a <span> with ALL-CAPS text — ISBE roman-numeral
-// TOC marker pattern: <p><span>I. NAME AND GENEALOGY</span></p>
 function isCapsSpanP(el) {
   if (el.tagName !== 'P') return false;
   const kids = [...el.children];
@@ -31,30 +23,30 @@ function isCapsSpanP(el) {
   return letters.length > 0 && letters === letters.toUpperCase();
 }
 
-// <p> whose trimmed text starts with digits followed by a period — numbered
-// sub-items in the ISBE TOC: "1. Shepherd", "14. References in the NT"
 function isNumberedP(el) {
   return el.tagName === 'P' && /^\d+\./.test(el.textContent.trim());
 }
 
+function toTitleCase(str) {
+  return str.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
+
 /**
- * Detect an ISBE-style Table of Contents (roman-numeral entries in ALL-CAPS
- * spans at the top of the entry, followed by the same headings in mixed case
- * further down), assign anchor IDs to the article headings, and wrap the TOC
- * items as clickable scroll links.
+ * Detect an ISBE-style Table of Contents, assign anchor IDs to article headings,
+ * and return { html, toc } where:
+ *   html — the processed article body (inline TOC paragraphs removed, IDs added)
+ *   toc  — array of { text, id, major } for rendering as a UI component
  *
- * Handles the <entryfree> wrapper that SWORD puts around ISBE entries.
+ * Returns { html: original, toc: [] } when no ISBE TOC is detected.
  */
 export function injectTocLinks(html) {
-  if (!html || typeof document === 'undefined') return html;
+  if (!html || typeof document === 'undefined') return { html, toc: [] };
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(`<div id="__root">${html}</div>`, 'text/html');
   const root = doc.getElementById('__root');
-  if (!root) return html;
+  if (!root) return { html, toc: [] };
 
-  // SWORD wraps ISBE entries in <entryfree> (an unknown inline element).
-  // Look inside it when the root has a single non-standard child.
   const STANDARD = /^(DIV|P|SECTION|ARTICLE|UL|OL|H[1-6])$/;
   const container =
     root.children.length === 1 && !STANDARD.test(root.children[0].tagName)
@@ -63,108 +55,89 @@ export function injectTocLinks(html) {
 
   const allP = [...container.querySelectorAll('p')];
 
-  // ── Step 1: verify there is an ISBE-style TOC ─────────────────────────
-  // Must have at least one <p><span>ALL CAPS</span></p> element.
-  const hasCapsSpan = allP.some(isCapsSpanP);
-  if (!hasCapsSpan) return html;
+  if (!allP.some(isCapsSpanP)) return { html, toc: [] };
 
-  // ── Step 2: find the TOC boundary ─────────────────────────────────────
-  // Walk forward through paragraphs. After the first caps-span appears,
-  // collect caps-span and numbered items as TOC entries.
-  // Stop (break) when we hit a very long content paragraph (> 400 chars) —
-  // that signals the article body has started. The high threshold avoids
-  // breaking on moderately-long intro lines that appear inside the TOC block.
-  // "LITERATURE." appearing twice is handled by the headingMap building step
-  // (which only looks after lastTocIdx).
+  // ── TOC boundary detection ─────────────────────────────────────────────────
   let lastTocIdx = -1;
   let seenCapsSpan = false;
 
   for (let i = 0; i < allP.length; i++) {
     const p = allP[i];
     const text = p.textContent.trim();
-
     if (isCapsSpanP(p)) {
       seenCapsSpan = true;
       lastTocIdx = i;
-    } else if (seenCapsSpan && isNumberedP(p) && text.length < 80) {
+    } else if (seenCapsSpan && isNumberedP(p) && text.length < 200) {
       lastTocIdx = i;
     } else if (seenCapsSpan && text.length > 400) {
-      break; // first real content paragraph — TOC is done
+      break;
     }
   }
 
-  if (lastTocIdx < 0) return html;
+  if (lastTocIdx < 0) return { html, toc: [] };
 
-  // ── Step 3: collect TOC entries ────────────────────────────────────────
+  // ── Collect TOC entries ────────────────────────────────────────────────────
   const tocEntries = [];
   for (let i = 0; i <= lastTocIdx; i++) {
     const p = allP[i];
-    if (isCapsSpanP(p) || isNumberedP(p)) {
-      tocEntries.push({ el: p, norm: normalizeForMatch(p.textContent) });
+    const isMajor = isCapsSpanP(p);
+    const isMinor = !isMajor && isNumberedP(p);
+    if (isMajor || isMinor) {
+      tocEntries.push({ el: p, text: p.textContent.trim(), norm: normalizeForMatch(p.textContent), major: isMajor });
     }
   }
-  if (tocEntries.length < 2) return html;
+  if (tocEntries.length < 2) return { html, toc: [] };
 
-  // ── Step 4: build a map of article headings that appear after the TOC ──
-  // Key: normalized text; Value: first matching <p> after the TOC block.
-  // Also registers pre-colon prefix for paragraphs like "1. Civil War: David
-  // immediately removed…" so the TOC item "1. Civil War" still finds a match.
-  const headingMap = new Map();
-  for (let i = lastTocIdx + 1; i < allP.length; i++) {
-    const p = allP[i];
-    const text = p.textContent.trim();
-    const norm = normalizeForMatch(text);
-    if (!headingMap.has(norm)) headingMap.set(norm, p);
-
-    const colonIdx = text.indexOf(':');
-    if (colonIdx > 2 && colonIdx < 60) {
-      const prefix = normalizeForMatch(text.slice(0, colonIdx));
-      if (prefix.length > 2 && !headingMap.has(prefix)) headingMap.set(prefix, p);
-    }
-  }
-
-  // ── Step 5: assign IDs to article headings; wrap TOC items as links ───
+  // ── Prefix-match each TOC entry to its article heading ────────────────────
   const usedIds = new Set();
-  let linkedCount = 0;
   let firstHeadingEl = null;
-  let firstHeadingP = Infinity;
+  let firstHeadingIdx = Infinity;
+  const matched = [];
 
-  for (const { el: tocEl, norm } of tocEntries) {
-    const headingEl = headingMap.get(norm);
-    if (!headingEl) continue;
-
-    // Give the article heading an anchor ID (once, even if TOC item is repeated).
-    if (!headingEl.id) {
-      let base = slugify(headingEl.textContent);
-      let id = base;
-      let n = 1;
-      while (usedIds.has(id)) id = `${base}-${n++}`;
-      usedIds.add(id);
-      headingEl.id = `dict-${id}`;
-
-      const idx = allP.indexOf(headingEl);
-      if (idx < firstHeadingP) {
-        firstHeadingP = idx;
-        firstHeadingEl = headingEl;
+  for (const entry of tocEntries) {
+    const { norm } = entry;
+    let found = null;
+    for (let i = lastTocIdx + 1; i < allP.length; i++) {
+      const pNorm = normalizeForMatch(allP[i].textContent);
+      if (pNorm === norm || (pNorm.startsWith(norm) && /^[: ]/.test(pNorm[norm.length]))) {
+        found = allP[i];
+        break;
       }
     }
+    if (!found) continue;
 
-    // Replace the TOC paragraph's content with an anchor link.
-    const a = doc.createElement('a');
-    a.href = `#${headingEl.id}`;
-    a.className = 'dict-toc-link';
-    a.textContent = tocEl.textContent.trim();
-    tocEl.textContent = '';
-    tocEl.appendChild(a);
-    linkedCount++;
+    if (!found.id) {
+      let base = slugify(entry.text);
+      let id = base, n = 1;
+      while (usedIds.has(id)) id = `${base}-${n++}`;
+      usedIds.add(id);
+      found.id = `dict-${id}`;
+      const idx = allP.indexOf(found);
+      if (idx < firstHeadingIdx) { firstHeadingIdx = idx; firstHeadingEl = found; }
+    }
+
+    matched.push({ entry, headingEl: found });
   }
 
-  // ── Step 6: visual separator before the first article heading ──────────
-  if (linkedCount >= 2 && firstHeadingEl) {
+  if (matched.length < 2) return { html, toc: [] };
+
+  // ── Remove original inline TOC paragraphs ─────────────────────────────────
+  for (const { el } of tocEntries) {
+    if (el.parentNode) el.remove();
+  }
+
+  // ── Hairline rule before the first article heading ─────────────────────────
+  if (firstHeadingEl) {
     const hr = doc.createElement('hr');
     hr.className = 'dict-toc-separator';
     firstHeadingEl.parentNode.insertBefore(hr, firstHeadingEl);
   }
 
-  return root.innerHTML;
+  const toc = matched.map(({ entry, headingEl }) => ({
+    text: entry.major ? toTitleCase(entry.text) : entry.text,
+    id: headingEl.id,
+    major: entry.major,
+  }));
+
+  return { html: root.innerHTML, toc };
 }
