@@ -163,31 +163,31 @@ adminRouter.delete('/media', async (req, res, next) => {
   }
 });
 
-// ── Factbook cache management ─────────────────────────────────────────────────
+// ── Codex cache management ────────────────────────────────────────────────────
 
-// GET /api/admin/factbook — list all cached AI summaries
-adminRouter.get('/factbook', async (req, res, next) => {
+// GET /api/admin/codex — list all cached AI summaries
+adminRouter.get('/codex', async (req, res, next) => {
   try {
     const entries = await listAllCached();
     res.json(entries);
   } catch (err) { next(err); }
 });
 
-// DELETE /api/admin/factbook/:id — remove a cached summary (forces re-generation next time)
-adminRouter.delete('/factbook/:id', async (req, res, next) => {
+// DELETE /api/admin/codex/:id — remove a cached summary (forces re-generation next time)
+adminRouter.delete('/codex/:id', async (req, res, next) => {
   try {
     await deleteById(Number(req.params.id));
     res.status(204).end();
   } catch (err) { next(err); }
 });
 
-// GET /api/admin/factbook/export — download all summaries as a DICT markdown module zip
-adminRouter.get('/factbook/export', async (req, res, next) => {
+// GET /api/admin/codex/export — download all summaries as a DICT markdown module zip
+adminRouter.get('/codex/export', async (req, res, next) => {
   try {
     const entries = await listAllCached();
 
     const moduleJson = JSON.stringify({
-      name: 'Factbook AI Summaries',
+      name: 'Codex AI Summaries',
       description: 'AI-generated topic overviews exported from Scriptorium.',
       type: 'DICT',
     }, null, 2);
@@ -197,12 +197,12 @@ adminRouter.get('/factbook/export', async (req, res, next) => {
       : entries.map((e) => `## ${e.title}\n\n${e.summaryMd}`).join('\n\n---\n\n');
 
     const zip = new AdmZip();
-    zip.addFile('factbook-ai-summaries/module.json', Buffer.from(moduleJson, 'utf8'));
-    zip.addFile('factbook-ai-summaries/entries.md', Buffer.from(entriesMd, 'utf8'));
+    zip.addFile('codex-ai-summaries/module.json', Buffer.from(moduleJson, 'utf8'));
+    zip.addFile('codex-ai-summaries/entries.md', Buffer.from(entriesMd, 'utf8'));
 
     const buf = zip.toBuffer();
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', 'attachment; filename="factbook-ai-summaries.zip"');
+    res.setHeader('Content-Disposition', 'attachment; filename="codex-ai-summaries.zip"');
     res.send(buf);
   } catch (err) { next(err); }
 });

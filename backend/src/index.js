@@ -32,7 +32,8 @@ import { devotionalsRouter } from './routes/devotionals.js';
 import { readingPlansRouter } from './routes/readingPlans.js';
 import { topicsRouter } from './routes/topics.js';
 import { wikipediaRouter } from './routes/wikipedia.js';
-import { factbookRouter } from './routes/factbook.js';
+import { codexRouter } from './routes/factbook.js';
+import { swordImagesRouter } from './routes/swordImages.js';
 import { ensureBuiltInPlans } from './services/readingPlanService.js';
 import { UPLOADS_PATH } from './middleware/upload.js';
 
@@ -120,7 +121,8 @@ app.use('/api/devotionals', devotionalsRouter);
 app.use('/api/reading-plans', readingPlansRouter);
 app.use('/api/topics', topicsRouter);
 app.use('/api/wikipedia', wikipediaRouter);
-app.use('/api/factbook', factbookRouter);
+app.use('/api/codex', codexRouter);
+app.use('/api/sword-img', swordImagesRouter);
 
 // User-uploaded files — served before the SPA static files so the
 // /uploads path doesn't get swallowed by the catch-all.

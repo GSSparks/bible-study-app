@@ -13,7 +13,8 @@ export default function TopicGuidePane({
   isLoggedIn = false,
   defaultBibleModule,
 }) {
-  const [query, setQuery] = useState('');
+  const [inputValue, setInputValue] = useState(''); // what's in the text box
+  const [query, setQuery] = useState('');           // committed search term (Enter)
   const [results, setResults] = useState([]);
   const [loadingDict, setLoadingDict] = useState(false);
   const [wikipediaResult, setWikipediaResult] = useState(null);
@@ -32,36 +33,34 @@ export default function TopicGuidePane({
   const canBack = nav.index > 0;
   const canForward = nav.index < nav.stack.length - 1;
 
-  // ── Debounced search ──────────────────────────────────────────────────────
+  // ── Search fires on committed query (Enter key), not on every keystroke ────
   useEffect(() => {
     const q = query.trim();
     if (!q || q.length < 2) {
       setResults([]);
       setWikipediaResult(null);
-      return;
-    }
-    setLoadingDict(true);
-    setLoadingWiki(true);
-    const timer = setTimeout(() => {
-      api.searchTopics(q)
-        .then(setResults)
-        .catch(() => setResults([]))
-        .finally(() => setLoadingDict(false));
-      api.getWikipediaEntry(q)
-        .then(setWikipediaResult)
-        .catch(() => setWikipediaResult(null))
-        .finally(() => setLoadingWiki(false));
-    }, 300);
-    return () => {
-      clearTimeout(timer);
       setLoadingDict(false);
       setLoadingWiki(false);
-    };
+      return;
+    }
+    let cancelled = false;
+    setLoadingDict(true);
+    setLoadingWiki(true);
+    api.searchTopics(q)
+      .then((r) => { if (!cancelled) setResults(r); })
+      .catch(() => { if (!cancelled) setResults([]); })
+      .finally(() => { if (!cancelled) setLoadingDict(false); });
+    api.getWikipediaEntry(q)
+      .then((r) => { if (!cancelled) setWikipediaResult(r); })
+      .catch(() => { if (!cancelled) setWikipediaResult(null); })
+      .finally(() => { if (!cancelled) setLoadingWiki(false); });
+    return () => { cancelled = true; };
   }, [query]);
 
-  // ── Respond to external triggers ──────────────────────────────────────────
+  // ── Respond to external triggers (e.g. opening Codex from StrongsDrawer) ──
   useEffect(() => {
     if (initialQuery?.term) {
+      setInputValue(initialQuery.term);
       setQuery(initialQuery.term);
       setTimeout(() => inputRef.current?.focus(), 0);
     }
@@ -82,7 +81,7 @@ export default function TopicGuidePane({
     if (selected?.module !== SUMMARY_MODULE) return;
     const q = selected.key;
     setSummaryState({ loading: true, html: null, error: null, cached: false });
-    api.getFactbookSummary(q)
+    api.getCodexSummary(q)
       .then((res) => setSummaryState({ loading: false, html: res.summaryHtml, error: null, cached: res.cached }))
       .catch((e) => setSummaryState({ loading: false, html: null, error: e.message, cached: false }));
   }, [selected?.module === SUMMARY_MODULE ? selected.key : null]);
@@ -143,7 +142,11 @@ export default function TopicGuidePane({
   // ── Cross-reference navigation within the same module ─────────────────────
   async function navigateToKey(key) {
     if (!key) return;
-    if (!selected || selected.module === WIKIPEDIA_MODULE) { setQuery(key); return; }
+    if (!selected || selected.module === WIKIPEDIA_MODULE) {
+      setInputValue(key);
+      setQuery(key);
+      return;
+    }
     try {
       // Verify key exists before pushing to history; fall back to query search if not
       await api.getDictionaryEntry(selected.module, key);
@@ -194,8 +197,13 @@ export default function TopicGuidePane({
     if (xrefEl) { handleVerseRefClick(xrefEl.dataset.refs, e); return; }
     const verseRefEl = e.target.closest('.verse-ref');
     if (verseRefEl) { handleVerseRefClick(verseRefEl.dataset.ref, e); return; }
-    const topicRefEl = e.target.closest('.factbook-topic-ref');
-    if (topicRefEl?.dataset.query) { setQuery(topicRefEl.dataset.query); return; }
+    const topicRefEl = e.target.closest('.codex-topic-ref');
+    if (topicRefEl?.dataset.query) {
+      const term = topicRefEl.dataset.query;
+      setInputValue(term);
+      setQuery(term);
+      return;
+    }
   }
 
   function selectWikipedia() {
@@ -206,6 +214,7 @@ export default function TopicGuidePane({
   }
 
   function clearSearch() {
+    setInputValue('');
     setQuery('');
     setResults([]);
     setWikipediaResult(null);
@@ -229,13 +238,14 @@ export default function TopicGuidePane({
             <Search size={12} className="shrink-0 text-muted" />
             <input
               ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search topics…"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') setQuery(inputValue.trim()); }}
+              placeholder="Search, press Enter…"
               className="min-w-0 flex-1 bg-transparent text-sm text-parchment placeholder:text-muted focus:outline-none"
               autoFocus
             />
-            {query && (
+            {inputValue && (
               <button onClick={clearSearch} className="shrink-0 text-muted hover:text-parchment">
                 <X size={11} />
               </button>
@@ -251,9 +261,9 @@ export default function TopicGuidePane({
           {!loading && query.trim().length >= 2 && !hasResults && (
             <p className="px-3 py-2 text-xs text-muted">No results for "{query.trim()}".</p>
           )}
-          {!query.trim() && (
+          {!inputValue.trim() && (
             <p className="px-3 py-4 text-xs leading-relaxed text-muted/60">
-              Type a person, place, or topic to search all installed reference modules.
+              Type a topic and press Enter to search all installed reference modules.
             </p>
           )}
 

@@ -35,12 +35,23 @@ function wrapTopicRefs(html) {
   return html.replace(
     /<a href="factbook:([^"]+)"[^>]*>([^<]+)<\/a>/g,
     (_, query, label) =>
-      `<span class="factbook-topic-ref" data-query="${query}">${label}</span>`
+      `<span class="codex-topic-ref" data-query="${query}">${label}</span>`
+  );
+}
+
+// Convert [Label](factbook:Query) links BEFORE marked can mangle the
+// non-standard protocol — marked strips or corrupts custom-protocol hrefs in
+// newer versions, so converting them to spans first is more reliable.
+function preprocessTopicRefs(md) {
+  return md.replace(
+    /\[([^\]]+)\]\(factbook:([^)]+)\)/g,
+    (_, label, query) =>
+      `<span class="codex-topic-ref" data-query="${query.trim()}">${label}</span>`,
   );
 }
 
 function toHtml(md) {
-  const raw = marked.parse(md || '');
+  const raw = marked.parse(preprocessTopicRefs(md || ''));
   return wrapTopicRefs(wrapVerseRefs(raw));
 }
 
@@ -66,7 +77,7 @@ export async function generateAndCache(title, normalizedQuery, { dictKeys = [], 
   const response = await anthropic.messages.create({
     model: config.anthropicModel,
     max_tokens: 1200,
-    system: `You are a biblical reference librarian creating a concise Factbook overview for a self-hosted Bible study app. Write a focused, well-structured summary in Markdown for the given topic. Cover:
+    system: `You are a biblical reference librarian creating a concise Codex overview for a self-hosted Bible study app. Write a focused, well-structured summary in Markdown for the given topic. Cover:
 - Who or what this is (definition, identification)
 - Key biblical appearances and significance
 - Theological importance or themes

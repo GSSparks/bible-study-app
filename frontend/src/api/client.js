@@ -73,16 +73,16 @@ export const api = {
   ocrDocument: (id) => request(`/pdf/${id}/ocr`, { method: 'POST' }),
   documentFileUrl: (id) => `${BASE}/pdf/${id}/file`,
 
-  // Topic / Factbook cross-module search
+  // Topic / Codex cross-module search
   searchTopics: (q) => request(`/topics?q=${encodeURIComponent(q)}`),
   getWikipediaEntry: (q) => request(`/wikipedia?q=${encodeURIComponent(q)}`),
-  getFactbookSummary: (q) => request(`/factbook/summary?q=${encodeURIComponent(q)}`),
+  getCodexSummary: (q) => request(`/codex/summary?q=${encodeURIComponent(q)}`),
 
-  // Admin: Factbook cache management
-  listFactbookCache: () => request('/admin/factbook'),
-  deleteFactbookEntry: (id) => request(`/admin/factbook/${id}`, { method: 'DELETE' }),
-  exportFactbookModule: async () => {
-    const res = await fetch('/api/admin/factbook/export');
+  // Admin: Codex cache management
+  listCodexCache: () => request('/admin/codex'),
+  deleteCodexEntry: (id) => request(`/admin/codex/${id}`, { method: 'DELETE' }),
+  exportCodexModule: async () => {
+    const res = await fetch('/api/admin/codex/export');
     if (!res.ok) throw new Error('Export failed');
     return res.blob();
   },

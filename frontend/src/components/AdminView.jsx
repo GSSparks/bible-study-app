@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 
-const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding', 'Factbook'];
+const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding', 'Codex'];
 const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT'];
 
 function formatBytes(bytes) {
@@ -40,7 +40,7 @@ export default function AdminView() {
         {tab === 'Media' && <MediaTab />}
         {tab === 'Metrics' && <MetricsTab />}
         {tab === 'Branding' && <BrandingTab />}
-        {tab === 'Factbook' && <FactbookTab />}
+        {tab === 'Codex' && <CodexTab />}
       </div>
     </div>
   );
@@ -657,7 +657,7 @@ function Stat({ label, value }) {
   );
 }
 
-function FactbookTab() {
+function CodexTab() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -666,7 +666,7 @@ function FactbookTab() {
 
   function refresh() {
     setLoading(true);
-    api.listFactbookCache()
+    api.listCodexCache()
       .then(setEntries)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -677,11 +677,11 @@ function FactbookTab() {
   async function handleExport() {
     setExporting(true);
     try {
-      const blob = await api.exportFactbookModule();
+      const blob = await api.exportCodexModule();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'factbook-ai-summaries.zip';
+      a.download = 'codex-ai-summaries.zip';
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -694,7 +694,7 @@ function FactbookTab() {
   async function handleDelete(id) {
     setDeletingId(id);
     try {
-      await api.deleteFactbookEntry(id);
+      await api.deleteCodexEntry(id);
       setEntries((prev) => prev.filter((e) => e.id !== id));
     } catch (e) {
       setError(e.message);
@@ -726,7 +726,7 @@ function FactbookTab() {
       {loading ? (
         <p className="text-sm text-muted">Loading…</p>
       ) : entries.length === 0 ? (
-        <p className="text-sm text-muted">No overviews cached yet. Search topics in Factbook to generate them.</p>
+        <p className="text-sm text-muted">No overviews cached yet. Search topics in Codex to generate them.</p>
       ) : (
         <table className="w-full text-sm">
           <thead>

@@ -160,14 +160,14 @@
   color: theme('colors.pageAccent');
 }
 
-/* Factbook related-topic links in AI Overview — same verdigris affordance as
+/* Codex related-topic links in AI Overview — same verdigris affordance as
    verse-refs but bold to signal "search for this" rather than "preview verse". */
-.factbook-topic-ref {
+.codex-topic-ref {
   cursor: pointer;
   color: theme('colors.verdigris');
   font-weight: 600;
 }
-.factbook-topic-ref:hover {
+.codex-topic-ref:hover {
   color: theme('colors.pageAccent');
   text-decoration: underline;
 }

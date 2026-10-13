@@ -28,7 +28,7 @@ export default function CellView({
   onAiPhraseStudyConsumed,
   pendingAiDocument,
   onAiDocumentConsumed,
-  onOpenFactbook,
+  onOpenCodex,
 }) {
   const cellInit = useRef(null);
   if (cellInit.current === null) {
@@ -248,7 +248,7 @@ export default function CellView({
   function openTopicalSearch(word) {
     if (!word) return;
     const searchTerm = simplifyForTopicalSearch(word);
-    onOpenFactbook?.(searchTerm);
+    onOpenCodex?.(searchTerm);
   }
 
   function routeToSearch(query) {

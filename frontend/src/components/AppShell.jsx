@@ -18,7 +18,7 @@ import { api } from '../api/client.js';
 const NAV_GROUPS = [
   [
     { key: 'cell', label: 'Cell', Icon: BookOpen },
-    { key: 'factbook', label: 'Factbook', Icon: Compass },
+    { key: 'codex', label: 'Codex', Icon: Compass },
     { key: 'plans', label: 'Plans', Icon: BookMarked },
     { key: 'scriptoriums', label: 'Scriptoriums', Icon: Box, requiresAuth: true },
     { key: 'library', label: 'Library', Icon: LibraryIcon },
@@ -84,7 +84,7 @@ export default function AppShell({ auth }) {
   const [pendingAiOverview, setPendingAiOverview] = useState(null);
   const [pendingAiPhraseStudy, setPendingAiPhraseStudy] = useState(null);
   const [pendingAiDocument, setPendingAiDocument] = useState(null);
-  const [pendingFactbookQuery, setPendingFactbookQuery] = useState(null);
+  const [pendingCodexQuery, setPendingCodexQuery] = useState(null);
 
   function navigate(key) {
     routerNavigate('/' + key);
@@ -116,9 +116,9 @@ export default function AppShell({ auth }) {
     navigate('cell');
   }
 
-  function openFactbook(term) {
-    setPendingFactbookQuery({ term, nonce: Date.now() });
-    navigate('factbook');
+  function openCodex(term) {
+    setPendingCodexQuery({ term, nonce: Date.now() });
+    navigate('codex');
   }
 
   useEffect(() => {
@@ -272,13 +272,13 @@ export default function AppShell({ auth }) {
             onAiPhraseStudyConsumed={() => setPendingAiPhraseStudy(null)}
             pendingAiDocument={pendingAiDocument}
             onAiDocumentConsumed={() => setPendingAiDocument(null)}
-            onOpenFactbook={openFactbook}
+            onOpenCodex={openCodex}
           />
         </div>
-        <div className={activeView === 'factbook' ? 'h-full' : 'hidden'}>
+        <div className={activeView === 'codex' ? 'h-full' : 'hidden'}>
           <TopicGuidePane
             isLoggedIn={Boolean(auth.user)}
-            initialQuery={pendingFactbookQuery}
+            initialQuery={pendingCodexQuery}
             defaultBibleModule={defaultBibleModule}
           />
         </div>
@@ -317,7 +317,7 @@ export default function AppShell({ auth }) {
           />
         </div>
         {activeView !== 'cell' &&
-          activeView !== 'factbook' &&
+          activeView !== 'codex' &&
           activeView !== 'settings' &&
           activeView !== 'admin' &&
           activeView !== 'plans' &&

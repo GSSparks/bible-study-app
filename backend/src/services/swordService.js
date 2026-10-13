@@ -545,7 +545,34 @@ class SwordService {
       throw err;
     }
     const withLinksConverted = this.processDictHyperlinks(raw);
-    return this.processVerseContent(this.stripRedundantWritingTransliteration(withLinksConverted)).content;
+    const processed = this.processVerseContent(this.stripRedundantWritingTransliteration(withLinksConverted)).content;
+    return this.rewriteImageSrcs(processed, moduleCode);
+  }
+
+  // Read DataPath from the module's .conf file so we can resolve image paths.
+  getModuleDataPath(moduleCode) {
+    const modsDir = path.join(config.swordModulesPath, '.sword', 'mods.d');
+    let confName = `${moduleCode}.conf`;
+    try {
+      const files = fs.readdirSync(modsDir);
+      const match = files.find((f) => f.toLowerCase() === confName.toLowerCase());
+      if (!match) return null;
+      const conf = fs.readFileSync(path.join(modsDir, match), 'utf8');
+      const m = conf.match(/^DataPath\s*=\s*(.+)$/im);
+      if (!m) return null;
+      return m[1].trim().replace(/^\.[\\/]/, '');
+    } catch {
+      return null;
+    }
+  }
+
+  // Rewrite relative <img src="..."> paths to the sword-img API endpoint.
+  rewriteImageSrcs(html, moduleCode) {
+    return html.replace(/<img\b([^>]*)\bsrc="([^"]+)"([^>]*)>/gi, (match, before, src, after) => {
+      if (/^https?:\/\/|^data:|^\//.test(src)) return match;
+      const encoded = encodeURIComponent(src);
+      return `<img${before} src="/api/sword-img?module=${encodeURIComponent(moduleCode)}&path=${encoded}"${after}>`;
+    });
   }
 
   /** Converts raw <a> hyperlinks from SWORD dict modules (Vine's, etc.)

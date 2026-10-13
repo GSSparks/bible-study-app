@@ -129,7 +129,7 @@ export default function StrongsDrawer({
                       onClick={() => onSearchTopical(wordText)}
                       className="text-xs text-verdigris hover:text-brass"
                     >
-                      Factbook: {wordText} →
+                      Codex: {wordText} →
                     </button>
                   )}
                   {onOpenInDictionary && (
