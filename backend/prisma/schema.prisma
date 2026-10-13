@@ -69,6 +69,7 @@ model StudySession {
   reference       String?
   module          String?
   title           String?
+  kind            String?  @default("conversation") // 'guide' | 'conversation'
   messages        Json
   contextSnapshot Json?
   createdAt       DateTime @default(now())
@@ -76,6 +77,7 @@ model StudySession {
 
   @@index([userId])
   @@index([reference])
+  @@index([userId, kind, reference])
 }
 
 model PersonalModule {

@@ -93,6 +93,19 @@ function markdownToHtml(md) {
     .join('\n');
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatAge(isoDate) {
+  const ms = Date.now() - new Date(isoDate).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 2) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PassageGuidePane({ reference, module, isLoggedIn, pendingAiRequest, onPersonalDictionarySaved }) {
@@ -101,6 +114,8 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const [activeSessionId, setActiveSessionId] = useState(null);
+  const [activeSessionKind, setActiveSessionKind] = useState(null);
+  const [activeSessionUpdatedAt, setActiveSessionUpdatedAt] = useState(null);
   const [messages, setMessages] = useState([]);
   const [sessionTitle, setSessionTitle] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -155,6 +170,8 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
   function startNew() {
     setMessages([]);
     setActiveSessionId(null);
+    setActiveSessionKind(null);
+    setActiveSessionUpdatedAt(null);
     setSessionTitle(null);
     setError(null);
     setAttachedNotes([]);
@@ -167,11 +184,32 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
   function resumeSession(session) {
     setMessages(session.messages || []);
     setActiveSessionId(session.id);
+    setActiveSessionKind(session.kind || null);
+    setActiveSessionUpdatedAt(session.updatedAt || null);
     setSessionTitle(session.title || session.reference || 'Untitled');
     setError(null);
     setAttachedNotes([]);
     setDropdownOpen(false);
   }
+
+  // Auto-load the most recent cached guide whenever the reference changes.
+  // Silently clears state if no guide exists for the new reference.
+  useEffect(() => {
+    if (!isLoggedIn || !reference) return;
+    api.getGuideForReference(reference)
+      .then((session) => resumeSession(session))
+      .catch(() => {
+        setMessages([]);
+        setActiveSessionId(null);
+        setActiveSessionKind(null);
+        setActiveSessionUpdatedAt(null);
+        setSessionTitle(null);
+        setError(null);
+        setActiveStudyKind(null);
+        setActiveStudyKey(null);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reference, isLoggedIn]);
 
   async function commitRename() {
     const trimmed = renameValue.trim();
@@ -210,10 +248,12 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
         includeWordStudies: false,
         noteIds: attachedNotes.map((n) => n.id),
       });
-      const res = await api.askAssistant({ context, messages: toApiMessages([userMsg]), title: t });
+      const res = await api.askAssistant({ context, messages: toApiMessages([userMsg]), title: t, kind: 'guide' });
       const assistantMsg = { role: 'assistant', content: res.reply };
       setMessages([userMsg, assistantMsg]);
       setActiveSessionId(res.sessionId);
+      setActiveSessionKind('guide');
+      setActiveSessionUpdatedAt(new Date().toISOString());
       refreshSessions();
     } catch (e) {
       setError(e.message);
@@ -532,6 +572,16 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
             title="Rename"
           >
             ✎
+          </button>
+        )}
+
+        {activeSessionKind === 'guide' && activeSessionUpdatedAt && !loading && (
+          <button
+            onClick={runPassageGuide}
+            className="shrink-0 rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-brass hover:text-pageText"
+            title="Regenerate guide for this passage"
+          >
+            ↻ {formatAge(activeSessionUpdatedAt)}
           </button>
         )}
 

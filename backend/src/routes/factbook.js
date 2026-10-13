@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { swordService } from '../services/swordService.js';
-import { isMdModuleCode, mdDirName, getMdDictionaryKeys } from '../services/mdModuleService.js';
+import { isMdModuleCode, mdDirName, getMdDictionaryKeys, getMdDictionaryEntry } from '../services/mdModuleService.js';
 import { filterAvailableModules } from '../services/moduleVisibilityService.js';
 import { getCachedSummary, generateAndCache } from '../services/factbookSummaryService.js';
 
@@ -25,23 +25,70 @@ codexRouter.get('/summary', async (req, res, next) => {
     let swordModules = swordService.listInstalledModules('DICT');
     if (req.user?.role !== 'admin') swordModules = await filterAvailableModules(swordModules);
 
-    const [keyResults, wikipediaExtract] = await Promise.all([
+    const scoreKey = (k) => {
+      const kl = k.toLowerCase();
+      if (kl === normalized) return 2;
+      if (kl.startsWith(normalized)) return 1;
+      return 0;
+    };
+
+    const [rawKeyResults, wikipediaExtract] = await Promise.all([
       Promise.allSettled(swordModules.slice(0, 6).map(async (mod) => {
         try {
           const keys = isMdModuleCode(mod.name)
             ? await getMdDictionaryKeys(mdDirName(mod.name))
             : swordService.getDictionaryKeys(mod.name);
-          return keys.filter((k) => k.toLowerCase().includes(normalized)).slice(0, 5);
-        } catch { return []; }
+          return { mod, keys: keys.filter((k) => k.toLowerCase().includes(normalized)).slice(0, 5) };
+        } catch { return { mod, keys: [] }; }
       })),
       fetchWikipediaExtract(q),
     ]);
-    const allDictKeys = [...new Set(
-      keyResults.flatMap((r) => r.status === 'fulfilled' ? r.value : [])
-    )].slice(0, 20);
+
+    // Deduplicate by key (first module wins), rank by match quality, skip bare Strong's numbers
+    const seen = new Set();
+    const candidates = rawKeyResults
+      .flatMap((r) => r.status === 'fulfilled' ? r.value.keys.map((key) => ({ mod: r.value.mod, key })) : [])
+      .filter(({ key }) => {
+        if (/^\d+$/.test(key)) return false;
+        const kl = key.toLowerCase();
+        if (seen.has(kl)) return false;
+        seen.add(kl);
+        return true;
+      })
+      .sort((a, b) => scoreKey(b.key) - scoreKey(a.key))
+      .slice(0, 5);
+
+    // Fetch actual entry text for each candidate
+    const MAX_ENTRY_CHARS = 1500;
+    const MAX_TOTAL_CHARS = 6000;
+    const stripHtml = (html) => (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+    let totalChars = 0;
+    const entryResults = await Promise.allSettled(
+      candidates.map(async ({ mod, key }) => {
+        try {
+          const html = isMdModuleCode(mod.name)
+            ? await getMdDictionaryEntry(mdDirName(mod.name), key)
+            : swordService.getRawEntry(mod.name, key);
+          if (!html) return null;
+          const text = stripHtml(html).slice(0, MAX_ENTRY_CHARS);
+          if (text.length < 30) return null;
+          return { source: mod.description || mod.name, key, text };
+        } catch { return null; }
+      })
+    );
+
+    const dictEntries = entryResults
+      .filter((r) => r.status === 'fulfilled' && r.value)
+      .map((r) => r.value)
+      .filter((e) => {
+        if (totalChars >= MAX_TOTAL_CHARS) return false;
+        totalChars += e.text.length;
+        return true;
+      });
 
     const result = await generateAndCache(q, normalized, {
-      dictKeys: allDictKeys,
+      dictEntries,
       wikipediaExtract,
     });
 

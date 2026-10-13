@@ -61,12 +61,15 @@ export async function getCachedSummary(normalizedQuery) {
   return { ...row, summaryHtml: toHtml(row.summaryMd) };
 }
 
-export async function generateAndCache(title, normalizedQuery, { dictKeys = [], wikipediaExtract = null } = {}) {
+export async function generateAndCache(title, normalizedQuery, { dictEntries = [], wikipediaExtract = null } = {}) {
   if (!anthropic) throw new Error('AI not configured');
 
   const contextParts = [];
-  if (dictKeys.length > 0) {
-    contextParts.push(`Available reference entries: ${dictKeys.join(', ')}`);
+  if (dictEntries.length > 0) {
+    const entriesText = dictEntries
+      .map((e) => `### ${e.source} — ${e.key}\n${e.text}`)
+      .join('\n\n');
+    contextParts.push(`Reference entries from installed modules:\n\n${entriesText}`);
   }
   if (wikipediaExtract) {
     contextParts.push(`Wikipedia overview:\n${wikipediaExtract}`);
@@ -77,7 +80,7 @@ export async function generateAndCache(title, normalizedQuery, { dictKeys = [], 
   const response = await anthropic.messages.create({
     model: config.anthropicModel,
     max_tokens: 1200,
-    system: `You are a biblical reference librarian creating a concise Codex overview for a self-hosted Bible study app. Write a focused, well-structured summary in Markdown for the given topic. Cover:
+    system: `You are a biblical reference librarian creating a concise Codex overview for a self-hosted Bible study app. You will be given reference entries from the user's installed study modules and/or a Wikipedia extract — draw from these sources to ground your summary, then supplement with your own knowledge where they are incomplete. Write a focused, well-structured summary in Markdown for the given topic. Cover:
 - Who or what this is (definition, identification)
 - Key biblical appearances and significance
 - Theological importance or themes

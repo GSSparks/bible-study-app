@@ -40,10 +40,10 @@ contextRouter.post('/build', async (req, res, next) => {
 });
 
 // POST /api/context/ask
-// { context, messages: [{ role: 'user', content: '...' }], sessionId?, title? }
+// { context, messages: [{ role: 'user', content: '...' }], sessionId?, title?, kind? }
 contextRouter.post('/ask', async (req, res, next) => {
   try {
-    const { context, messages, sessionId, title } = req.body;
+    const { context, messages, sessionId, title, kind } = req.body;
     if (!context || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'context and messages[] are required' });
     }
@@ -52,6 +52,7 @@ contextRouter.post('/ask', async (req, res, next) => {
 
     const updatedMessages = [...messages, { role: 'assistant', content: reply }];
     const firstPassage = context.passages[0];
+    const sessionKind = kind === 'guide' ? 'guide' : 'conversation';
 
     // IMPORTANT: updating an existing session needs an ownership check,
     // same IDOR concern as notes.js's single-item routes — without it,
@@ -78,6 +79,7 @@ contextRouter.post('/ask', async (req, res, next) => {
           reference: firstPassage?.reference || null,
           module: firstPassage?.module || null,
           title: title || null,
+          kind: sessionKind,
           messages: updatedMessages,
           contextSnapshot: context,
         },
@@ -85,6 +87,22 @@ contextRouter.post('/ask', async (req, res, next) => {
     }
 
     res.json({ reply, sessionId: session.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/context/guide/:reference
+// Returns the most recently generated passage guide for this user + reference,
+// or 404 if none has been generated yet.
+contextRouter.get('/guide/:reference', async (req, res, next) => {
+  try {
+    const session = await prisma.studySession.findFirst({
+      where: { userId: req.user.id, reference: req.params.reference, kind: 'guide' },
+      orderBy: { updatedAt: 'desc' },
+    });
+    if (!session) return res.status(404).json({ error: 'No guide found.' });
+    res.json(session);
   } catch (err) {
     next(err);
   }

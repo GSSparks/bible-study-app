@@ -97,6 +97,7 @@ export const api = {
   buildContext: (payload) => request('/context/build', { method: 'POST', body: JSON.stringify(payload) }),
   askAssistant: (payload) => request('/context/ask', { method: 'POST', body: JSON.stringify(payload) }),
   listRecentSessions: () => request('/context/sessions'),
+  getGuideForReference: (reference) => request(`/context/guide/${encodeURIComponent(reference)}`),
   renameSession: (id, title) => request(`/context/sessions/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
   buildWordStudyContext: (payload) => request('/word-study', { method: 'POST', body: JSON.stringify(payload) }),
   askWordStudy: (payload) => request('/word-study/ask', { method: 'POST', body: JSON.stringify(payload) }),
