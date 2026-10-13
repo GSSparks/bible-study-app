@@ -3,9 +3,15 @@ import { prisma } from '../db/prisma.js';
 
 export const merriamRouter = Router();
 
-const MW_KEY = process.env.MERRIAM_WEBSTER_API_KEY;
+const MW_KEY = process.env.MERRIAM_WEBSTER_API_KEY || null;
 const MW_BASE = 'https://www.dictionaryapi.com/api/v3/references/collegiate/json';
 const UA = 'Scriptorium/1.0 (self-hosted Bible study app; contact via GitHub)';
+
+if (MW_KEY) {
+  console.log('[merriam] Merriam-Webster API configured');
+} else {
+  console.log('[merriam] MERRIAM_WEBSTER_API_KEY not set — MW lookups disabled');
+}
 
 // GET /api/merriam?q=grace
 // Returns a parsed Merriam-Webster Collegiate entry or null if not found / not configured.
@@ -38,7 +44,8 @@ merriamRouter.get('/', async (req, res) => {
     await prisma.merriamCache.create({ data: { query: normalized, data: result } });
 
     res.json(result);
-  } catch {
+  } catch (err) {
+    console.error('[merriam] lookup failed:', err.message);
     res.json(null);
   }
 });
