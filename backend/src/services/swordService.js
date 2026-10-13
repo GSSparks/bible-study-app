@@ -577,8 +577,11 @@ class SwordService {
       const m = imgTag.match(/\bsrc\s*=\s*(?:"([^"]*?)"|'([^']*?)'|([^\s"'>][^\s>]*))/i);
       if (!m) return imgTag;
       const src = m[1] ?? m[2] ?? m[3] ?? '';
-      if (!src || /^https?:|^data:|^\//.test(src)) return imgTag;
-      const relSrc = src.replace(/^\.\//, '');
+      if (!src || /^https?:|^data:|^\/\//.test(src)) return imgTag;
+      if (src.startsWith('/api/sword-data/')) return imgTag; // already rewritten
+      // Strip leading ./ or / — SWORD modules use filesystem-absolute paths
+      // like /images/foo.jpg that are actually relative to the module data dir.
+      const relSrc = src.replace(/^\.\//, '').replace(/^\//, '');
       return imgTag.replace(m[0], `src="${base}${relSrc}"`);
     });
   }
