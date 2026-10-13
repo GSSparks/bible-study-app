@@ -52,7 +52,11 @@ merriamRouter.get('/', async (req, res) => {
 
 function parseMWEntries(query, entries) {
   const headword = (entries[0].hwi?.hw || query).replace(/\*/g, '');
-  const pronunciation = entries[0].hwi?.prs?.[0]?.mw || null;
+
+  // Pronunciation: written form + audio URL from first prs entry
+  const firstPr = entries[0].hwi?.prs?.[0] ?? null;
+  const pronunciation = firstPr?.mw || null;
+  const audioUrl = firstPr?.sound ? buildAudioUrl(firstPr.sound.audio) : null;
 
   // Collect up to 4 part-of-speech groups (noun, verb, adj…)
   const groups = [];
@@ -65,30 +69,59 @@ function parseMWEntries(query, entries) {
   const etymology = parseEtymology(entries[0].et);
   const firstUse = (entries[0].date || '').replace(/\{bc\}/g, '').trim() || null;
 
+  // Illustration — top-level `art` member on the first entry that has one
+  const artEntry = entries.find((e) => e.art?.artid);
+  const art = artEntry ? {
+    imageUrl: `https://www.merriam-webster.com/assets/mw/static/art/dict/${artEntry.art.artid}.gif`,
+    pageUrl: `https://www.merriam-webster.com/art/dict/${artEntry.art.artid}.htm`,
+    capt: parseTokenString(artEntry.art.capt || ''),
+  } : null;
+
   return {
     headword,
     pronunciation,
+    audioUrl,
     groups,
     etymology,
     firstUse,
+    art,
     url: `https://www.merriam-webster.com/dictionary/${encodeURIComponent(headword)}`,
   };
 }
 
+// Constructs the MW audio URL from a sound.audio base filename.
+// Subdirectory rules are specified in the MW API documentation.
+function buildAudioUrl(audio) {
+  if (!audio) return null;
+  let subdir;
+  if (audio.startsWith('bix')) subdir = 'bix';
+  else if (audio.startsWith('gg')) subdir = 'gg';
+  else if (/^[0-9_]/.test(audio)) subdir = 'number';
+  else subdir = audio[0];
+  return `https://media.merriam-webster.com/audio/prons/en/us/mp3/${subdir}/${audio}.mp3`;
+}
+
+// Strips/converts MW inline token markup ({it}..{/it}, {bc}, {ldquo}/{rdquo})
+// from a plain string — used for etymology and illustration captions.
+function parseTokenString(str) {
+  if (!str) return null;
+  const html = str
+    .replace(/\{it\}([\s\S]*?)\{\/it\}/g, '<em>$1</em>')
+    .replace(/\{bc\}/g, ': ')
+    .replace(/\{ldquo\}/g, '“')
+    .replace(/\{rdquo\}/g, '”')
+    .replace(/\{[^}]+\}/g, '')
+    .trim();
+  return html || null;
+}
+
 // The MW `et` field is an array of [type, content] pairs; content contains
-// token markup like {it}..{/it}, {bc}, {ldquo}/{rdquo}.
+// the same token markup as captions.
 function parseEtymology(et) {
   if (!Array.isArray(et) || !et.length) return null;
   const raw = et
     .filter(Array.isArray)
     .map(([type, content]) => (type === 'text' ? content : ''))
     .join('');
-  const html = raw
-    .replace(/\{it\}([\s\S]*?)\{\/it\}/g, '<em>$1</em>')
-    .replace(/\{bc\}/g, ': ')
-    .replace(/\{ldquo\}/g, '"')
-    .replace(/\{rdquo\}/g, '"')
-    .replace(/\{[^}]+\}/g, '')
-    .trim();
-  return html || null;
+  return parseTokenString(raw);
 }

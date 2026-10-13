@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, Search, Sparkles, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, Search, Sparkles, Volume2, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import FootnotePopup from './FootnotePopup.jsx';
 import { osisToHuman } from '../utils/osisToHuman.js';
@@ -8,6 +8,32 @@ import { injectTocLinks } from '../utils/dictHtml.js';
 const WIKIPEDIA_MODULE = '__wikipedia__';
 const MERRIAM_MODULE = '__merriam__';
 const SUMMARY_MODULE = '__summary__';
+
+// Renders the MW logo image; falls back to a plain text span if the file
+// hasn't been placed yet. `invert` applies a CSS filter for use on dark
+// backgrounds (sidebar), where the standard dark logo needs to be white.
+// Try SVG first, then PNG, then fall back to text. Export the .ai file from
+// Illustrator as SVG and save to frontend/public/merriam-webster-logo.svg
+const MW_LOGO_SRCS = ['/merriam-webster-logo.svg', '/merriam-webster-logo.png'];
+
+function MerriamLogo({ height = 14, invert = false }) {
+  const [srcIdx, setSrcIdx] = useState(0);
+  if (srcIdx >= MW_LOGO_SRCS.length) {
+    return (
+      <span className="font-sans font-semibold" style={{ fontSize: height * 0.85 }}>
+        Merriam-Webster
+      </span>
+    );
+  }
+  return (
+    <img
+      src={MW_LOGO_SRCS[srcIdx]}
+      alt="Merriam-Webster"
+      style={{ height, filter: invert ? 'brightness(0) invert(1)' : undefined }}
+      onError={() => setSrcIdx((i) => i + 1)}
+    />
+  );
+}
 
 // Convert "See [also] CAPS-TERM[; CAPS-TERM2]" patterns in SWORD dictionary
 // entries into codex-topic-ref spans. The term character class intentionally
@@ -411,9 +437,9 @@ export default function TopicGuidePane({
           {/* Merriam-Webster result */}
           {(merriamResult || loadingMerriam) && query.trim().length >= 2 && (
             <div className="mt-1 border-t border-rule/30 pt-1">
-              <p className="px-3 pb-0.5 pt-2 font-sans text-[9px] uppercase tracking-widest text-muted/60">
-                Merriam-Webster
-              </p>
+              <div className="px-3 pb-0.5 pt-2 opacity-60">
+                <MerriamLogo height={12} invert />
+              </div>
               {loadingMerriam && !merriamResult && (
                 <p className="px-3 py-1 text-xs text-muted">Loading…</p>
               )}
@@ -529,10 +555,24 @@ export default function TopicGuidePane({
               <div className="flex items-baseline gap-3">
                 <h1 className="font-display text-2xl font-normal text-pageText">{merriamResult.headword}</h1>
                 {merriamResult.pronunciation && (
-                  <span className="font-sans text-sm text-pageMuted">/{merriamResult.pronunciation}/</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-sans text-sm text-pageMuted">/{merriamResult.pronunciation}/</span>
+                    {merriamResult.audioUrl && (
+                      <button
+                        onClick={() => new Audio(merriamResult.audioUrl).play()}
+                        title="Listen to pronunciation"
+                        className="text-pageMuted hover:text-pageAccent"
+                      >
+                        <Volume2 size={14} />
+                      </button>
+                    )}
+                  </span>
                 )}
               </div>
-              <p className="mt-1 font-sans text-xs text-pageMuted">Merriam-Webster Collegiate Dictionary</p>
+              <div className="mt-2 flex items-center gap-1.5 opacity-60">
+                <MerriamLogo height={14} />
+                <span className="font-sans text-xs text-pageMuted">Collegiate Dictionary</span>
+              </div>
             </div>
 
             <div className="max-w-2xl space-y-4">
@@ -551,6 +591,27 @@ export default function TopicGuidePane({
                   </ol>
                 </div>
               ))}
+
+              {merriamResult.art && (
+                <div className="border-t border-pageBorder pt-4">
+                  <p className="mb-2 font-sans text-[10px] uppercase tracking-widest text-pageMuted">
+                    Illustration of {merriamResult.headword}
+                  </p>
+                  <a href={merriamResult.art.pageUrl} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={merriamResult.art.imageUrl}
+                      alt={`Illustration of ${merriamResult.headword}`}
+                      className="max-h-64 rounded border border-pageBorder object-contain"
+                    />
+                  </a>
+                  {merriamResult.art.capt && (
+                    <p
+                      className="mt-1.5 font-sans text-xs leading-relaxed text-pageMuted"
+                      dangerouslySetInnerHTML={{ __html: merriamResult.art.capt }}
+                    />
+                  )}
+                </div>
+              )}
 
               {merriamResult.etymology && (
                 <div className="border-t border-pageBorder pt-4">
