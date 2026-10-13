@@ -569,20 +569,46 @@ class SwordService {
   // Rewrite relative <img> src attributes so the browser can load them via
   // /api/sword-data (which is express.static on the .sword directory).
   // Handles double-quoted, single-quoted, and unquoted src values.
+  // SWORD modules are inconsistent: some store images under the module's own
+  // data directory (DataPath), others store them at the .sword/ root in a
+  // folder named after the module. We probe both on disk and pick whichever
+  // actually has the file.
   rewriteImageSrcs(html, moduleCode) {
     const dataPath = this.getModuleDataPath(moduleCode);
     if (!dataPath) return html;
-    const base = `/api/sword-data/${dataPath}`;
+    const swordBase = path.join(config.swordModulesPath, '.sword');
+
     return html.replace(/<img\b[^>]*?>/gi, (imgTag) => {
       const m = imgTag.match(/\bsrc\s*=\s*(?:"([^"]*?)"|'([^']*?)'|([^\s"'>][^\s>]*))/i);
       if (!m) return imgTag;
       const src = m[1] ?? m[2] ?? m[3] ?? '';
       if (!src || /^https?:|^data:|^\/\//.test(src)) return imgTag;
       if (src.startsWith('/api/sword-data/')) return imgTag; // already rewritten
-      // Strip leading ./ or / — SWORD modules use filesystem-absolute paths
-      // like /images/foo.jpg that are actually relative to the module data dir.
-      const relSrc = src.replace(/^\.\//, '').replace(/^\//, '');
-      return imgTag.replace(m[0], `src="${base}${relSrc}"`);
+
+      // Normalise: strip leading ./ or /
+      const cleanSrc = src.replace(/^\.\//, '').replace(/^\//, '');
+
+      // Option A: image is inside the module's data directory (DataPath)
+      const moduleRelFile = path.join(swordBase, dataPath, cleanSrc);
+      // Option B: image is one level up from DataPath — some modules (e.g.
+      // histmideast) store data files in a subdirectory of the module folder
+      // but keep images in the parent directory alongside that subdirectory.
+      const parentDataPath = path.dirname(dataPath.replace(/\/$/, '')) + '/';
+      const parentRelFile  = path.join(swordBase, parentDataPath, cleanSrc);
+      // Option C: image is at the .sword root (e.g. histmideast/images/foo.jpg)
+      const rootRelFile    = path.join(swordBase, cleanSrc);
+
+      let newSrc;
+      if (fs.existsSync(moduleRelFile)) {
+        newSrc = `/api/sword-data/${dataPath}${cleanSrc}`;
+      } else if (fs.existsSync(parentRelFile)) {
+        newSrc = `/api/sword-data/${parentDataPath}${cleanSrc}`;
+      } else if (fs.existsSync(rootRelFile)) {
+        newSrc = `/api/sword-data/${cleanSrc}`;
+      } else {
+        newSrc = `/api/sword-data/${parentDataPath}${cleanSrc}`;
+      }
+      return imgTag.replace(m[0], `src="${newSrc}"`);
     });
   }
 
