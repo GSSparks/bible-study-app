@@ -549,29 +549,37 @@ class SwordService {
     return this.rewriteImageSrcs(processed, moduleCode);
   }
 
-  // Read DataPath from the module's .conf file so we can resolve image paths.
+  // Read DataPath from the module's .conf file (e.g. "modules/dicts/rawld4/maps/").
   getModuleDataPath(moduleCode) {
     const modsDir = path.join(config.swordModulesPath, '.sword', 'mods.d');
-    let confName = `${moduleCode}.conf`;
     try {
       const files = fs.readdirSync(modsDir);
-      const match = files.find((f) => f.toLowerCase() === confName.toLowerCase());
+      const match = files.find((f) => f.toLowerCase() === `${moduleCode.toLowerCase()}.conf`);
       if (!match) return null;
       const conf = fs.readFileSync(path.join(modsDir, match), 'utf8');
       const m = conf.match(/^DataPath\s*=\s*(.+)$/im);
       if (!m) return null;
-      return m[1].trim().replace(/^\.[\\/]/, '');
+      // Strip leading ./ or .\ and ensure a trailing slash
+      return m[1].trim().replace(/^\.[\\/]/, '').replace(/\/?$/, '/');
     } catch {
       return null;
     }
   }
 
-  // Rewrite relative <img src="..."> paths to the sword-img API endpoint.
+  // Rewrite relative <img> src attributes so the browser can load them via
+  // /api/sword-data (which is express.static on the .sword directory).
+  // Handles double-quoted, single-quoted, and unquoted src values.
   rewriteImageSrcs(html, moduleCode) {
-    return html.replace(/<img\b([^>]*)\bsrc="([^"]+)"([^>]*)>/gi, (match, before, src, after) => {
-      if (/^https?:\/\/|^data:|^\//.test(src)) return match;
-      const encoded = encodeURIComponent(src);
-      return `<img${before} src="/api/sword-img?module=${encodeURIComponent(moduleCode)}&path=${encoded}"${after}>`;
+    const dataPath = this.getModuleDataPath(moduleCode);
+    if (!dataPath) return html;
+    const base = `/api/sword-data/${dataPath}`;
+    return html.replace(/<img\b[^>]*?>/gi, (imgTag) => {
+      const m = imgTag.match(/\bsrc\s*=\s*(?:"([^"]*?)"|'([^']*?)'|([^\s"'>][^\s>]*))/i);
+      if (!m) return imgTag;
+      const src = m[1] ?? m[2] ?? m[3] ?? '';
+      if (!src || /^https?:|^data:|^\//.test(src)) return imgTag;
+      const relSrc = src.replace(/^\.\//, '');
+      return imgTag.replace(m[0], `src="${base}${relSrc}"`);
     });
   }
 

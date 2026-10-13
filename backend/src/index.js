@@ -33,7 +33,6 @@ import { readingPlansRouter } from './routes/readingPlans.js';
 import { topicsRouter } from './routes/topics.js';
 import { wikipediaRouter } from './routes/wikipedia.js';
 import { codexRouter } from './routes/factbook.js';
-import { swordImagesRouter } from './routes/swordImages.js';
 import { ensureBuiltInPlans } from './services/readingPlanService.js';
 import { UPLOADS_PATH } from './middleware/upload.js';
 
@@ -122,7 +121,10 @@ app.use('/api/reading-plans', readingPlansRouter);
 app.use('/api/topics', topicsRouter);
 app.use('/api/wikipedia', wikipediaRouter);
 app.use('/api/codex', codexRouter);
-app.use('/api/sword-img', swordImagesRouter);
+// SWORD module images — served directly from the modules data directory.
+// Entries in dict/maps modules contain relative <img> paths; swordService
+// rewrites them to /api/sword-data/{dataPath}/{img} so this handler resolves them.
+app.use('/api/sword-data', express.static(path.join(config.swordModulesPath, '.sword')));
 
 // User-uploaded files — served before the SPA static files so the
 // /uploads path doesn't get swallowed by the catch-all.
