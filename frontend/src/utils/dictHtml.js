@@ -15,6 +15,7 @@ function normalizeForMatch(text) {
     .replace(/\s+/g, ' ');
 }
 
+// David-style: <p><span>ALL CAPS TEXT</span></p>
 function isCapsSpanP(el) {
   if (el.tagName !== 'P') return false;
   const kids = [...el.children];
@@ -23,8 +24,39 @@ function isCapsSpanP(el) {
   return letters.length > 0 && letters === letters.toUpperCase();
 }
 
-function isNumberedP(el) {
-  return el.tagName === 'P' && /^\d+\./.test(el.textContent.trim());
+// Jerusalem-style: <p>I. ALL CAPS TEXT</p>  (Roman numeral + all-caps body)
+function isRomanCapsP(el) {
+  if (el.tagName !== 'P') return false;
+  const t = el.textContent.trim();
+  const m = t.match(/^[IVXLCDM]{1,8}\.\s+(.+)$/i);
+  if (!m) return false;
+  const letters = m[1].replace(/[^a-zA-Z]/g, '');
+  return letters.length > 0 && letters === letters.toUpperCase();
+}
+
+// Standalone all-caps entry like "LITERATURE" at the end of an ISBE TOC.
+// Only used after seenMajor is established; requires at least 3 letters,
+// short length, and no Roman-numeral prefix (those are handled by isRomanCapsP).
+function isAllCapsP(el) {
+  if (el.tagName !== 'P') return false;
+  const t = el.textContent.trim();
+  if (t.length === 0 || t.length > 60) return false;
+  if (/^[IVXLCDM]{1,8}\.\s/i.test(t)) return false;
+  const letters = t.replace(/[^a-zA-Z]/g, '');
+  return letters.length >= 3 && letters === letters.toUpperCase();
+}
+
+// Numbered sub-headings in ISBE TOCs.  Only called on <p> elements.
+// Handles: "1. …"  "(1) …"  "I. …" (Roman)  "a. …"  "a) …"
+function isSubHeadingP(el) {
+  if (el.tagName !== 'P') return false;
+  const t = el.textContent.trim();
+  return (
+    /^\d+\./.test(t) ||
+    /^\(\d+\)/.test(t) ||
+    /^[IVXLCDM]{1,8}\.\s/i.test(t) ||
+    /^[a-z][.)]\s/.test(t)
+  );
 }
 
 function toTitleCase(str) {
@@ -38,6 +70,14 @@ function toTitleCase(str) {
  *   toc  — array of { text, id, major } for rendering as a UI component
  *
  * Returns { html: original, toc: [] } when no ISBE TOC is detected.
+ *
+ * Two entry formats are recognised:
+ *   David-style   — <p><span>ALL CAPS</span></p> for major sections
+ *   Jerusalem-style — <p>I. ALL CAPS TEXT</p> (Roman numeral + all-caps body)
+ *
+ * Article-heading search uses all block elements (p, h1-h6) because the backend
+ * converts SWORD ThML <title> tags to <h3>, so section headings in the article
+ * body are <h3> elements, not <p> elements.
  */
 export function injectTocLinks(html) {
   if (!html || typeof document === 'undefined') return { html, toc: [] };
@@ -54,22 +94,33 @@ export function injectTocLinks(html) {
       : root;
 
   const allP = [...container.querySelectorAll('p')];
+  // allBlocks includes h1-h6 so that <h3> headings (produced by the backend's
+  // <title>→<h3> conversion) are found during the heading-match step.
+  const allBlocks = [...container.querySelectorAll('p, h1, h2, h3, h4, h5, h6')];
 
-  if (!allP.some(isCapsSpanP)) return { html, toc: [] };
+  // Early exit: need at least one recognised major-heading pattern.
+  const hasMajor = allP.some((el) => isCapsSpanP(el) || isRomanCapsP(el));
+  if (!hasMajor) return { html, toc: [] };
 
   // ── TOC boundary detection ─────────────────────────────────────────────────
+  // Walk allBlocks so that article-body <h3> elements are visible to the
+  // text-length guard.  Only <p> elements advance lastTocIdx (all detector
+  // functions check el.tagName === 'P').
   let lastTocIdx = -1;
-  let seenCapsSpan = false;
+  let seenMajor = false;
 
-  for (let i = 0; i < allP.length; i++) {
-    const p = allP[i];
-    const text = p.textContent.trim();
-    if (isCapsSpanP(p)) {
-      seenCapsSpan = true;
+  for (let i = 0; i < allBlocks.length; i++) {
+    const el = allBlocks[i];
+    const text = el.textContent.trim();
+    if (isCapsSpanP(el) || isRomanCapsP(el)) {
+      seenMajor = true;
       lastTocIdx = i;
-    } else if (seenCapsSpan && isNumberedP(p) && text.length < 200) {
+    } else if (seenMajor && isSubHeadingP(el) && text.length < 200) {
       lastTocIdx = i;
-    } else if (seenCapsSpan && text.length > 400) {
+    } else if (seenMajor && isAllCapsP(el)) {
+      // e.g. "LITERATURE" at the end of major ISBE TOCs
+      lastTocIdx = i;
+    } else if (seenMajor && text.length > 400) {
       break;
     }
   }
@@ -79,11 +130,11 @@ export function injectTocLinks(html) {
   // ── Collect TOC entries ────────────────────────────────────────────────────
   const tocEntries = [];
   for (let i = 0; i <= lastTocIdx; i++) {
-    const p = allP[i];
-    const isMajor = isCapsSpanP(p);
-    const isMinor = !isMajor && isNumberedP(p);
+    const el = allBlocks[i];
+    const isMajor = isCapsSpanP(el) || isRomanCapsP(el) || isAllCapsP(el);
+    const isMinor = !isMajor && isSubHeadingP(el);
     if (isMajor || isMinor) {
-      tocEntries.push({ el: p, text: p.textContent.trim(), norm: normalizeForMatch(p.textContent), major: isMajor });
+      tocEntries.push({ el, text: el.textContent.trim(), norm: normalizeForMatch(el.textContent), major: isMajor });
     }
   }
   if (tocEntries.length < 2) return { html, toc: [] };
@@ -97,10 +148,10 @@ export function injectTocLinks(html) {
   for (const entry of tocEntries) {
     const { norm } = entry;
     let found = null;
-    for (let i = lastTocIdx + 1; i < allP.length; i++) {
-      const pNorm = normalizeForMatch(allP[i].textContent);
-      if (pNorm === norm || (pNorm.startsWith(norm) && /^[: ]/.test(pNorm[norm.length]))) {
-        found = allP[i];
+    for (let i = lastTocIdx + 1; i < allBlocks.length; i++) {
+      const elNorm = normalizeForMatch(allBlocks[i].textContent);
+      if (elNorm === norm || (elNorm.startsWith(norm) && /^[: ]/.test(elNorm[norm.length]))) {
+        found = allBlocks[i];
         break;
       }
     }
@@ -112,7 +163,7 @@ export function injectTocLinks(html) {
       while (usedIds.has(id)) id = `${base}-${n++}`;
       usedIds.add(id);
       found.id = `dict-${id}`;
-      const idx = allP.indexOf(found);
+      const idx = allBlocks.indexOf(found);
       if (idx < firstHeadingIdx) { firstHeadingIdx = idx; firstHeadingEl = found; }
     }
 
