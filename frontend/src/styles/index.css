@@ -94,6 +94,43 @@
   color: theme('colors.pageAccent');
 }
 
+/* Dictionary TOC items — injected client-side by injectTocLinks() when an
+   entry has a Table of Contents before its first section heading. Appears
+   on the parchment reading surface so inherits pageAccent for the link color. */
+.dict-toc-link {
+  display: block;
+  color: theme('colors.verdigris');
+  font-family: theme('fontFamily.sans');
+  font-size: 0.8rem;
+  line-height: 1.6;
+  padding: 0.1em 0;
+  text-decoration: none;
+}
+.dict-toc-link:hover {
+  color: theme('colors.pageAccent');
+  text-decoration: underline;
+}
+
+/* Hairline rule separating the TOC from the article body. */
+.dict-toc-separator {
+  border: none;
+  border-top: 1px solid theme('colors.pageBorder');
+  margin: 1.25rem 0 1.5rem;
+}
+
+/* Paragraph-level section headings produced by SWORD modules (e.g. ISBE)
+   that use <div class="sword-section-title"> — converted to <p> by
+   processDictEntryContent, then given this class by injectTocLinks so they
+   render visually as headings rather than body text. */
+.dict-section-heading {
+  font-family: theme('fontFamily.sans');
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: theme('colors.pageAccent');
+  margin-top: 1.25rem;
+  margin-bottom: 0.35rem;
+}
+
 /* Bible references detected inside commentary/dictionary prose (e.g.
    "cf. John 3:16") and wrapped server-side — distinct color from
    Strong's words so the two affordances don't look identical, same
@@ -181,7 +218,9 @@
 .markdown-body :last-child { margin-bottom: 0; }
 .markdown-body h1,
 .markdown-body h2,
-.markdown-body h3 {
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5 {
   font-family: theme('fontFamily.sans');
   font-weight: 600;
   color: theme('colors.brass');
@@ -191,7 +230,11 @@
 .markdown-body h1 { font-size: 1.05rem; }
 .markdown-body h2 { font-size: 0.95rem; }
 .markdown-body h3 { font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.03em; }
-.markdown-body p { margin: 0.5em 0; line-height: 1.5; }
+.markdown-body h4 { font-size: 0.825rem; font-style: italic; }
+.markdown-body h5 { font-size: 0.8rem; }
+.markdown-body p { margin: 0.5em 0; line-height: 1.6; }
+/* Empty paragraphs from SWORD entries — collapse rather than leave blank lines */
+.markdown-body p:empty { display: none; }
 .markdown-body ul, .markdown-body ol {
   margin: 0.5em 0;
   padding-left: 1.25em;
@@ -199,6 +242,18 @@
 .markdown-body ul { list-style: disc; }
 .markdown-body ol { list-style: decimal; }
 .markdown-body li { margin: 0.2em 0; }
+/* Definition lists (used by some SWORD lexicons) */
+.markdown-body dl { margin: 0.5em 0; }
+.markdown-body dt {
+  font-family: theme('fontFamily.sans');
+  font-weight: 600;
+  margin-top: 0.5em;
+}
+.markdown-body dd {
+  margin-left: 1.25em;
+  margin-bottom: 0.25em;
+  line-height: 1.6;
+}
 .markdown-body strong { color: theme('colors.parchment'); font-weight: 600; }
 .markdown-body em { font-style: italic; }
 .markdown-body code {
@@ -241,8 +296,13 @@
 }
 .markdown-body.markdown-body-page h1,
 .markdown-body.markdown-body-page h2,
-.markdown-body.markdown-body-page h3 {
+.markdown-body.markdown-body-page h3,
+.markdown-body.markdown-body-page h4,
+.markdown-body.markdown-body-page h5 {
   color: theme('colors.pageAccent');
+}
+.markdown-body.markdown-body-page dt {
+  color: theme('colors.pageText');
 }
 .markdown-body.markdown-body-page strong {
   color: theme('colors.pageText');

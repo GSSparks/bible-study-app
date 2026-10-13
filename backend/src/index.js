@@ -32,6 +32,7 @@ import { devotionalsRouter } from './routes/devotionals.js';
 import { readingPlansRouter } from './routes/readingPlans.js';
 import { topicsRouter } from './routes/topics.js';
 import { wikipediaRouter } from './routes/wikipedia.js';
+import { merriamRouter } from './routes/merriam.js';
 import { codexRouter } from './routes/factbook.js';
 import { ensureBuiltInPlans } from './services/readingPlanService.js';
 import { UPLOADS_PATH } from './middleware/upload.js';
@@ -120,6 +121,7 @@ app.use('/api/devotionals', devotionalsRouter);
 app.use('/api/reading-plans', readingPlansRouter);
 app.use('/api/topics', topicsRouter);
 app.use('/api/wikipedia', wikipediaRouter);
+app.use('/api/merriam', merriamRouter);
 app.use('/api/codex', codexRouter);
 // SWORD module images — served directly from the modules data directory.
 // Entries in dict/maps modules contain relative <img> paths; swordService

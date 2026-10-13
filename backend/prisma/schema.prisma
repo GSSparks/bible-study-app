@@ -450,3 +450,11 @@ model FactbookCache {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model MerriamCache {
+  id        Int      @id @default(autoincrement())
+  query     String   @unique  // normalized: trimmed lowercase
+  data      Json              // parsed MW entry object
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

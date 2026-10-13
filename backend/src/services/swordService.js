@@ -537,6 +537,40 @@ class SwordService {
     return html.replace(/<orth\b[^>]*\btype="writing"[^>]*>[\s\S]*?<\/orth>/gi, '');
   }
 
+  // Like processVerseContent but preserves block structure (keeps <p>/<div> as
+  // block-level elements rather than flattening them to <span>) — the right
+  // processing path for dictionary entries, which use <div> and <p> for sections.
+  processDictEntryContent(html) {
+    if (!html) return '';
+    // Convert ThML <hi> elements to semantic HTML first (Vine's, Easton's use these)
+    let processed = html
+      .replace(/<hi\s+type="bold"\s*>([\s\S]*?)<\/hi>/gi, '<strong>$1</strong>')
+      .replace(/<hi\s+type="italic"\s*>([\s\S]*?)<\/hi>/gi, '<em>$1</em>')
+      .replace(/<hi\s+type="sup(?:er)?"\s*>([\s\S]*?)<\/hi>/gi, '<sup>$1</sup>')
+      .replace(/<hi[^>]*>([\s\S]*?)<\/hi>/gi, '<span>$1</span>');
+    // ThML <title> elements are section headings — convert to <h3>.
+    processed = processed.replace(/<title([^>]*)>([\s\S]*?)<\/title>/gi, (_, _attrs, inner) => {
+      const text = this.stripHtml(inner).trim();
+      return text ? `<h3>${text}</h3>` : '';
+    });
+    // sword-section-title spans — preserve as <h3> rather than stripping.
+    processed = this.replaceBalancedSpans(processed, 'sword-section-title', (_attrs, inner) => {
+      const text = this.stripHtml(inner).trim();
+      return text ? `<h3>${text}</h3>` : '';
+    });
+    // Convert <div> to <p> — keeps block layout without inline flattening.
+    processed = processed
+      .replace(/<div(\s|>)/gi, '<p$1')
+      .replace(/<\/div>/gi, '</p>');
+    processed = this.stripMilestones(processed);
+    processed = this.normalizeCrossReferenceNotes(processed);
+    processed = this.normalizeFootnoteMarkup(processed);
+    processed = this.linkStrongsCrossReferences(processed);
+    processed = this.normalizeStrongsMarkup(processed);
+    processed = this.wrapVerseReferences(processed);
+    return processed;
+  }
+
   getRawEntry(moduleCode, key) {
     const raw = this.sword.getRawModuleEntry(moduleCode, key);
     if (!raw) {
@@ -545,7 +579,7 @@ class SwordService {
       throw err;
     }
     const withLinksConverted = this.processDictHyperlinks(raw);
-    const processed = this.processVerseContent(this.stripRedundantWritingTransliteration(withLinksConverted)).content;
+    const processed = this.processDictEntryContent(this.stripRedundantWritingTransliteration(withLinksConverted));
     return this.rewriteImageSrcs(processed, moduleCode);
   }
 

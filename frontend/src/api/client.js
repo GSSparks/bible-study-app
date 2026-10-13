@@ -76,6 +76,7 @@ export const api = {
   // Topic / Codex cross-module search
   searchTopics: (q) => request(`/topics?q=${encodeURIComponent(q)}`),
   getWikipediaEntry: (q) => request(`/wikipedia?q=${encodeURIComponent(q)}`),
+  getMerriamEntry: (q) => request(`/merriam?q=${encodeURIComponent(q)}`),
   getCodexSummary: (q) => request(`/codex/summary?q=${encodeURIComponent(q)}`),
 
   // Admin: Codex cache management

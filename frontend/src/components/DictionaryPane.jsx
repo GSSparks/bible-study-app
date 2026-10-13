@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bookmark, ChevronDown } from 'lucide-react';
 import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
+import { injectTocLinks } from '../utils/dictHtml.js';
 import FootnotePopup from './FootnotePopup.jsx';
 
 // Maps base Greek letters (after NFD + diacritic stripping) to Latin equivalents.
@@ -151,7 +152,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
     setEntryHtml('');
     api
       .getDictionaryEntry(module, selectedKey)
-      .then((res) => { if (!cancelled) setEntryHtml(res.html); })
+      .then((res) => { if (!cancelled) setEntryHtml(injectTocLinks(res.html)); })
       .catch(() => {
         if (cancelled) return;
         // Exact key not found — try a prefix match from the loaded keys list.
@@ -196,6 +197,13 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
     if (linkEl) {
       e.preventDefault();
       const href = linkEl.getAttribute('href') || '';
+      // TOC anchor — scroll within the entry content
+      if (href.startsWith('#')) {
+        const targetId = href.slice(1);
+        const target = e.currentTarget.querySelector(`#${CSS.escape(targetId)}`);
+        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
       // Strong's via href
       const strongsM = href.match(/^(?:strongs?|lemma):([GH]\d{1,5})$/i)
         || (!href.includes(':') && !href.includes('/') && href.match(/^([GH]\d{1,5})$/i));
@@ -207,7 +215,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
       const dictM = href.match(/^Vines?:\s*(.+)$/i);
       if (dictM) { setMode('keys'); pickKey(dictM[1].trim()); return; }
       // Anything else with a legible href that looks like a dict key
-      if (href && !href.startsWith('http') && !href.startsWith('sword://') && !href.startsWith('#')) {
+      if (href && !href.startsWith('http') && !href.startsWith('sword://')) {
         setMode('keys'); pickKey(href.trim()); return;
       }
       return;
