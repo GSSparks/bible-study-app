@@ -378,3 +378,73 @@
 .devotional-content .verse-ref {
   color: theme('colors.verdigris');
 }
+
+/* ── Leaflet map overrides ──────────────────────────────────────────────────
+   Leaflet renders inside bg-ink app chrome. These overrides keep the native
+   Leaflet UI controls (zoom buttons, attribution) consistent with the app
+   palette without fighting the base leaflet.css import. */
+.leaflet-container {
+  font-family: theme('fontFamily.sans');
+  background: #0D1B29;
+}
+/* Warm cream/parchment tint on the map tiles — sepia gives the land a warm
+   ivory tone; slight desaturation and brightness pull keeps it readable. */
+.leaflet-tile-pane {
+  filter: sepia(50%) brightness(0.78) saturate(0.90);
+}
+.leaflet-control-zoom a {
+  background: #1a2d40 !important;
+  color: #d4cebf !important;
+  border-color: #2a3d52 !important;
+}
+.leaflet-control-zoom a:hover {
+  background: #253c52 !important;
+  color: #E8A441 !important;
+}
+.leaflet-control-attribution {
+  background: rgba(13, 27, 41, 0.75) !important;
+  color: #6b7b8a !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a {
+  color: #6b7b8a !important;
+}
+/* Popup base */
+.leaflet-popup-content-wrapper {
+  background: #1a2d40;
+  border: 1px solid #2a3d52;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  color: #d4cebf;
+  padding: 0;
+}
+.leaflet-popup-content {
+  margin: 0;
+  padding: 12px 14px;
+}
+.leaflet-popup-tip {
+  background: #1a2d40;
+}
+.leaflet-popup-close-button {
+  color: #6b7b8a !important;
+  padding: 6px 8px !important;
+}
+.leaflet-popup-close-button:hover {
+  color: #d4cebf !important;
+  background: transparent !important;
+}
+/* Tooltip */
+.leaflet-tooltip {
+  background: rgba(13, 27, 41, 0.9) !important;
+  border: 1px solid #2a3d52 !important;
+  color: #d4cebf !important;
+  font-family: theme('fontFamily.sans') !important;
+  font-size: 11px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
+  border-radius: 4px !important;
+  padding: 3px 8px !important;
+}
+.leaflet-tooltip::before {
+  border-top-color: #2a3d52 !important;
+  border-bottom-color: #2a3d52 !important;
+}

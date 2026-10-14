@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, BookMarked, BookText, Box, Compass, Library as LibraryIcon, Settings as SettingsIcon, Shield, Menu, X } from 'lucide-react';
+import { BookOpen, BookMarked, BookText, Box, Compass, Library as LibraryIcon, Map, Settings as SettingsIcon, Shield, Menu, X } from 'lucide-react';
 import BiblePanel from './BiblePanel.jsx';
 import BookPanel from './BookPanel.jsx';
+import BibleMapView from './BibleMapView.jsx';
 import BooksView from './BooksView.jsx';
 import CellView from './CellView.jsx';
 import TopicGuidePane from './TopicGuidePane.jsx';
@@ -25,6 +26,7 @@ const NAV_GROUPS = [
     { key: 'scriptoriums', label: 'Scriptoriums', Icon: Box, requiresAuth: true },
     { key: 'library', label: 'Library', Icon: LibraryIcon },
     { key: 'books', label: 'Books', Icon: BookText },
+    { key: 'map', label: 'Map', Icon: Map },
   ],
   [
     { key: 'settings', label: 'Settings', Icon: SettingsIcon, requiresAuth: true },
@@ -354,6 +356,11 @@ export default function AppShell({ auth }) {
         <div className={activeView === 'books' ? 'h-full' : 'hidden'}>
           <BooksView bookReader={bookReader} onBookChange={updateBookReader} isLoggedIn={Boolean(auth.user)} />
         </div>
+        {activeView === 'map' && (
+          <div className="h-full">
+            <BibleMapView />
+          </div>
+        )}
         {activeView !== 'cell' &&
           activeView !== 'codex' &&
           activeView !== 'settings' &&
@@ -361,7 +368,8 @@ export default function AppShell({ auth }) {
           activeView !== 'plans' &&
           activeView !== 'scriptoriums' &&
           activeView !== 'library' &&
-          activeView !== 'books' && (
+          activeView !== 'books' &&
+          activeView !== 'map' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
         )}
       </main>
