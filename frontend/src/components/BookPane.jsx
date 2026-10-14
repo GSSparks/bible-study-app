@@ -125,8 +125,15 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
 
   function jumpToSection(id) {
     const el = contentRef.current?.querySelector(`#${CSS.escape(id)}`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTocOpen(false);
+    if (!el || !scrollRef.current) return;
+    // Compute offset relative to the scroll container rather than using
+    // scrollIntoView — that call fires before setTocOpen(false) reflows
+    // the layout, so the heading ends up above the scroll position after
+    // the TOC sidebar closes and widens the content area.
+    const containerRect = scrollRef.current.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const target = elRect.top - containerRect.top + scrollRef.current.scrollTop - 32;
+    scrollRef.current.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
   }
 
   return (
@@ -177,7 +184,7 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-y-auto bg-page px-8 py-6 font-serif text-[0.95rem] leading-relaxed text-ink"
+        className="min-h-0 flex-1 overflow-y-auto bg-page px-8 py-6 font-display text-base leading-relaxed text-ink"
       >
         {loading ? (
           <p className="text-sm text-pageMuted">Loading…</p>
@@ -188,7 +195,22 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
         ) : (
           <div
             ref={contentRef}
-            className="prose prose-sm max-w-none [&_.book-section-heading]:mt-8 [&_.book-section-heading]:font-ui [&_.book-section-heading]:font-semibold [&_.book-section-heading]:text-inkMuted [&_.book-note-marker]:mx-0.5 [&_.book-note-marker]:cursor-default [&_.book-note-marker]:rounded-full [&_.book-note-marker]:bg-verdigris/80 [&_.book-note-marker]:px-1 [&_.book-note-marker]:py-px [&_.book-note-marker]:text-[10px] [&_.book-note-marker]:font-ui [&_.book-note-marker]:text-white [&_.book-note-marker]:leading-none"
+            className={[
+              'prose prose-sm max-w-none [&_p]:mb-6',
+              // h1 — book title (front matter, rarely seen mid-content)
+              '[&_h1]:mt-8 [&_h1]:mb-3 [&_h1]:font-display [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:text-center [&_h1]:text-ink [&_h1]:tracking-tight',
+              // h2 — chapter heading: large, centered, brass underline
+              '[&_h2]:mt-16 [&_h2]:mb-6 [&_h2]:pb-3 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-center [&_h2]:text-ink [&_h2]:tracking-tight [&_h2]:border-b [&_h2]:border-brass/30',
+              // h3 / .book-section-heading — sub-section
+              '[&_h3]:mt-8 [&_h3]:mb-2 [&_h3]:font-ui [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-inkMuted [&_h3]:uppercase [&_h3]:tracking-wider',
+              '[&_.book-section-heading]:mt-8 [&_.book-section-heading]:mb-2 [&_.book-section-heading]:font-ui [&_.book-section-heading]:font-semibold [&_.book-section-heading]:text-inkMuted',
+              // h4 — minor heading
+              '[&_h4]:mt-6 [&_h4]:mb-1 [&_h4]:font-ui [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-inkMuted',
+              // Epigraph (scripture citation / motto after a heading)
+              '[&_.book-epigraph]:mt-2 [&_.book-epigraph]:mb-8 [&_.book-epigraph]:text-center [&_.book-epigraph]:italic [&_.book-epigraph]:text-sm [&_.book-epigraph]:text-inkMuted',
+              // Note marker dot
+              '[&_.book-note-marker]:mx-0.5 [&_.book-note-marker]:cursor-default [&_.book-note-marker]:rounded-full [&_.book-note-marker]:bg-verdigris/80 [&_.book-note-marker]:px-1 [&_.book-note-marker]:py-px [&_.book-note-marker]:text-[10px] [&_.book-note-marker]:font-ui [&_.book-note-marker]:text-white [&_.book-note-marker]:leading-none',
+            ].join(' ')}
             dangerouslySetInnerHTML={{ __html: html }}
             onMouseUp={handleMouseUp}
             onMouseOver={handleContentMouseOver}

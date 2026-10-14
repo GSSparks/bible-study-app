@@ -51,6 +51,18 @@ export function extractToc(html) {
       : 4;
 
     toc.push({ text, id: el.id, level });
+
+    // Mark the immediately following <p> as an epigraph when it is short
+    // (< 200 chars) — this catches scripture citations and chapter mottoes
+    // that directly follow a heading in 19th-century theological works.
+    // h1 epigraphs are skipped: a short <p> after the book title is more
+    // likely a subtitle or author line, which already renders fine.
+    if (tag !== 'h1') {
+      const next = el.nextElementSibling;
+      if (next && next.tagName === 'P' && next.textContent.trim().length < 200) {
+        next.classList.add('book-epigraph');
+      }
+    }
   }
 
   if (toc.length < 2) return { html, toc: [] };
