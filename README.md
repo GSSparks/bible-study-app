@@ -17,9 +17,10 @@ Scriptorium is a self-hosted Bible study environment: real text from the SWORD e
 - **Cell (Reader)** — tiled, tabbed panes for Bibles, commentaries, dictionaries, cross-references, and a Passage Guide. Panes are resizable, reorderable by drag, and support parallel translations side-by-side.
 - **Interlinear mode** — toggle any Bible pane into a word-by-word interlinear view showing the English word, Strong's number, and transliteration beneath each tagged word.
 - **AI Companion** — a study assistant fed by whatever passages, commentaries, and notes you have open. Word Study and Phrase Study target a single Greek/Hebrew word or an exact phrase across the whole Bible. Save any assistant reply as a note or personal dictionary entry with one click.
+- **Books** — a dedicated reader for SWORD General Books (RawGenBook format) and CCEL ThML/XML titles. A collapsible TOC sidebar auto-generates from headings; text selection shows a colour-highlight bar and a note button; saved notes appear as inline markers with hover previews. The Book Reader panel (Ctrl+K) gives quick access from any view without leaving the Cell.
 - **Notes** — anchored to a passage or freestanding, full Markdown editor, searchable, with a "save as note" button on any assistant reply. Select any text in the reader to create a quoted note.
 - **Personal modules** — your own commentary entries or dictionary definitions, saved and looked up exactly like a real SWORD module.
-- **Markdown modules** — drop a folder of `.md` files into `MD_MODULES_PATH` and it appears in the pane module pickers alongside SWORD modules (no compilation required).
+- **Markdown modules** — drop a folder of `.md` files into `MD_MODULES_PATH` and it appears in the pane module pickers alongside SWORD modules (no compilation required). Supports commentary, dictionary, Bible text, and book types.
 - **Reading Plans** — structured daily reading schedules with per-day completion tracking and one-click passage navigation.
 - **PDF library** — upload reference PDFs and search their extracted text alongside Bible text and notes.
 - **Scriptoriums** — invite-only or public study groups with a group feed (Scroll), an About page, shared Resources, a Members list, and a Daily Devotional sidebar.
@@ -113,6 +114,37 @@ The assistant and study tools live in the Passage Guide pane and the AI Companio
 
 All three require `ANTHROPIC_API_KEY` and a logged-in account.
 
+## Books
+
+The **Books** view and **Book Reader panel** provide a dedicated environment for reading SWORD General Books and CCEL ThML titles alongside your Bible study.
+
+**Accessing books:**
+
+- **Books** in the nav sidebar — a full-page reader with a sidebar list of installed books on the left and the reader on the right.
+- **Book Reader panel** (`Ctrl+K`, or the "Book Reader" button at the bottom of the sidebar) — a 660px slide-in panel, always mounted, that can be opened from any view. Shares the same open book and scroll position as the Books page.
+- The **↗ Open in Books** button in the panel header expands to the full Books view, preserving your position.
+
+**Table of Contents:**
+
+Every book gets a collapsible TOC sidebar (the `≡` tab on the left edge of the reader). The TOC is built automatically by scanning the rendered HTML for `h1`–`h4` headings — even books with no explicit TOC in their source get one. Clicking a TOC entry smooth-scrolls to that section.
+
+**Highlighting and notes:**
+
+Selecting text in any book opens a small toolbar:
+
+- **Colour swatches** (yellow, green, blue, pink) — saves a highlight anchored to the selected text. Highlights are re-applied on every load by text matching.
+- **+ note** — opens the standard note editor pre-filled with the selected quote.
+
+Saved notes appear as small teal bullet markers `•` inline after their quoted text. Hovering a marker reveals the note body in a tooltip.
+
+**Installing book modules:**
+
+- **SWORD RawGenBook** — install from a CrossWire repository via **Admin → Modules** as usual.
+- **CCEL ThML / XML** — zip the XML file together with a `module.json` descriptor and upload via **Admin → Modules**. The uploader auto-detects the format.
+- **Markdown books** — same as other MD modules: a folder with `module.json` (`"type": "BOOK"`) and `.md` content files.
+
+Books also appear in **Codex** topic search results, so searching for a term surfaces relevant entries from installed books alongside dictionary and commentary matches.
+
 ## Reading Plans
 
 The **Plans** view shows available reading schedules (admin-created or built-in). Each plan is a day-by-day schedule of passages; clicking a day's reading opens it in the Cell. Completion is tracked per day and shown with a progress indicator.
@@ -168,7 +200,7 @@ my-commentary/
 }
 ```
 
-`type` is `COMMENTARY`, `DICT`, or `BIBLE`.
+`type` is `COMMENTARY`, `DICT`, `BIBLE`, or `BOOK`.
 
 **Commentary and Bible text** — one `.md` file per book. Sections are `## chapter:verse` headings; `## chapter` headings are a fallback for chapter-level content:
 
@@ -196,7 +228,15 @@ The Greek *charis* (χάρις) — unmerited favor...
 *Pistis* (πίστις) — trust, confidence, belief...
 ```
 
-Full Markdown renders (bold, italic, headings, lists, links). Commentary modules are automatically included in the Passage Guide AI context. **Installing via zip:** zip the module folder and upload it in **Admin → Modules**; the upload auto-detects SWORD vs. Markdown format. An example zip is at `modules/example-commentary.zip`.
+**Books** — prose content in one or more `.md` files (no special heading structure required), or a single `.xml` file in CCEL ThML format:
+
+```
+letters-to-the-seven-churches/
+  module.json          ← { "name": "...", "description": "...", "type": "BOOK" }
+  letters.xml          ← CCEL ThML source (div1/div2 structure)
+```
+
+Full Markdown renders (bold, italic, headings, lists, links). Commentary modules are automatically included in the Passage Guide AI context. **Installing via zip:** zip the module folder and upload it in **Admin → Modules**; the upload auto-detects SWORD vs. Markdown format. An example commentary zip is at `modules/example-commentary.zip`.
 
 ## PDF library
 
@@ -204,7 +244,7 @@ Admins upload reference PDFs; all users can browse and search. Extracted text (c
 
 ## Admin
 
-- **Modules** — install from CrossWire repositories by type (BIBLE, COMMENTARY, DICT, DAILY); per-module visibility toggle for regular users; `.zip` upload for offline installs (auto-detects SWORD vs. Markdown format)
+- **Modules** — install from CrossWire repositories by type (BIBLE, COMMENTARY, DICT, DAILY, GENBOOK); per-module visibility toggle for regular users; `.zip` upload for offline installs (auto-detects SWORD vs. Markdown/ThML format; ThML requires a `module.json` alongside the `.xml`)
 - **Daily Devotional** — select which installed Daily module shows in the Scriptorium sidebar
 - **Reading Plans** — create and manage reading schedules
 - **Users** — create and list user accounts
@@ -228,7 +268,8 @@ backend/
                   search, modules, personal-modules, notes, highlights,
                   bookmarks, context, phrase-study, word-study, pdf,
                   branding, scriptoriums, studies, wall, users,
-                  uploads, devotionals, reading-plans, metrics
+                  uploads, devotionals, reading-plans, metrics,
+                  books, topics
     services/     swordService, contextBuilder, pdfService, authService,
                   scriptoriumService, studyService, wallService,
                   devotionalService, personalModuleService, mdModuleService,
@@ -242,10 +283,12 @@ frontend/
                   DictionaryPane, CrossRefPane, PassageGuidePane,
                   StudyAssistant, AICompanionView, ScriptoriumsView,
                   StudyDetail, LibraryView, ReadingPlanView,
-                  AdminView, SettingsView, and more
+                  AdminView, SettingsView,
+                  BookPane, BookPanel, BooksView,
+                  BiblePanel, TopicGuidePane, and more
     hooks/        useAuth, useWorkspaceLayout, useTabbedWindow,
                   useResizableWidth/Height
-    utils/        osisToHuman, parseInterlinear, abbreviateTitle
+    utils/        osisToHuman, parseInterlinear, abbreviateTitle, bookHtml
     api/client.js thin fetch wrapper — one method per backend endpoint
 ```
 
@@ -254,6 +297,7 @@ frontend/
 - **Module install is synchronous** — the HTTP request blocks until the download finishes. Large modules want an SSE/WebSocket progress stream.
 - **PDF search** uses a basic `ILIKE` query; swap `pdfService.searchDocuments` for Postgres full-text search once the library grows.
 - **No built-in TLS** — put a reverse proxy in front before exposing this to the open internet.
+- **Book highlight re-application** uses first-match text search; highlights on duplicate text passages will always land on the first occurrence.
 
 ## Design
 
