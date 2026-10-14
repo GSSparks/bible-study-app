@@ -13,9 +13,9 @@ export function useTabbedWindow(initial = [], initialActiveId = null) {
   const [tabs, setTabs] = useState(initial);
   const [activeTabId, setActiveTabId] = useState(initialActiveId ?? initial[0]?.id ?? null);
 
-  function addTab(module, title) {
+  function addTab(module, title, moduleType) {
     const id = uid();
-    setTabs((prev) => [...prev, { id, module, title }]);
+    setTabs((prev) => [...prev, { id, module, title, ...(moduleType && { moduleType }) }]);
     setActiveTabId(id);
     return id;
   }
@@ -28,8 +28,8 @@ export function useTabbedWindow(initial = [], initialActiveId = null) {
     });
   }
 
-  function swapTabModule(id, module, title) {
-    setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, module, title } : t)));
+  function swapTabModule(id, module, title, moduleType) {
+    setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, module, title, ...(moduleType && { moduleType }) } : t)));
   }
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || null;

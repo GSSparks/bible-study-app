@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, BookMarked, Box, Compass, Library as LibraryIcon, Settings as SettingsIcon, Shield, Menu, X } from 'lucide-react';
+import { BookOpen, BookMarked, BookText, Box, Compass, Library as LibraryIcon, Settings as SettingsIcon, Shield, Menu, X } from 'lucide-react';
 import BiblePanel from './BiblePanel.jsx';
+import BookPanel from './BookPanel.jsx';
+import BooksView from './BooksView.jsx';
 import CellView from './CellView.jsx';
 import TopicGuidePane from './TopicGuidePane.jsx';
 import PlaceholderView from './PlaceholderView.jsx';
@@ -22,6 +24,7 @@ const NAV_GROUPS = [
     { key: 'plans', label: 'Plans', Icon: BookMarked },
     { key: 'scriptoriums', label: 'Scriptoriums', Icon: Box, requiresAuth: true },
     { key: 'library', label: 'Library', Icon: LibraryIcon },
+    { key: 'books', label: 'Books', Icon: BookText },
   ],
   [
     { key: 'settings', label: 'Settings', Icon: SettingsIcon, requiresAuth: true },
@@ -86,9 +89,28 @@ export default function AppShell({ auth }) {
   const [pendingAiDocument, setPendingAiDocument] = useState(null);
   const [pendingCodexQuery, setPendingCodexQuery] = useState(null);
 
+  const [bookReader, setBookReader] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('scriptorium-book-reader')) || { module: null, scrollY: 0 }; }
+    catch { return { module: null, scrollY: 0 }; }
+  });
+  const [bookPanelOpen, setBookPanelOpen] = useState(false);
+
   function navigate(key) {
     routerNavigate('/' + key);
     setDrawerOpen(false);
+  }
+
+  function updateBookReader(changes) {
+    setBookReader((prev) => {
+      const next = { ...prev, ...changes };
+      try { localStorage.setItem('scriptorium-book-reader', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
+  function openBook(module) {
+    updateBookReader({ module, scrollY: 0 });
+    navigate('books');
   }
 
   function openBiblePanel(reference, module) {
@@ -131,13 +153,18 @@ export default function AppShell({ auth }) {
         e.preventDefault();
         setBiblePanelOpen((prev) => !prev);
       }
-      if (e.key === 'Escape' && biblePanelOpen) {
-        setBiblePanelOpen(false);
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setBookPanelOpen((prev) => !prev);
+      }
+      if (e.key === 'Escape') {
+        if (biblePanelOpen) setBiblePanelOpen(false);
+        if (bookPanelOpen) setBookPanelOpen(false);
       }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [biblePanelOpen]);
+  }, [biblePanelOpen, bookPanelOpen]);
 
   function isVisible(item) {
     if (item.adminOnly && auth.user?.role !== 'admin') return false;
@@ -203,6 +230,14 @@ export default function AppShell({ auth }) {
         </nav>
 
         <div className="p-3">
+          <button
+            onClick={() => { setBookPanelOpen((prev) => !prev); setDrawerOpen(false); }}
+            title="Book Reader (Ctrl+K)"
+            className={`mb-1 flex w-full items-center gap-3 rounded px-2 py-3 text-sm transition-colors lg:py-2 ${bookPanelOpen ? 'text-brass' : 'text-muted hover:bg-panel hover:text-parchment'}`}
+          >
+            <BookText size={18} strokeWidth={2} className="shrink-0" />
+            Book Reader
+          </button>
           <button
             onClick={() => { setBiblePanelOpen((prev) => !prev); setDrawerOpen(false); }}
             title="Quick Bible (Ctrl+B)"
@@ -316,13 +351,17 @@ export default function AppShell({ auth }) {
             onAskAI={askAiCompanionAboutDocument}
           />
         </div>
+        <div className={activeView === 'books' ? 'h-full' : 'hidden'}>
+          <BooksView bookReader={bookReader} onBookChange={updateBookReader} isLoggedIn={Boolean(auth.user)} />
+        </div>
         {activeView !== 'cell' &&
           activeView !== 'codex' &&
           activeView !== 'settings' &&
           activeView !== 'admin' &&
           activeView !== 'plans' &&
           activeView !== 'scriptoriums' &&
-          activeView !== 'library' && (
+          activeView !== 'library' &&
+          activeView !== 'books' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
         )}
       </main>
@@ -334,6 +373,14 @@ export default function AppShell({ auth }) {
         pendingOpen={pendingBiblePanel}
         onPendingConsumed={() => setPendingBiblePanel(null)}
         defaultBibleModule={defaultBibleModule}
+      />
+      <BookPanel
+        open={bookPanelOpen}
+        onClose={() => setBookPanelOpen(false)}
+        bookReader={bookReader}
+        onBookChange={updateBookReader}
+        onOpenInBooks={(module) => { openBook(module); setBookPanelOpen(false); }}
+        isLoggedIn={Boolean(auth.user)}
       />
 
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} onLogin={auth.login} />}

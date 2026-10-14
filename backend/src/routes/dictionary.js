@@ -24,6 +24,9 @@ dictionaryRouter.get('/:module/keys', async (req, res, next) => {
       }
       return res.json(await listPersonalKeys(req.params.module, req.user.id));
     }
+    if (swordService.isGenBookModule(req.params.module)) {
+      return res.json(swordService.getBookKeys(req.params.module));
+    }
     res.json(swordService.getDictionaryKeys(req.params.module));
   } catch (err) {
     next(err);

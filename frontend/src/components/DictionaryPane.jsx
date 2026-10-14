@@ -317,6 +317,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
           onClick={() => { setShowDropdown(true); filterInputRef.current?.focus(); }}
         >
           <input
+            name="entry-search"
             ref={filterInputRef}
             value={filter}
             onChange={(e) => { setFilter(e.target.value); setShowDropdown(true); }}

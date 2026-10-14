@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 
 const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding', 'Codex'];
-const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT'];
+const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT', 'BOOK'];
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -300,6 +300,7 @@ function ModulesTab() {
           <input type="file" accept=".zip" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
         {uploadNote && <p className="text-xs text-muted">{uploadNote}</p>}
+        {!uploadNote && <p className="text-xs text-muted">Accepts SWORD .zip, Markdown module .zip, or a .zip containing <code>module.json</code> + a <code>.xml</code> ThML file (CCEL format).</p>}
       </div>
 
       {error && <p className="mb-3 text-sm text-red-400">{error}</p>}

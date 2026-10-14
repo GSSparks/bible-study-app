@@ -1,7 +1,7 @@
 import ModulePicker from './ModulePicker.jsx';
 import { abbreviateTitle } from '../utils/abbreviateTitle.js';
 
-const KIND_LABEL = { bible: 'Bible', commentary: 'Commentary', dictionary: 'Dictionary' };
+const KIND_LABEL = { bible: 'Bible', commentary: 'Commentary', dictionary: 'Reference' };
 
 /** Tab strip for one fixed region. Always renders (even with zero tabs)
  * so the "+" add-tab control stays visible and the region stays
@@ -30,7 +30,7 @@ export default function TabStrip({ kind, tabs, activeTabId, onSetActiveTab, onCl
               excludeModules={[]}
               label="▾"
               title="Change this tab's version"
-              onSelect={(module, title) => onSwapTabModule(tab.id, module, title)}
+              onSelect={(module, title, moduleType) => onSwapTabModule(tab.id, module, title, moduleType)}
             />
             {tabs.length > 1 && (
               <button
@@ -50,7 +50,7 @@ export default function TabStrip({ kind, tabs, activeTabId, onSetActiveTab, onCl
           excludeModules={[]}
           label="+"
           title={`Open another ${KIND_LABEL[kind].toLowerCase()} as a new tab — the same version can be opened more than once`}
-          onSelect={(module, title) => onAddTab(module, title)}
+          onSelect={(module, title, moduleType) => onAddTab(module, title, moduleType)}
         />
       </div>
     </div>

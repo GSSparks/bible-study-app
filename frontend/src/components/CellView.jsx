@@ -51,7 +51,6 @@ export default function CellView({
   const [pendingSearch, setPendingSearch] = useState(null);
   const [commentaryRefreshNonce, setCommentaryRefreshNonce] = useState(0);
   const [dictionaryRefreshNonce, setDictionaryRefreshNonce] = useState(0);
-
   const layout = useWorkspaceLayout();
 
   // Auto-set default bible module into empty bible tabs on first load

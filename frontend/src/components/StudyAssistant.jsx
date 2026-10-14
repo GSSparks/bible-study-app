@@ -493,6 +493,7 @@ export default function StudyAssistant({
         {showNotePicker && (
           <div className="mt-2 rounded-md border border-rule bg-panel p-2">
             <input
+              name="note-search"
               value={noteQuery}
               onChange={(e) => searchNotes(e.target.value)}
               placeholder="Search your notes…"
@@ -568,6 +569,7 @@ export default function StudyAssistant({
       <div className="rounded-xl border border-rule bg-panel p-1 focus-within:border-brass/60">
         <div className="flex items-end gap-2 px-2">
           <input
+            name="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}

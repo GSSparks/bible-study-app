@@ -120,8 +120,7 @@ export default function MainLayout({
           <div className="min-h-0 flex-1 overflow-hidden">
             {dictionary.tabs.length === 0 ? (
               <div className="flex h-full items-center justify-center bg-page px-4 text-center text-sm text-pageMuted">
-                No dictionaries or help books open — click + above to add one (Treasury of Scripture
-                Knowledge, Strong's dictionaries, etc.).
+                No dictionaries open — click + above to add one (Treasury of Scripture Knowledge, Strong's dictionaries, etc.).
               </div>
             ) : (
               dictionary.tabs.map((tab) => (
@@ -132,14 +131,6 @@ export default function MainLayout({
                     onVerseRefClick={onVerseRefClick}
                     onStrongsClick={onStrongsClick}
                     onOpenInDictionary={onOpenInDictionary}
-                    // Only the tab actually targeted by a pending
-                    // navigation should act on it — matching by "is this
-                    // tab currently active" instead was the actual bug:
-                    // switching to a *different* dictionary tab later
-                    // made that tab active, and it would inherit a stale
-                    // pending value meant for a completely different
-                    // lookup (confirmed: this is exactly how a Strong's
-                    // number ended up being queried against Nave's).
                     initialKey={tab.id === pendingDictTabId ? pendingDictKey : null}
                     initialFilter={tab.id === pendingDictTabId ? pendingDictFilter : null}
                   />

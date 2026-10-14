@@ -4,6 +4,10 @@ import { api } from '../api/client.js';
 
 const TYPE_BY_KIND = { bible: 'BIBLE', commentary: 'COMMENTARY', dictionary: 'DICT' };
 
+async function fetchOptionsForKind(kind) {
+  return api.listInstalledModules(TYPE_BY_KIND[kind]);
+}
+
 /** A small trigger button that opens a list of installed modules of the
  * given kind, rendered via a portal into document.body with fixed
  * positioning under the trigger. The portal matters: this used to render
@@ -28,7 +32,7 @@ export default function ModulePicker({ kind, excludeModules = [], label, title, 
 
   useEffect(() => {
     if (!open) return;
-    api.listInstalledModules(TYPE_BY_KIND[kind]).then(setOptions).catch(() => {});
+    fetchOptionsForKind(kind).then(setOptions).catch(() => {});
   }, [open, kind]);
 
   useEffect(() => {
@@ -68,7 +72,7 @@ export default function ModulePicker({ kind, excludeModules = [], label, title, 
               <button
                 key={m.name}
                 onClick={() => {
-                  onSelect(m.name, m.description || m.name);
+                  onSelect(m.name, m.description || m.name, m.moduleType);
                   setOpen(false);
                 }}
                 className="block w-full truncate px-3 py-1.5 text-left text-xs text-parchment/90 hover:bg-ink hover:text-brass"

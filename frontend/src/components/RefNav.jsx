@@ -102,6 +102,7 @@ function VersePopup({ anchorRef, book, chapter, verse, onNavigate, onClose }) {
             ‹
           </button>
           <input
+            name="verse-number"
             autoFocus
             type="number"
             min="1"

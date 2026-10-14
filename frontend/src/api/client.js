@@ -36,9 +36,10 @@ export const api = {
   },
 
   // Notes / highlights / bookmarks
-  listNotes: ({ reference, q } = {}) => {
+  listNotes: ({ reference, prefix, q } = {}) => {
     const params = new URLSearchParams();
     if (reference) params.set('reference', reference);
+    else if (prefix) params.set('prefix', prefix);
     if (q) params.set('q', q);
     const qs = params.toString();
     return request(`/notes${qs ? `?${qs}` : ''}`);
@@ -93,6 +94,13 @@ export const api = {
   listDictionaryKeys: (module) => request(`/dictionary/${encodeURIComponent(module)}/keys`),
   getDictionaryEntry: (module, key) =>
     request(`/dictionary/${encodeURIComponent(module)}/entry?key=${encodeURIComponent(key)}`),
+
+  // Books (SWORD RawGenBook modules)
+  listInstalledBooks: () => request('/books/installed'),
+  getBookContent: (module) => request(`/books/${encodeURIComponent(module)}/content`),
+  getBookKeys: (module) => request(`/books/${encodeURIComponent(module)}/keys`),
+  getBookEntry: (module, key) =>
+    request(`/books/${encodeURIComponent(module)}/entry?key=${encodeURIComponent(key)}`),
 
   // Study assistant
   buildContext: (payload) => request('/context/build', { method: 'POST', body: JSON.stringify(payload) }),

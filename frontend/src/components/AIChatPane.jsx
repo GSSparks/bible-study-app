@@ -310,6 +310,7 @@ export default function AIChatPane({
               <div className="absolute left-0 top-full z-20 mt-1 w-72 rounded border border-pageBorder bg-page shadow-xl">
                 <div className="p-2">
                   <input
+                    name="session-search"
                     autoFocus
                     value={sessionSearch}
                     onChange={(e) => setSessionSearch(e.target.value)}
@@ -374,6 +375,7 @@ export default function AIChatPane({
       {renaming && (
         <div className="flex shrink-0 items-center gap-2 border-b border-pageBorder px-3 py-1.5">
           <input
+            name="chat-rename"
             autoFocus
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
@@ -407,6 +409,7 @@ export default function AIChatPane({
         {showNotePicker && (
           <div className="mt-1 rounded border border-pageBorder bg-panel p-2">
             <input
+              name="note-search"
               value={noteQuery}
               onChange={(e) => searchNotes(e.target.value)}
               placeholder="Search notes…"
@@ -482,6 +485,7 @@ export default function AIChatPane({
         )}
         <div className="flex items-end gap-2 rounded-lg border border-pageBorder bg-panel px-3 py-1.5 focus-within:border-brass/60">
           <textarea
+            name="chat-message"
             rows={1}
             value={input}
             onChange={(e) => {

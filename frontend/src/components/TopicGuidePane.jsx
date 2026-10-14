@@ -173,7 +173,7 @@ export default function TopicGuidePane({
     setTocOpen(false);
   }, [selected?.module, selected?.key]);
 
-  // ── Fetch entry HTML when a DICT entry is selected ────────────────────────
+  // ── Fetch entry HTML when a DICT/BOOK entry is selected ──────────────────
   useEffect(() => {
     if (!selected || selected.module === WIKIPEDIA_MODULE || selected.module === MERRIAM_MODULE || selected.module === SUMMARY_MODULE) {
       if (!selected) setEntryHtml('');
@@ -182,7 +182,8 @@ export default function TopicGuidePane({
     let cancelled = false;
     setLoadingEntry(true);
     setEntryError(null);
-    api.getDictionaryEntry(selected.module, selected.key)
+    const fetch = selected.moduleType === 'BOOK' ? api.getBookEntry : api.getDictionaryEntry;
+    fetch(selected.module, selected.key)
       .then((res) => {
         if (cancelled) return;
         const { html, toc: newToc } = injectTocLinks(wrapSeeReferences(res.html));
@@ -202,14 +203,14 @@ export default function TopicGuidePane({
     return () => document.removeEventListener('click', close);
   }, [!!versePreview]);
 
-  // ── Group DICT results by module ──────────────────────────────────────────
+  // ── Group DICT/BOOK results by module ────────────────────────────────────
   const grouped = useMemo(() => {
     const map = new Map();
     for (const r of results) {
-      if (!map.has(r.module)) map.set(r.module, { description: r.description, keys: [] });
+      if (!map.has(r.module)) map.set(r.module, { description: r.description, keys: [], moduleType: r.moduleType });
       map.get(r.module).keys.push(r.key);
     }
-    return [...map.entries()].map(([module, { description, keys }]) => ({ module, description, keys }));
+    return [...map.entries()].map(([module, { description, keys, moduleType }]) => ({ module, description, keys, moduleType }));
   }, [results]);
 
   const loading = loadingDict || loadingWiki || loadingMerriam;
@@ -240,9 +241,9 @@ export default function TopicGuidePane({
       return;
     }
     try {
-      // Verify key exists before pushing to history; fall back to query search if not
-      await api.getDictionaryEntry(selected.module, key);
-      navigateTo({ module: selected.module, description: selected.description, key });
+      const fetch = selected.moduleType === 'BOOK' ? api.getBookEntry : api.getDictionaryEntry;
+      await fetch(selected.module, key);
+      navigateTo({ module: selected.module, description: selected.description, key, moduleType: selected.moduleType });
     } catch {
       setQuery(key);
     }
@@ -403,18 +404,19 @@ export default function TopicGuidePane({
             </div>
           )}
 
-          {/* DICT module results */}
-          {grouped.map(({ module, description, keys }) => (
+          {/* DICT / BOOK module results */}
+          {grouped.map(({ module, description, keys, moduleType }) => (
             <div key={module} className="mb-2">
               <p className="px-3 pb-0.5 pt-2 font-sans text-[9px] uppercase tracking-widest text-muted/60">
                 {description}
+                {moduleType === 'BOOK' && <span className="ml-1 opacity-60">· book</span>}
               </p>
               {keys.map((key) => {
                 const isActive = selected?.module === module && selected?.key === key;
                 return (
                   <button
                     key={key}
-                    onClick={() => navigateTo({ module, description, key })}
+                    onClick={() => navigateTo({ module, description, key, ...(moduleType && { moduleType }) })}
                     className={`w-full truncate px-3 py-1.5 text-left text-sm transition-colors ${
                       isActive
                         ? 'bg-verdigris/20 text-brass'

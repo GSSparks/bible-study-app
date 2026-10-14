@@ -260,6 +260,85 @@ export async function getMdDictionaryEntry(moduleDirName, key) {
   return null;
 }
 
+// ─── ThML / full-book content ─────────────────────────────────────────────────
+
+// Convert a CCEL ThML XML file to clean HTML suitable for display in BookPane.
+// ThML is essentially tagged HTML — most tags pass through; only the
+// ThML-specific wrappers and semantic elements need conversion.
+function parseThml(xml) {
+  // Drop the header section entirely (metadata, CSS, DC fields)
+  let body = xml.replace(/<ThML\.head[\s\S]*?<\/ThML\.head>/gi, '');
+
+  // Extract the body element if present
+  const bodyMatch = body.match(/<ThML\.body[^>]*>([\s\S]*?)<\/ThML\.body>/i);
+  if (bodyMatch) body = bodyMatch[1];
+
+  // div1/div2 → plain section wrappers only.  The XML already contains
+  // <h1>/<h2>/<h3> child elements for each section's heading — emitting
+  // an additional heading from the title="" attribute produces duplicates.
+  body = body.replace(/<div1\b[^>]*>/gi, '<section>');
+  body = body.replace(/<\/div1>/gi, '</section>');
+  body = body.replace(/<div2\b[^>]*>/gi, '<div class="book-subsection">');
+  body = body.replace(/<\/div2>/gi, '</div>');
+
+  // scripRef → clickable verse-ref span
+  body = body.replace(/<scripRef\b([^>]*)>([\s\S]*?)<\/scripRef>/gi, (_, attrs, inner) => {
+    const osisM = attrs.match(/\bosisRef="([^"]*)"/i);
+    const passM = attrs.match(/\bpassage="([^"]*)"/i);
+    let ref = '';
+    if (osisM) {
+      // "Bible:Matt.20.9 Bible:John.1.1" → "Matt.20.9"
+      ref = osisM[1].replace(/\bBible:/g, '').trim().split(/\s+/)[0];
+    } else if (passM) {
+      ref = passM[1];
+    }
+    // Strip any nested TOC <a> links that wrap the same text
+    const text = inner.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, '$1');
+    return ref ? `<span class="verse-ref" data-ref="${ref}">${text}</span>` : text;
+  });
+
+  // TOC anchor links — strip link, keep inner text
+  body = body.replace(/<a\b[^>]*class="TOC"[^>]*>([\s\S]*?)<\/a>/gi, '$1');
+  // CCEL href query-string links (?scrBook=...) — strip link, keep text
+  body = body.replace(/<a\b[^>]*href="[^"]*scrBook[^"]*"[^>]*>([\s\S]*?)<\/a>/gi, '$1');
+
+  // <insertIndex> — editorial markers, drop entirely
+  body = body.replace(/<insertIndex\b[^>]*\/?>/gi, '');
+
+  // <l> (poetry lines) → inline span
+  body = body.replace(/<l\b[^>]*>/gi, '<span class="poetic-line">').replace(/<\/l>/gi, '</span><br>');
+
+  return body.trim();
+}
+
+// Returns full concatenated HTML content for an MD book module.
+// If the module directory contains a .xml (ThML) file it is parsed;
+// otherwise all .md files are concatenated in sorted order.
+export async function getMdFullBookContent(dirName) {
+  const modulePath = join(MD_MODULES_PATH, dirName);
+  let files;
+  try { files = await readdir(modulePath); } catch { return ''; }
+
+  const xmlFile = files.find((f) => f.toLowerCase().endsWith('.xml'));
+  if (xmlFile) {
+    try {
+      const content = await readFile(join(modulePath, xmlFile), 'utf8');
+      return parseThml(content);
+    } catch { return ''; }
+  }
+
+  // Fallback: concatenate markdown files
+  const mdFiles = files.filter((f) => f !== 'module.json' && f.endsWith('.md')).sort();
+  const parts = [];
+  for (const file of mdFiles) {
+    try {
+      const md = await readFile(join(modulePath, file), 'utf8');
+      parts.push(mdToHtml(md));
+    } catch {}
+  }
+  return parts.join('\n');
+}
+
 // Strip HTML tags for plain-text inclusion in AI context
 export function mdVersesToText(verses) {
   return verses
@@ -347,7 +426,7 @@ export async function installMdModuleFromZip(buffer) {
 
     if (!relativePath) continue;
     const ext = relativePath.split('.').pop()?.toLowerCase();
-    if (ext !== 'md' && relativePath !== 'module.json') continue;
+    if (ext !== 'md' && ext !== 'xml' && relativePath !== 'module.json') continue;
 
     // Path traversal guard
     const outPath = resolve(destDir, relativePath);

@@ -33,12 +33,13 @@ notesRouter.get('/', async (req, res, next) => {
   }
 });
 
-// A note can be anchored (reference + module) or freestanding (neither) —
-// only `body` is required either way.
+// A note can be anchored (reference + module) or freestanding (neither).
+// body is required unless tags includes 'book-highlight' (highlight-only records have no body).
 notesRouter.post('/', async (req, res, next) => {
   try {
     const { title, reference, module, quote, body, tags = [], fromAssistant = false } = req.body;
-    if (!body) return res.status(400).json({ error: 'body is required' });
+    const isHighlight = Array.isArray(tags) && tags.includes('book-highlight');
+    if (!isHighlight && !body) return res.status(400).json({ error: 'body is required' });
     res.status(201).json(
       await prisma.note.create({
         data: {

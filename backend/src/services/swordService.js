@@ -72,11 +72,41 @@ class SwordService {
 
   async listAvailableModules(repoName, moduleType = 'BIBLE') {
     await this._ensureRepoConfig();
-    return this.sword.getAllRepoModules(repoName, moduleType);
+    // 'BOOK' is our internal label; SWORD / node-sword-interface uses 'GENBOOK'
+    // for the "General Books" category (RawGenBook driver).
+    const swordType = moduleType === 'BOOK' ? 'GENBOOK' : moduleType;
+    return this.sword.getAllRepoModules(repoName, swordType);
   }
 
   listInstalledModules(moduleType = 'BIBLE') {
+    if (moduleType === 'BOOK') return this._detectBookModules();
     return this.sword.getAllLocalModules(moduleType);
+  }
+
+  // 'BOOK'/'GENBOOK' are not recognised filter strings — getAllLocalModules
+  // returns all modules for either. We filter by the module object's `type`
+  // field (SWORD category string "Generic Books"), with a conf-file fallback
+  // for library versions that don't expose the field.
+  _detectBookModules() {
+    let all = [];
+    try {
+      all = this.sword.getAllLocalModules('BOOK') || [];
+    } catch { return []; }
+
+    // Primary: filter by SWORD category field on the module object.
+    if (all.some((m) => m.type !== undefined)) {
+      return all.filter((m) => m.type === 'Generic Books');
+    }
+
+    // Fallback: read ModDrv from the module's .conf file.
+    const modsDir = path.join(config.swordModulesPath, '.sword', 'mods.d');
+    return all.filter((m) => {
+      try {
+        const confPath = path.join(modsDir, `${m.name.toLowerCase()}.conf`);
+        const conf = fs.readFileSync(confPath, 'utf8');
+        return /^ModDrv\s*=\s*RawGenBook\b/im.test(conf);
+      } catch { return false; }
+    });
   }
 
   listDevotionalModules() {
@@ -529,8 +559,188 @@ class SwordService {
     return this.sword.getStrongsEntry(strongsKey);
   }
 
+  isGenBookModule(moduleCode) {
+    try {
+      return this.sword.getLocalModule(moduleCode)?.type === 'Generic Books';
+    } catch {
+      return false;
+    }
+  }
+
   getDictionaryKeys(moduleCode) {
     return this.sword.getDictModuleKeys(moduleCode);
+  }
+
+  getBookKeys(moduleCode) {
+    try {
+      const mod = this.sword.getLocalModule(moduleCode);
+      if (mod?.location) {
+        const keys = this._parseGenBookTree(mod.location);
+        console.log(`[getBookKeys] ${moduleCode} parsed ${keys.length} keys, first 3:`, keys.slice(0, 3));
+        if (keys.length > 0) {
+          // Verify the first key actually returns content so we catch format mismatches early.
+          try {
+            const test = this.sword.getRawModuleEntry(moduleCode, keys[0]);
+            console.log(`[getBookKeys] key test "${keys[0]}" → ${test?.trim().length ? 'ok' : 'EMPTY'}`);
+          } catch (e) {
+            console.warn(`[getBookKeys] key test failed: ${e.message}`);
+          }
+          return keys;
+        }
+      }
+    } catch (e) {
+      console.error('[getBookKeys] error:', e.message);
+    }
+    return [];
+  }
+
+  // Parse the SWORD RawGenBook binary name tree to extract all key paths.
+  // Tries .bnt first (modern format), then .dat (older modules that ship
+  // .dat + .idx instead of .bnt + .bdt). Both use the same TreeKeyIdx
+  // binary layout, so _parseBntTree handles both.
+  _parseGenBookTree(location) {
+    let files;
+    try { files = fs.readdirSync(location); } catch { return []; }
+
+    const treeFile =
+      files.find((f) => f.toLowerCase().endsWith('.bnt')) ||
+      files.find((f) => f.toLowerCase().endsWith('.dat'));
+
+    if (!treeFile) {
+      console.log(`[parseGenBookTree] no .bnt or .dat found in ${location}, files: ${files.join(',')}`);
+      return [];
+    }
+
+    console.log(`[parseGenBookTree] using ${treeFile}`);
+    return this._parseBntTree(path.join(location, treeFile));
+  }
+
+  _parseBntTree(bntPath) {
+    // TreeKeyIdx: each record is 6 × INT32LE (parent, firstChild, nextSibling,
+    // prevSibling, dataOffset, dataSize) followed by a null-terminated name.
+    // Stored values are byte offsets into this same file; -1 (0xFFFFFFFF) means "none".
+    let buf;
+    try { buf = fs.readFileSync(bntPath); } catch { return []; }
+
+    const HEADER = 24;
+    const keys = [];
+    const visited = new Set();
+
+    function readName(offset) {
+      let end = offset + HEADER;
+      while (end < buf.length && buf[end] !== 0) end++;
+      return buf.slice(offset + HEADER, end).toString('utf8');
+    }
+
+    // Log root record to help diagnose format issues.
+    if (buf.length >= HEADER) {
+      const rootParent = buf.readInt32LE(0);
+      const rootFirstChild = buf.readInt32LE(4);
+      const rootNextSib = buf.readInt32LE(8);
+      const rootName = readName(0);
+      console.log(`[parseBntTree] ${path.basename(bntPath)} size=${buf.length} root: parent=${rootParent} firstChild=${rootFirstChild} nextSib=${rootNextSib} name="${rootName}"`);
+    }
+
+    function traverse(offset, parentPath) {
+      if (offset < 0 || offset + HEADER > buf.length || visited.has(offset)) return;
+      visited.add(offset);
+      const firstChild = buf.readInt32LE(offset + 4);
+      const nextSib = buf.readInt32LE(offset + 8);
+      const name = readName(offset);
+      const fullPath = parentPath ? (name ? `${parentPath}/${name}` : parentPath) : name;
+      if (name) keys.push(fullPath);
+      if (firstChild !== -1) traverse(firstChild, fullPath || parentPath);
+      if (nextSib !== -1) traverse(nextSib, parentPath);
+    }
+
+    traverse(0, '');
+    console.log(`[parseBntTree] ${path.basename(bntPath)} found ${keys.length} keys`);
+    return keys;
+  }
+
+  // Read every section of a GenBook module in DFS order and return them
+  // concatenated as HTML. Bypasses NSWI's getRawModuleEntry entirely by
+  // reading the binary tree file (.bnt or .dat) for section names and
+  // data offsets, then pulling content from the data file (.bdt, or the
+  // same tree file for older self-referential formats).
+  getFullBookContent(moduleCode) {
+    const mod = this.sword.getLocalModule(moduleCode);
+    if (!mod?.location) return '';
+
+    const location = mod.location;
+    let files;
+    try { files = fs.readdirSync(location); } catch { return ''; }
+
+    const bntFile = files.find((f) => f.toLowerCase().endsWith('.bnt'));
+    const bdtFile = files.find((f) => f.toLowerCase().endsWith('.bdt'));
+    const datFile = files.find((f) => f.toLowerCase().endsWith('.dat'));
+
+    const treePath = bntFile
+      ? path.join(location, bntFile)
+      : datFile ? path.join(location, datFile) : null;
+    if (!treePath) return '';
+
+    // .bdt is the companion data file for .bnt; older modules may be
+    // self-referential (.dat stores both tree and content).
+    const dataPath = bdtFile
+      ? path.join(location, bdtFile)
+      : treePath;
+
+    return this._concatAllContent(treePath, dataPath);
+  }
+
+  _concatAllContent(treePath, dataPath) {
+    const HEADER = 24;
+    let tree, data;
+    try { tree = fs.readFileSync(treePath); } catch { return ''; }
+    try { data = fs.readFileSync(dataPath); } catch { return ''; }
+
+    const sections = [];
+    const visited = new Set();
+
+    const readName = (offset) => {
+      let end = offset + HEADER;
+      while (end < tree.length && tree[end] !== 0) end++;
+      return tree.slice(offset + HEADER, end).toString('utf8');
+    };
+
+    const collect = (offset, depth) => {
+      if (offset < 0 || offset + HEADER > tree.length || visited.has(offset)) return;
+      visited.add(offset);
+      const firstChild = tree.readInt32LE(offset + 4);
+      const nextSib = tree.readInt32LE(offset + 8);
+      const dataOffset = tree.readUInt32LE(offset + 16);
+      const dataSize = tree.readUInt32LE(offset + 20);
+      const name = readName(offset);
+
+      if (dataSize > 0 && dataSize < 5_000_000 && dataOffset + dataSize <= data.length) {
+        const raw = data.slice(dataOffset, dataOffset + dataSize).toString('utf8');
+        if (raw.trim()) sections.push({ name, depth, content: raw });
+      }
+
+      if (firstChild !== -1) collect(firstChild, depth + 1);
+      if (nextSib !== -1) collect(nextSib, depth);
+    };
+
+    collect(0, 0);
+
+    return sections.map(({ name, depth, content }) => {
+      const processed = this.processDictEntryContent(content);
+      const tag = depth <= 1 ? 'h2' : 'h3';
+      return name ? `<${tag} class="book-section-heading">${name}</${tag}>${processed}` : processed;
+    }).join('\n');
+  }
+
+  getBookEntry(moduleCode, key) {
+    const raw = this.sword.getRawModuleEntry(moduleCode, key);
+    if (!raw) {
+      const err = new Error(`No entry found for "${key}" in ${moduleCode}`);
+      err.status = 404;
+      throw err;
+    }
+    const withLinks = this.processDictHyperlinks(raw);
+    const processed = this.processDictEntryContent(withLinks);
+    return this.rewriteImageSrcs(processed, moduleCode);
   }
 
   stripRedundantWritingTransliteration(html) {
