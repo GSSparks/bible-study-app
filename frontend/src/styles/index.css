@@ -390,7 +390,7 @@
 /* Warm cream/parchment tint on the map tiles — sepia gives the land a warm
    ivory tone; slight desaturation and brightness pull keeps it readable. */
 .leaflet-tile-pane {
-  filter: sepia(50%) brightness(0.78) saturate(0.90);
+  filter: sepia(40%) brightness(0.84) saturate(0.85);
 }
 .leaflet-control-zoom a {
   background: #1a2d40 !important;

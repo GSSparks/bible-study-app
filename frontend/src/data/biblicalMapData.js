@@ -529,6 +529,58 @@ export const JOURNEYS = [
   },
 ];
 
+// ── Passage → Journey / Era lookup ───────────────────────────────────────────
+// Each entry maps one or more book names (lowercase, no spaces) to a journey
+// and/or time period. chapterRange [start, end] narrows the match further.
+const PASSAGE_JOURNEY_MAP = [
+  { books: ['genesis'], chapterRange: [11, 22], journeyId: 'abraham', periodId: 'patriarchal' },
+  { books: ['genesis'], chapterRange: [27, 35], journeyId: 'jacob-haran', periodId: 'patriarchal' },
+  { books: ['genesis'], chapterRange: [37, 50], journeyId: 'joseph-egypt', periodId: 'patriarchal' },
+  { books: ['genesis'], periodId: 'patriarchal' },
+  { books: ['exodus', 'leviticus', 'numbers', 'deuteronomy', 'joshua'], journeyId: 'exodus-route', periodId: 'exodus' },
+  { books: ['ruth'], journeyId: 'ruth', periodId: 'judges' },
+  { books: ['judges'], periodId: 'judges' },
+  { books: ['1samuel', '2samuel'], periodId: 'united' },
+  { books: ['1kings'], chapterRange: [1, 11], periodId: 'united' },
+  { books: ['1kings'], chapterRange: [12, 22], journeyId: 'elijah', periodId: 'divided' },
+  { books: ['2kings'], chapterRange: [1, 17], journeyId: 'elijah', periodId: 'divided' },
+  { books: ['2kings'], chapterRange: [18, 25], periodId: 'assyrian' },
+  { books: ['jonah'], journeyId: 'jonah', periodId: 'assyrian' },
+  { books: ['isaiah', 'hosea', 'amos', 'micah', 'nahum'], periodId: 'assyrian' },
+  { books: ['jeremiah', 'lamentations', 'ezekiel', 'daniel', 'habakkuk', 'zephaniah'], journeyId: 'exile-babylon', periodId: 'exile' },
+  { books: ['ezra', 'nehemiah', 'haggai', 'zechariah', 'malachi', 'esther'], journeyId: 'return-exile', periodId: 'persian' },
+  { books: ['matthew', 'mark', 'luke', 'john'], journeyId: 'jesus-ministry', periodId: 'nt' },
+  { books: ['acts'], chapterRange: [1, 12], journeyId: 'jesus-ministry', periodId: 'nt' },
+  { books: ['acts'], chapterRange: [13, 14], journeyId: 'paul-journey-1', periodId: 'nt' },
+  { books: ['acts'], chapterRange: [15, 18], journeyId: 'paul-journey-2', periodId: 'nt' },
+  { books: ['acts'], chapterRange: [19, 21], journeyId: 'paul-journey-3', periodId: 'nt' },
+  { books: ['acts'], chapterRange: [27, 28], journeyId: 'paul-rome', periodId: 'nt' },
+  { books: ['acts'], periodId: 'nt' },
+  { books: ['romans', '1corinthians', '2corinthians', 'galatians', 'ephesians', 'philippians', 'colossians', '1thessalonians', '2thessalonians', 'philemon', '1timothy', '2timothy', 'titus', 'hebrews', 'james', '1peter', '2peter', '1john', '2john', '3john', 'jude', 'revelation'], periodId: 'nt' },
+];
+
+// Parse a Bible reference string (e.g. "Acts 13:1", "John 3:16", "Genesis 12")
+// and return the best matching { journeyId, periodId } or null.
+export function findJourneyForRef(ref) {
+  if (!ref) return null;
+  const m = ref.match(/^(\d?\s*[A-Za-z]+)\s+(\d+)/);
+  if (!m) return null;
+  const bookRaw = m[1].replace(/\s+/g, '').toLowerCase();
+  const chapter = parseInt(m[2], 10);
+  let fallback = null;
+  for (const entry of PASSAGE_JOURNEY_MAP) {
+    if (!entry.books.includes(bookRaw)) continue;
+    if (entry.chapterRange) {
+      if (chapter >= entry.chapterRange[0] && chapter <= entry.chapterRange[1]) {
+        return { journeyId: entry.journeyId ?? null, periodId: entry.periodId };
+      }
+    } else if (!fallback) {
+      fallback = entry;
+    }
+  }
+  return fallback ? { journeyId: fallback.journeyId ?? null, periodId: fallback.periodId } : null;
+}
+
 // City and location markers.
 // type: 'major' | 'minor' | 'holy' | 'region'
 export const CITIES = [
@@ -615,3 +667,9 @@ export const CITIES = [
   { id: 'philadelphia', label: 'Philadelphia', pos: [38.35, 28.52], periods: ['nt'], type: 'minor', note: 'One of the seven churches: "I have set before you an open door" (Rev 3:8)' },
   { id: 'laodicea', label: 'Laodicea', pos: [37.83, 29.12], periods: ['nt'], type: 'minor', note: 'One of the seven churches: "Because you are lukewarm… I will spit you out" (Rev 3:16)' },
 ];
+
+// Case-insensitive city name → { cityId, period } index built from CITIES.
+// When a city spans multiple eras, the first period in its periods array is used.
+export const CITY_NAME_INDEX = Object.fromEntries(
+  CITIES.map((c) => [c.label.toLowerCase(), { cityId: c.id, period: c.periods[0] }])
+);

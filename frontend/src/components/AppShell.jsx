@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, BookMarked, BookText, Box, Compass, Library as LibraryIcon, Map, Settings as SettingsIcon, Shield, Menu, X } from 'lucide-react';
+import { BookOpen, BookMarked, BookText, Box, Compass, Library as LibraryIcon, Map, MapPin, Settings as SettingsIcon, Shield, Menu, X } from 'lucide-react';
 import BiblePanel from './BiblePanel.jsx';
 import BookPanel from './BookPanel.jsx';
+import MapPanel from './MapPanel.jsx';
 import BibleMapView from './BibleMapView.jsx';
+import { findJourneyForRef, CITY_NAME_INDEX } from '../data/biblicalMapData.js';
 import BooksView from './BooksView.jsx';
 import CellView from './CellView.jsx';
 import TopicGuidePane from './TopicGuidePane.jsx';
@@ -91,6 +93,9 @@ export default function AppShell({ auth }) {
   const [pendingAiDocument, setPendingAiDocument] = useState(null);
   const [pendingCodexQuery, setPendingCodexQuery] = useState(null);
 
+  const [mapPanelOpen, setMapPanelOpen] = useState(false);
+  const [pendingMapContext, setPendingMapContext] = useState(null);
+
   const [bookReader, setBookReader] = useState(() => {
     try { return JSON.parse(localStorage.getItem('scriptorium-book-reader')) || { module: null, scrollY: 0 }; }
     catch { return { module: null, scrollY: 0 }; }
@@ -145,6 +150,18 @@ export default function AppShell({ auth }) {
     navigate('codex');
   }
 
+  function openMapForRef(ref) {
+    const match = findJourneyForRef(ref);
+    setPendingMapContext(match ? { ...match, nonce: Date.now() } : { nonce: Date.now() });
+    setMapPanelOpen(true);
+  }
+
+  function openMapForCity(cityLabel) {
+    const hit = CITY_NAME_INDEX[cityLabel?.toLowerCase()];
+    setPendingMapContext(hit ? { cityId: hit.cityId, periodId: hit.period, nonce: Date.now() } : { nonce: Date.now() });
+    setMapPanelOpen(true);
+  }
+
   useEffect(() => {
     api.getBranding().then((b) => setBrandName(b.name)).catch(() => {});
   }, []);
@@ -159,14 +176,19 @@ export default function AppShell({ auth }) {
         e.preventDefault();
         setBookPanelOpen((prev) => !prev);
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
+        e.preventDefault();
+        setMapPanelOpen((prev) => !prev);
+      }
       if (e.key === 'Escape') {
         if (biblePanelOpen) setBiblePanelOpen(false);
         if (bookPanelOpen) setBookPanelOpen(false);
+        if (mapPanelOpen) setMapPanelOpen(false);
       }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [biblePanelOpen, bookPanelOpen]);
+  }, [biblePanelOpen, bookPanelOpen, mapPanelOpen]);
 
   function isVisible(item) {
     if (item.adminOnly && auth.user?.role !== 'admin') return false;
@@ -232,6 +254,14 @@ export default function AppShell({ auth }) {
         </nav>
 
         <div className="p-3">
+          <button
+            onClick={() => { setMapPanelOpen((prev) => !prev); setDrawerOpen(false); }}
+            title="Scripture Map (Ctrl+M)"
+            className={`mb-1 flex w-full items-center gap-3 rounded px-2 py-3 text-sm transition-colors lg:py-2 ${mapPanelOpen ? 'text-brass' : 'text-muted hover:bg-panel hover:text-parchment'}`}
+          >
+            <MapPin size={18} strokeWidth={2} className="shrink-0" />
+            Map
+          </button>
           <button
             onClick={() => { setBookPanelOpen((prev) => !prev); setDrawerOpen(false); }}
             title="Book Reader (Ctrl+K)"
@@ -310,6 +340,7 @@ export default function AppShell({ auth }) {
             pendingAiDocument={pendingAiDocument}
             onAiDocumentConsumed={() => setPendingAiDocument(null)}
             onOpenCodex={openCodex}
+            onOpenMap={openMapForRef}
           />
         </div>
         <div className={activeView === 'codex' ? 'h-full' : 'hidden'}>
@@ -317,6 +348,7 @@ export default function AppShell({ auth }) {
             isLoggedIn={Boolean(auth.user)}
             initialQuery={pendingCodexQuery}
             defaultBibleModule={defaultBibleModule}
+            onShowOnMap={openMapForCity}
           />
         </div>
         {activeView === 'settings' && (
@@ -375,6 +407,14 @@ export default function AppShell({ auth }) {
       </main>
       </div>
 
+      <MapPanel
+        open={mapPanelOpen}
+        onClose={() => setMapPanelOpen(false)}
+        pendingMapContext={pendingMapContext}
+        onOpenInCell={(ref) => { openInPassages(null, ref); setMapPanelOpen(false); }}
+        onOpenInCodex={(term) => { openCodex(term); setMapPanelOpen(false); }}
+        onOpenInMapView={() => navigate('map')}
+      />
       <BiblePanel
         open={biblePanelOpen}
         onClose={() => setBiblePanelOpen(false)}

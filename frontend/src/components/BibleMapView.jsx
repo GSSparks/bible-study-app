@@ -40,10 +40,10 @@ const TILE_LAYERS = [
   },
   {
     id: 'light',
-    label: 'Light',
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    attribution: '© CartoDB',
-    maxZoom: 19,
+    label: 'Light Gray',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles © Esri',
+    maxZoom: 16,
   },
   {
     id: 'satellite',
@@ -58,7 +58,7 @@ const TILE_LAYERS = [
 const CITY_RADIUS = { major: 7, minor: 4, holy: 8, region: 0 };
 const CITY_COLOR = { major: '#E8A441', minor: '#8B8B7A', holy: '#F5F4F1', region: 'transparent' };
 
-export default function BibleMapView() {
+export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenInCodex }) {
   const [selectedPeriod, setSelectedPeriod] = useState('nt');
   const [selectedJourney, setSelectedJourney] = useState('paul-journey-1');
   const [selectedCity, setSelectedCity] = useState(null);
@@ -75,6 +75,23 @@ export default function BibleMapView() {
   const periodCities = CITIES.filter((c) => c.periods.includes(selectedPeriod));
   const activeJourney = periodJourneys.find((j) => j.id === selectedJourney) ?? null;
   const activeTile = TILE_LAYERS.find((t) => t.id === tileLayer) ?? TILE_LAYERS[0];
+
+  // Respond to external navigation (from Cell toolbar or Codex "Show on Map")
+  useEffect(() => {
+    if (!pendingMapContext) return;
+    if (pendingMapContext.cityId) {
+      const city = CITIES.find((c) => c.id === pendingMapContext.cityId);
+      if (city) {
+        setSelectedPeriod(pendingMapContext.periodId ?? city.periods[0]);
+        setSelectedJourney(null);
+        setSelectedCity(city);
+      }
+    } else if (pendingMapContext.periodId) {
+      setSelectedPeriod(pendingMapContext.periodId);
+      if (pendingMapContext.journeyId) setSelectedJourney(pendingMapContext.journeyId);
+      setSelectedCity(null);
+    }
+  }, [pendingMapContext?.nonce]);
 
   function selectPeriod(pid) {
     setSelectedPeriod(pid);
@@ -354,6 +371,14 @@ export default function BibleMapView() {
             <p className="mt-2 font-ui text-[10px] text-muted/60">
               Active in: {selectedCity.periods.map((pid) => TIME_PERIODS.find((p) => p.id === pid)?.label).filter(Boolean).join(', ')}
             </p>
+            {onOpenInCodex && (
+              <button
+                onClick={() => onOpenInCodex(selectedCity.label)}
+                className="mt-3 w-full rounded border border-rule px-2 py-1 font-ui text-[10px] text-muted transition-colors hover:border-brass hover:text-parchment"
+              >
+                Search in Codex
+              </button>
+            )}
           </div>
         )}
 
@@ -460,6 +485,15 @@ export default function BibleMapView() {
                   </div>
                   <p className="text-[11px] leading-snug" style={{ color: '#9ca3af' }}>{wp.note}</p>
                   <p className="mt-1.5 text-[10px]" style={{ color: '#6b7b8a' }}>{activeJourney.reference} · Stop {i + 1} of {activeJourney.waypoints.length}</p>
+                  {onOpenInCell && (
+                    <button
+                      onClick={() => onOpenInCell(activeJourney.reference)}
+                      className="mt-2 w-full rounded px-2 py-1 text-[10px] text-left transition-colors"
+                      style={{ background: 'rgba(232,164,65,0.1)', color: '#E8A441', border: '1px solid rgba(232,164,65,0.25)' }}
+                    >
+                      Open passage in Cell ↗
+                    </button>
+                  )}
                 </div>
               </Popup>
             </CircleMarker>

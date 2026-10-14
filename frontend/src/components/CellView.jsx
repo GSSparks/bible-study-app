@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search } from 'lucide-react';
+import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, MapPin, Search } from 'lucide-react';
 import SearchBar from './SearchBar.jsx';
 import WorkspaceLayout from './WorkspaceLayout.jsx';
 import { api } from '../api/client.js';
@@ -29,6 +29,7 @@ export default function CellView({
   pendingAiDocument,
   onAiDocumentConsumed,
   onOpenCodex,
+  onOpenMap,
 }) {
   const cellInit = useRef(null);
   if (cellInit.current === null) {
@@ -361,6 +362,15 @@ export default function CellView({
               </button>
             );
           })}
+          {onOpenMap && (
+            <button
+              onClick={() => onOpenMap(focusedReference)}
+              title="Show on Map (Ctrl+M)"
+              className="rounded p-1.5 text-muted transition-colors hover:text-parchment"
+            >
+              <MapPin size={16} strokeWidth={2} />
+            </button>
+          )}
         </div>
       </div>
 

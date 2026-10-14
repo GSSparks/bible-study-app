@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, List, Search, Sparkles, Volume2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, List, MapPin, Search, Sparkles, Volume2, X } from 'lucide-react';
 import { api } from '../api/client.js';
+import { CITY_NAME_INDEX } from '../data/biblicalMapData.js';
 import FootnotePopup from './FootnotePopup.jsx';
 import { osisToHuman } from '../utils/osisToHuman.js';
 import { injectTocLinks } from '../utils/dictHtml.js';
@@ -81,6 +82,7 @@ export default function TopicGuidePane({
   onStrongsClick,
   isLoggedIn = false,
   defaultBibleModule,
+  onShowOnMap,
 }) {
   const [inputValue, setInputValue] = useState(''); // what's in the text box
   const [query, setQuery] = useState('');           // committed search term (Enter)
@@ -401,6 +403,15 @@ export default function TopicGuidePane({
                 <Sparkles size={12} className="shrink-0 opacity-70" />
                 AI Overview
               </button>
+              {onShowOnMap && CITY_NAME_INDEX[query.trim().toLowerCase()] && (
+                <button
+                  onClick={() => onShowOnMap(query.trim())}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted transition-colors hover:bg-ink/40 hover:text-parchment"
+                >
+                  <MapPin size={12} className="shrink-0 opacity-70" />
+                  Show on Map
+                </button>
+              )}
             </div>
           )}
 
