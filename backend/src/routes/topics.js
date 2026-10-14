@@ -28,7 +28,7 @@ topicsRouter.get('/', async (req, res, next) => {
       ...swordBookModules.map((m) => ({ ...m, _swordType: 'BOOK' })),
       ...personalModules,
       ...mdModules,
-      ...bookModules,
+      ...bookModules.map((m) => ({ ...m, _mdType: 'BOOK' })),
     ];
 
     const settled = await Promise.allSettled(allModules.map(async (mod) => {
@@ -49,7 +49,7 @@ topicsRouter.get('/', async (req, res, next) => {
       } catch {
         return [];
       }
-      const moduleType = mod._swordType === 'BOOK' ? 'BOOK' : undefined;
+      const moduleType = (mod._swordType === 'BOOK' || mod._mdType === 'BOOK') ? 'BOOK' : undefined;
       return keys
         .filter((k) => k.toLowerCase().includes(q))
         .slice(0, 15)

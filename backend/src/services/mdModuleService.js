@@ -198,6 +198,23 @@ export async function getMdBookChapters(moduleDirName) {
     return [];
   }
 
+  // ThML/XML book: extract h1/h2 heading texts as chapter keys
+  const xmlFile = files.find((f) => f.toLowerCase().endsWith('.xml'));
+  if (xmlFile) {
+    try {
+      const content = await readFile(join(modulePath, xmlFile), 'utf8');
+      const html = parseThml(content);
+      const keys = [];
+      const re = /<h[12]\b[^>]*>([\s\S]*?)<\/h[12]>/gi;
+      let m;
+      while ((m = re.exec(html))) {
+        const text = m[1].replace(/<[^>]+>/g, '').trim();
+        if (text) keys.push(text);
+      }
+      return keys;
+    } catch { return []; }
+  }
+
   const keys = [];
   const mdFiles = files
     .filter((f) => f !== 'module.json' && f.endsWith('.md'))
@@ -215,6 +232,64 @@ export async function getMdBookChapters(moduleDirName) {
     } catch {}
   }
   return keys; // document order preserved — no sort
+}
+
+// Extract the HTML section whose heading text matches key.
+// Splits the HTML at h1/h2 boundaries and returns from the matching
+// heading to (but not including) the next sibling heading.
+function extractHtmlSection(html, key) {
+  const parts = [];
+  const re = /<(h[12])\b[^>]*>([\s\S]*?)<\/\1>/gi;
+  let lastIndex = 0;
+  let m;
+  while ((m = re.exec(html))) {
+    if (lastIndex < m.index) {
+      parts.push({ type: 'content', html: html.slice(lastIndex, m.index) });
+    }
+    const text = m[2].replace(/<[^>]+>/g, '').trim();
+    parts.push({ type: 'heading', text, html: m[0] });
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < html.length) {
+    parts.push({ type: 'content', html: html.slice(lastIndex) });
+  }
+
+  let collecting = false;
+  const result = [];
+  for (const part of parts) {
+    if (part.type === 'heading') {
+      if (collecting) break;
+      if (part.text === key) { collecting = true; result.push(part.html); }
+    } else if (collecting) {
+      result.push(part.html);
+    }
+  }
+  return result.length ? result.join('') : null;
+}
+
+export async function getMdBookChapterContent(dirName, key) {
+  const modulePath = join(MD_MODULES_PATH, dirName);
+  let files;
+  try { files = await readdir(modulePath); } catch { return null; }
+
+  const xmlFile = files.find((f) => f.toLowerCase().endsWith('.xml'));
+  if (xmlFile) {
+    try {
+      const content = await readFile(join(modulePath, xmlFile), 'utf8');
+      return extractHtmlSection(parseThml(content), key);
+    } catch { return null; }
+  }
+
+  const mdFiles = files.filter((f) => f !== 'module.json' && f.endsWith('.md')).sort();
+  for (const file of mdFiles) {
+    try {
+      const md = await readFile(join(modulePath, file), 'utf8');
+      const sections = parseSections(md);
+      const match = sections.find((s) => s.key === key);
+      if (match) return mdToHtml(match.content);
+    } catch {}
+  }
+  return null;
 }
 
 export async function getMdModuleType(moduleDirName) {

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { swordService } from '../services/swordService.js';
 import { filterAvailableModules } from '../services/moduleVisibilityService.js';
-import { listMdModules, isMdModuleCode, mdDirName, getMdFullBookContent } from '../services/mdModuleService.js';
+import { listMdModules, isMdModuleCode, mdDirName, getMdFullBookContent, getMdBookChapterContent } from '../services/mdModuleService.js';
 
 export const booksRouter = Router();
 
@@ -49,7 +49,13 @@ booksRouter.get('/:module/entry', async (req, res, next) => {
   try {
     const { key } = req.query;
     if (!key) return res.status(400).json({ error: 'key query param is required' });
-    const html = swordService.getBookEntry(req.params.module, key);
+    let html;
+    if (isMdModuleCode(req.params.module)) {
+      html = await getMdBookChapterContent(mdDirName(req.params.module), key);
+      if (!html) return res.status(404).json({ error: 'Chapter not found' });
+    } else {
+      html = swordService.getBookEntry(req.params.module, key);
+    }
     res.json({ key, html });
   } catch (err) {
     next(err);
