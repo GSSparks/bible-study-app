@@ -56,13 +56,15 @@ export const api = {
   },
   createHighlight: (h) => request('/notes/highlights', { method: 'POST', body: JSON.stringify(h) }),
   deleteHighlight: (id) => request(`/notes/highlights/${id}`, { method: 'DELETE' }),
-  listBookmarks: ({ module } = {}) => {
+  listBookmarks: ({ reference, module } = {}) => {
     const params = new URLSearchParams();
+    if (reference) params.set('reference', reference);
     if (module) params.set('module', module);
     const qs = params.toString();
     return request(`/notes/bookmarks${qs ? `?${qs}` : ''}`);
   },
   createBookmark: (b) => request('/notes/bookmarks', { method: 'POST', body: JSON.stringify(b) }),
+  updateBookmark: (id, patch) => request(`/notes/bookmarks/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
   deleteBookmark: (id) => request(`/notes/bookmarks/${id}`, { method: 'DELETE' }),
 
   // PDF library

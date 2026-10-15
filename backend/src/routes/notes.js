@@ -34,11 +34,11 @@ notesRouter.get('/', async (req, res, next) => {
 });
 
 // A note can be anchored (reference + module) or freestanding (neither).
-// body is required unless tags includes 'book-highlight' (highlight-only records have no body).
+// body is required unless tags includes a highlight type (highlight-only records have no body).
 notesRouter.post('/', async (req, res, next) => {
   try {
     const { title, reference, module, quote, body, tags = [], fromAssistant = false } = req.body;
-    const isHighlight = Array.isArray(tags) && tags.includes('book-highlight');
+    const isHighlight = Array.isArray(tags) && (tags.includes('book-highlight') || tags.includes('pdf-highlight'));
     if (!isHighlight && !body) return res.status(400).json({ error: 'body is required' });
     res.status(201).json(
       await prisma.note.create({
@@ -48,7 +48,7 @@ notesRouter.post('/', async (req, res, next) => {
           reference: reference || null,
           module: module || null,
           quote: quote || null,
-          body,
+          body: body ?? '',
           tags,
           fromAssistant,
         },
@@ -96,8 +96,9 @@ notesRouter.post('/highlights', async (req, res, next) => {
 notesRouter.get('/bookmarks', async (req, res, next) => {
   try {
     const where = { userId: req.user.id };
+    if (req.query.reference) where.reference = req.query.reference;
     if (req.query.module) where.module = req.query.module;
-    res.json(await prisma.bookmark.findMany({ where, orderBy: { createdAt: 'desc' } }));
+    res.json(await prisma.bookmark.findMany({ where, orderBy: { createdAt: 'asc' } }));
   } catch (err) {
     next(err);
   }
@@ -107,6 +108,17 @@ notesRouter.post('/bookmarks', async (req, res, next) => {
   try {
     const { reference, module, label } = req.body;
     res.status(201).json(await prisma.bookmark.create({ data: { userId: req.user.id, reference, module, label } }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+notesRouter.put('/bookmarks/:id', async (req, res, next) => {
+  try {
+    const existing = await prisma.bookmark.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
+    const { label } = req.body;
+    res.json(await prisma.bookmark.update({ where: { id: req.params.id }, data: { label } }));
   } catch (err) {
     next(err);
   }

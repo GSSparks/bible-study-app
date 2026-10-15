@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import DocumentReader from './DocumentReader.jsx';
 
-export default function DocumentModal({ documentId, isLoggedIn, isAdmin, onAskAI, onClose, onDeleted, onRenamed }) {
+export default function DocumentModal({ documentId, isLoggedIn, isAdmin, onAskAI, onOpenInCell, onClose, onDeleted, onRenamed }) {
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose(); }
     document.addEventListener('keydown', onKey);
@@ -23,6 +23,7 @@ export default function DocumentModal({ documentId, isLoggedIn, isAdmin, onAskAI
           isLoggedIn={isLoggedIn}
           isAdmin={isAdmin}
           onAskAI={onAskAI}
+          onOpenInCell={onOpenInCell}
           onClose={onClose}
           onDeleted={onDeleted}
           onRenamed={onRenamed}

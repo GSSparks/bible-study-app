@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Check, ExternalLink, Pencil, ScanText, Search, Sparkles, Trash2, X } from 'lucide-react';
+import { BookOpen, Check, ExternalLink, Pencil, ScanText, Search, Sparkles, Trash2, X } from 'lucide-react';
 import { api } from '../api/client.js';
+import PDFBody from './PDFBody.jsx';
 
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -110,7 +111,7 @@ function slugify(text, id) {
   return `toc-${id}-${text.slice(0, 30).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 }
 
-export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskAI, onClose, onDeleted, onRenamed }) {
+export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskAI, onOpenInCell, onClose, onDeleted, onRenamed, collections = [] }) {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -122,6 +123,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
   const [renaming, setRenaming] = useState(false);
   const [renameTitle, setRenameTitle] = useState('');
   const [renameAuthor, setRenameAuthor] = useState('');
+  const [renameCollection, setRenameCollection] = useState('');
   const [renameSaving, setRenameSaving] = useState(false);
   const [renameError, setRenameError] = useState(null);
 
@@ -175,6 +177,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
   function startRename() {
     setRenameTitle(doc.title);
     setRenameAuthor(doc.author || '');
+    setRenameCollection(doc.collection || '');
     setRenameError(null);
     setRenaming(true);
   }
@@ -187,6 +190,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
       const updated = await api.updateDocument(documentId, {
         title: renameTitle.trim(),
         author: renameAuthor.trim() || null,
+        collection: renameCollection.trim() || null,
       });
       setDoc(updated);
       setRenaming(false);
@@ -236,6 +240,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
     }, 50);
   }
 
+  const isPdf = /\.pdf$/i.test(doc?.filename || '');
   const isWordDoc = /\.docx?$/i.test(doc?.filename || '');
   const blocks = useMemo(
     () => (doc?.extractedText ? parseBlocks(doc.extractedText, isWordDoc) : []),
@@ -261,14 +266,72 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
     <div className="flex h-full flex-col overflow-hidden bg-page">
       {/* Header */}
       <div className="shrink-0 border-b border-rule bg-panel">
-        <div className="mx-auto max-w-3xl px-6 pt-5 pb-0">
-          <div className="mb-3 flex items-center gap-3">
-            {onClose && (
-              <button onClick={onClose} className="flex items-center gap-1.5 text-xs text-muted hover:text-parchment">
-                <ArrowLeft size={14} /> Documents
+        {renaming ? (
+          <div className="px-5 py-3 space-y-2">
+            <input
+              ref={renameTitleRef}
+              value={renameTitle}
+              onChange={(e) => setRenameTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenaming(false); }}
+              className="w-full rounded border border-rule bg-ink px-3 py-1.5 font-display text-lg text-parchment focus:border-brass focus:outline-none"
+              placeholder="Title"
+            />
+            <div className="flex gap-2">
+              <input
+                value={renameAuthor}
+                onChange={(e) => setRenameAuthor(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenaming(false); }}
+                className="flex-1 rounded border border-rule bg-ink px-3 py-1.5 text-sm text-parchment focus:border-brass focus:outline-none"
+                placeholder="Author (optional)"
+              />
+              <input
+                list="doc-collections"
+                value={renameCollection}
+                onChange={(e) => setRenameCollection(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenaming(false); }}
+                className="flex-1 rounded border border-rule bg-ink px-3 py-1.5 text-sm text-parchment focus:border-brass focus:outline-none"
+                placeholder="Collection / tag (optional)"
+              />
+              {collections.length > 0 && (
+                <datalist id="doc-collections">
+                  {collections.map((c) => <option key={c} value={c} />)}
+                </datalist>
+              )}
+              <button
+                onClick={saveRename}
+                disabled={renameSaving}
+                className="flex items-center gap-1.5 rounded bg-brass/20 px-3 py-1.5 text-xs font-medium text-brass hover:bg-brass/30 disabled:opacity-50"
+              >
+                <Check size={12} /> {renameSaving ? 'Saving…' : 'Save'}
               </button>
-            )}
-            <div className="ml-auto flex items-center gap-2">
+              <button onClick={() => setRenaming(false)} className="text-xs text-muted hover:text-parchment">
+                Cancel
+              </button>
+            </div>
+            {renameError && <p className="text-xs text-red-400">{renameError}</p>}
+          </div>
+        ) : (
+          <div className="flex items-center gap-4 px-5 py-3">
+            {/* Left: title + meta */}
+            <div className="min-w-0 flex-1">
+              {doc && (
+                <>
+                  <h1 className="truncate font-display text-xl leading-tight text-parchment">{doc.title}</h1>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    {doc.author && <span className="text-sm text-muted">{doc.author}</span>}
+                    {doc.pageCount && <span className="font-mono text-xs text-muted/60">{doc.pageCount} pages</span>}
+                    {doc.collection && (
+                      <span className="inline-flex items-center rounded-full border border-rule bg-brass/10 px-2 py-0.5 text-[11px] text-brass/80">
+                        {doc.collection}
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Right: action buttons */}
+            <div className="shrink-0 flex items-center gap-2">
               {doc && isLoggedIn && doc.extractedText && (
                 <button
                   onClick={() => onAskAI?.(documentId)}
@@ -282,7 +345,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
                   <button
                     onClick={startRename}
                     className="flex items-center gap-1.5 rounded border border-rule px-2.5 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment"
-                    title="Rename"
+                    title="Edit"
                   >
                     <Pencil size={12} />
                   </button>
@@ -296,10 +359,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
                       >
                         {deleting ? '…' : 'Yes'}
                       </button>
-                      <button
-                        onClick={() => setConfirmDelete(false)}
-                        className="text-xs text-muted hover:text-parchment"
-                      >
+                      <button onClick={() => setConfirmDelete(false)} className="text-xs text-muted hover:text-parchment">
                         Cancel
                       </button>
                     </span>
@@ -314,100 +374,59 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
                   )}
                 </>
               )}
-              <a
-                href={api.documentFileUrl(documentId)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded border border-rule px-2.5 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment"
-              >
-                <ExternalLink size={12} />
-                {/\.docx?$/i.test(doc?.filename || '') ? 'Open file' : 'Open PDF'}
-              </a>
+              {!isPdf && (
+                <a
+                  href={api.documentFileUrl(documentId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded border border-rule px-2.5 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment"
+                >
+                  <ExternalLink size={12} /> Open file
+                </a>
+              )}
             </div>
           </div>
+        )}
 
-          {renaming ? (
-            <div className="pb-4 space-y-2">
+        {/* Search + TOC toolbar — only for non-PDF text documents */}
+        {doc?.extractedText && !isPdf && (
+          <div className="flex items-center gap-2 border-t border-rule/50 px-5 py-2">
+            {tocItems.length > 0 && (
+              <button
+                onClick={() => setShowToc((v) => !v)}
+                className={`flex shrink-0 items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs transition-colors ${
+                  showToc
+                    ? 'border-brass bg-brass/10 text-brass'
+                    : 'border-rule text-muted hover:border-brass hover:text-parchment'
+                }`}
+              >
+                <BookOpen size={12} />
+                Contents
+                <span className="font-mono text-[10px] text-muted/70">({tocItems.length})</span>
+              </button>
+            )}
+            <div className="relative flex-1">
+              <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
               <input
-                ref={renameTitleRef}
-                value={renameTitle}
-                onChange={(e) => setRenameTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenaming(false); }}
-                className="w-full rounded border border-rule bg-ink px-3 py-1.5 font-display text-xl text-parchment focus:border-brass focus:outline-none"
-                placeholder="Title"
+                ref={searchRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search in document… (Ctrl+F)"
+                className="w-full rounded border border-rule bg-ink/60 py-1.5 pl-8 pr-3 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
               />
-              <input
-                value={renameAuthor}
-                onChange={(e) => setRenameAuthor(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenaming(false); }}
-                className="w-full rounded border border-rule bg-ink px-3 py-1.5 text-sm text-parchment focus:border-brass focus:outline-none"
-                placeholder="Author (optional)"
-              />
-              {renameError && <p className="text-xs text-red-400">{renameError}</p>}
-              <div className="flex gap-2">
-                <button
-                  onClick={saveRename}
-                  disabled={renameSaving}
-                  className="flex items-center gap-1.5 rounded bg-brass/20 px-3 py-1.5 text-xs font-medium text-brass hover:bg-brass/30 disabled:opacity-50"
-                >
-                  <Check size={12} /> {renameSaving ? 'Saving…' : 'Save'}
-                </button>
-                <button onClick={() => setRenaming(false)} className="text-xs text-muted hover:text-parchment">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            doc && (
-              <div className="pb-4">
-                <h1 className="font-display text-2xl leading-snug text-parchment">{doc.title}</h1>
-                {doc.author && <p className="mt-0.5 text-sm text-muted">{doc.author}</p>}
-                {doc.pageCount && <p className="mt-0.5 font-mono text-xs text-muted/70">{doc.pageCount} pages</p>}
-              </div>
-            )
-          )}
-
-          {/* Toolbar: search + contents toggle */}
-          {doc?.extractedText && (
-            <div className="pb-3 flex items-center gap-2">
-              {tocItems.length > 0 && (
-                <button
-                  onClick={() => setShowToc((v) => !v)}
-                  className={`flex shrink-0 items-center gap-1.5 rounded border px-2.5 py-2 text-xs transition-colors ${
-                    showToc
-                      ? 'border-brass bg-brass/10 text-brass'
-                      : 'border-rule text-muted hover:border-brass hover:text-parchment'
-                  }`}
-                  title="Table of Contents"
-                >
-                  <BookOpen size={12} />
-                  <span className="hidden sm:inline">Contents</span>
-                  <span className="font-mono text-[10px] text-muted/70">({tocItems.length})</span>
-                </button>
-              )}
-              <div className="relative flex-1">
-                <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-                <input
-                  ref={searchRef}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search in document… (Ctrl+F)"
-                  className="w-full rounded-lg border border-rule bg-ink/60 py-2 pl-8 pr-3 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
-                />
-                {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-parchment">
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
               {searchQuery && (
-                <span className="shrink-0 text-xs text-muted">
-                  {matchCount === 0 ? 'No matches' : `${matchCount} match${matchCount !== 1 ? 'es' : ''}`}
-                </span>
+                <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-parchment">
+                  <X size={13} />
+                </button>
               )}
             </div>
-          )}
-        </div>
+            {searchQuery && (
+              <span className="shrink-0 text-xs text-muted">
+                {matchCount === 0 ? 'No matches' : `${matchCount} match${matchCount !== 1 ? 'es' : ''}`}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Table of Contents panel */}
@@ -438,82 +457,91 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
         </div>
       )}
 
-      {/* Body */}
-      <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto bg-page">
-        {loading && <p className="p-8 text-sm text-pageMuted">Loading…</p>}
-        {error && <p className="p-8 text-sm text-red-600">{error}</p>}
+      {/* Body — visual PDF renderer for .pdf files, text renderer for everything else */}
+      {loading && <p className="min-h-0 flex-1 p-8 text-sm text-pageMuted">Loading…</p>}
+      {error && <p className="min-h-0 flex-1 p-8 text-sm text-red-600">{error}</p>}
 
-        {doc && !doc.extractedText && !loading && (
-          <div className="mx-auto max-w-3xl px-6 py-12 text-center">
-            <ScanText size={32} className="mx-auto mb-3 text-pageMuted/50" strokeWidth={1} />
-            <p className="mb-1 font-display text-lg text-pageText">No text available</p>
-            <p className="mb-6 text-sm text-pageMuted">This appears to be a scanned image PDF with no selectable text.</p>
-            <div className="flex flex-col items-center gap-3">
-              {isAdmin && (
-                <button
-                  onClick={handleOcr}
-                  disabled={ocrRunning}
-                  className="flex items-center gap-2 rounded border border-pageAccent/60 bg-pageAccent/10 px-5 py-2.5 text-sm font-medium text-pageAccent hover:bg-pageAccent/20 disabled:cursor-not-allowed disabled:opacity-60"
+      {doc && !loading && !error && isPdf && (
+        <PDFBody
+          documentId={documentId}
+          doc={doc}
+          isAdmin={isAdmin}
+          isLoggedIn={isLoggedIn}
+          onOcr={handleOcr}
+          ocrRunning={ocrRunning}
+          ocrError={ocrError}
+          onOpenInCell={onOpenInCell}
+        />
+      )}
+
+      {doc && !loading && !error && !isPdf && (
+        <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto bg-page">
+          {!doc.extractedText && (
+            <div className="mx-auto max-w-3xl px-6 py-12 text-center">
+              <ScanText size={32} className="mx-auto mb-3 text-pageMuted/50" strokeWidth={1} />
+              <p className="mb-1 font-display text-lg text-pageText">No text available</p>
+              <p className="mb-6 text-sm text-pageMuted">No selectable text was found in this document.</p>
+              <div className="flex flex-col items-center gap-3">
+                {isAdmin && (
+                  <button
+                    onClick={handleOcr}
+                    disabled={ocrRunning}
+                    className="flex items-center gap-2 rounded border border-pageAccent/60 bg-pageAccent/10 px-5 py-2.5 text-sm font-medium text-pageAccent hover:bg-pageAccent/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <ScanText size={15} />
+                    {ocrRunning ? 'Running OCR… this may take a minute' : 'Extract text with OCR'}
+                  </button>
+                )}
+                {ocrError && <p className="text-xs text-red-600">{ocrError}</p>}
+                <a
+                  href={api.documentFileUrl(documentId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-pageMuted hover:text-pageText"
                 >
-                  <ScanText size={15} />
-                  {ocrRunning ? 'Running OCR… this may take a minute' : 'Extract text with OCR'}
-                </button>
-              )}
-              {ocrError && <p className="text-xs text-red-600">{ocrError}</p>}
-              <a
-                href={api.documentFileUrl(documentId)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-pageMuted hover:text-pageText"
-              >
-                <ExternalLink size={13} /> Open original PDF
-              </a>
+                  <ExternalLink size={13} /> Open file
+                </a>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {doc?.extractedText && (
-          <div className="mx-auto max-w-3xl px-6 py-8">
-            <div className="font-display text-[15px] leading-relaxed text-pageText">
-              {blocks.map((block) => {
-                const anchorId = anchorMap[block.id];
-                if (block.level === 1) {
+          {doc.extractedText && (
+            <div className="mx-auto max-w-3xl px-6 py-8">
+              <div className="font-display text-[15px] leading-relaxed text-pageText">
+                {blocks.map((block) => {
+                  const anchorId = anchorMap[block.id];
+                  if (block.level === 1) {
+                    return (
+                      <h2 key={block.id} id={anchorId}
+                        className="mt-10 mb-3 border-b border-pageBorder pb-2 font-display text-xl font-semibold text-pageText first:mt-0 scroll-mt-4">
+                        <Highlighted text={block.text} query={searchQuery} />
+                      </h2>
+                    );
+                  }
+                  if (block.level === 2) {
+                    return (
+                      <h3 key={block.id} id={anchorId}
+                        className="mt-7 mb-2 font-display text-base font-semibold text-pageAccent scroll-mt-4">
+                        <Highlighted text={block.text} query={searchQuery} />
+                      </h3>
+                    );
+                  }
                   return (
-                    <h2
-                      key={block.id}
-                      id={anchorId}
-                      className="mt-10 mb-3 border-b border-pageBorder pb-2 font-display text-xl font-semibold text-pageText first:mt-0 scroll-mt-4"
-                    >
+                    <p key={block.id} className="mb-4">
                       <Highlighted text={block.text} query={searchQuery} />
-                    </h2>
+                    </p>
                   );
-                }
-                if (block.level === 2) {
-                  return (
-                    <h3
-                      key={block.id}
-                      id={anchorId}
-                      className="mt-7 mb-2 font-display text-base font-semibold text-pageAccent scroll-mt-4"
-                    >
-                      <Highlighted text={block.text} query={searchQuery} />
-                    </h3>
-                  );
-                }
-                return (
-                  <p key={block.id} className="mb-4">
-                    <Highlighted text={block.text} query={searchQuery} />
-                  </p>
-                );
-              })}
+                })}
+              </div>
+              {doc.extractedText.length >= 190_000 && (
+                <p className="mt-8 text-xs text-pageMuted/60">
+                  Text was capped at 200,000 characters during import. The full document may contain additional content.
+                </p>
+              )}
             </div>
-            {doc.extractedText.length >= 190_000 && (
-              <p className="mt-8 text-xs text-pageMuted/60">
-                Text was capped at 200,000 characters during import. The full document may contain additional content.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

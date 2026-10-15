@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, BookMarked, BookText, Box, Compass, Library as LibraryIcon, Map, MapPin, Settings as SettingsIcon, Shield, Menu, X } from 'lucide-react';
+import { BookOpen, BookMarked, BookText, Box, Compass, Library as LibraryIcon, Map, MapPin, Settings as SettingsIcon, Shield, StickyNote, Menu, X } from 'lucide-react';
 import BiblePanel from './BiblePanel.jsx';
 import BookPanel from './BookPanel.jsx';
 import MapPanel from './MapPanel.jsx';
@@ -14,6 +14,7 @@ import SettingsView from './SettingsView.jsx';
 import AdminView from './AdminView.jsx';
 import ScriptoriumsView from './ScriptoriumsView.jsx';
 import LibraryView from './LibraryView.jsx';
+import NotesView from './NotesView.jsx';
 import ReadingPlanView from './ReadingPlanView.jsx';
 import LoginModal from './LoginModal.jsx';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
@@ -27,6 +28,7 @@ const NAV_GROUPS = [
     { key: 'plans', label: 'Plans', Icon: BookMarked },
     { key: 'scriptoriums', label: 'Scriptoriums', Icon: Box, requiresAuth: true },
     { key: 'library', label: 'Library', Icon: LibraryIcon },
+    { key: 'notes', label: 'Notes', Icon: StickyNote, requiresAuth: true },
     { key: 'books', label: 'Books', Icon: BookText },
     { key: 'map', label: 'Map', Icon: Map },
   ],
@@ -383,6 +385,13 @@ export default function AppShell({ auth }) {
             isLoggedIn={Boolean(auth.user)}
             isAdmin={auth.user?.role === 'admin'}
             onAskAI={askAiCompanionAboutDocument}
+            onOpenInCell={(ref) => openInPassages(null, ref)}
+          />
+        </div>
+        <div className={activeView === 'notes' ? 'h-full' : 'hidden'}>
+          <NotesView
+            isLoggedIn={Boolean(auth.user)}
+            onOpenInCell={(ref) => openInPassages(null, ref)}
           />
         </div>
         <div className={activeView === 'books' ? 'h-full' : 'hidden'}>
@@ -400,6 +409,7 @@ export default function AppShell({ auth }) {
           activeView !== 'plans' &&
           activeView !== 'scriptoriums' &&
           activeView !== 'library' &&
+          activeView !== 'notes' &&
           activeView !== 'books' &&
           activeView !== 'map' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
