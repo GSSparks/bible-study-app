@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BookOpen } from 'lucide-react';
 import { api } from '../api/client.js';
 import BookPane from './BookPane.jsx';
 
@@ -27,9 +28,13 @@ export default function BooksView({ bookReader, onBookChange, isLoggedIn = false
   return (
     <div className="flex h-full min-h-0">
       {/* Sidebar */}
-      <div className="flex w-56 shrink-0 flex-col border-r border-rule bg-panel">
-        <div className="shrink-0 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted">
-          Books
+      <div className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel">
+        <div className="shrink-0 border-b border-rule px-4 py-3">
+          <div className="flex items-center gap-2">
+            <BookOpen size={16} className="text-brass" />
+            <h1 className="font-display text-base font-semibold text-parchment">Books</h1>
+          </div>
+          <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">Prose & Reference Books</p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loadingList ? (

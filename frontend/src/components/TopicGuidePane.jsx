@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, List, MapPin, Search, Sparkles, Volume2, X } from 'lucide-react';
+import { BookText, ChevronLeft, ChevronRight, ExternalLink, List, MapPin, Search, Sparkles, Volume2, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import { CITY_NAME_INDEX } from '../data/biblicalMapData.js';
 import FootnotePopup from './FootnotePopup.jsx';
@@ -352,10 +352,19 @@ export default function TopicGuidePane({
     <div className="flex h-full overflow-hidden">
 
       {/* ── Left nav panel (dark) ── */}
-      <div className="flex w-56 shrink-0 flex-col border-r border-rule bg-panel">
+      <div className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel">
+
+        {/* Header */}
+        <div className="shrink-0 border-b border-rule px-4 py-3">
+          <div className="flex items-center gap-2">
+            <BookText size={16} className="text-brass" />
+            <h1 className="font-display text-base font-semibold text-parchment">Codex</h1>
+          </div>
+          <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">Topical Reference</p>
+        </div>
 
         {/* Search input */}
-        <div className="shrink-0 border-b border-rule px-2 py-2">
+        <div className="shrink-0 border-b border-rule px-4 py-3">
           <div className="flex items-center gap-1.5 rounded border border-rule bg-ink/60 px-2 py-1.5">
             <Search size={12} className="shrink-0 text-muted" />
             <input

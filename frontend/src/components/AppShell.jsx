@@ -15,27 +15,42 @@ import AdminView from './AdminView.jsx';
 import ScriptoriumsView from './ScriptoriumsView.jsx';
 import LibraryView from './LibraryView.jsx';
 import NotesView from './NotesView.jsx';
-import ReadingPlanView from './ReadingPlanView.jsx';
+import CursusView from './CursusView.jsx';
 import LoginModal from './LoginModal.jsx';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
 import UserMenu from './UserMenu.jsx';
 import { api } from '../api/client.js';
 
 const NAV_GROUPS = [
-  [
-    { key: 'cell', label: 'Cell', Icon: BookOpen },
-    { key: 'codex', label: 'Codex', Icon: Compass },
-    { key: 'plans', label: 'Plans', Icon: BookMarked },
-    { key: 'scriptoriums', label: 'Scriptoriums', Icon: Box, requiresAuth: true },
-    { key: 'library', label: 'Library', Icon: LibraryIcon },
-    { key: 'notes', label: 'Notes', Icon: StickyNote, requiresAuth: true },
-    { key: 'books', label: 'Books', Icon: BookText },
-    { key: 'map', label: 'Map', Icon: Map },
-  ],
-  [
-    { key: 'settings', label: 'Settings', Icon: SettingsIcon, requiresAuth: true },
-    { key: 'admin', label: 'Admin', Icon: Shield, requiresAuth: true, adminOnly: true },
-  ],
+  {
+    label: 'Study',
+    items: [
+      { key: 'cell', label: 'Cell', Icon: BookOpen },
+      { key: 'codex', label: 'Codex', Icon: Compass },
+      { key: 'books', label: 'Books', Icon: BookText },
+      { key: 'map', label: 'Map', Icon: Map },
+    ],
+  },
+  {
+    label: 'Personal',
+    items: [
+      { key: 'library', label: 'Library', Icon: LibraryIcon },
+      { key: 'plans', label: 'Cursus', Icon: BookMarked },
+      { key: 'notes', label: 'Notes', Icon: StickyNote, requiresAuth: true },
+    ],
+  },
+  {
+    label: 'Community',
+    items: [
+      { key: 'scriptoriums', label: 'Scriptoriums', Icon: Box, requiresAuth: true },
+    ],
+  },
+  {
+    items: [
+      { key: 'settings', label: 'Settings', Icon: SettingsIcon, requiresAuth: true },
+      { key: 'admin', label: 'Admin', Icon: Shield, requiresAuth: true, adminOnly: true },
+    ],
+  },
 ];
 
 export default function AppShell({ auth }) {
@@ -202,9 +217,11 @@ export default function AppShell({ auth }) {
   // dropped entirely — otherwise an anonymous visitor (for whom the
   // entire second group requires auth) would see a stray divider line
   // with an empty gap below it and nothing in it.
-  const visibleGroups = NAV_GROUPS.map((group) => group.filter(isVisible)).filter((group) => group.length > 0);
+  const visibleGroups = NAV_GROUPS
+    .map((group) => ({ ...group, items: group.items.filter(isVisible) }))
+    .filter((group) => group.items.length > 0);
 
-  const allItems = NAV_GROUPS.flat();
+  const allItems = NAV_GROUPS.flatMap((g) => g.items);
   const activeItem = allItems.find((item) => item.key === activeView) || allItems[0];
 
   return (
@@ -235,7 +252,12 @@ export default function AppShell({ auth }) {
         <nav className="flex-1 overflow-y-auto py-2">
           {visibleGroups.map((group, groupIndex) => (
             <div key={groupIndex} className={groupIndex > 0 ? 'mt-2 border-t border-rule pt-2' : ''}>
-              {group.map((item) => {
+              {group.label && (
+                <p className="px-5 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-widest text-muted/50">
+                  {group.label}
+                </p>
+              )}
+              {group.items.map((item) => {
                 const Icon = item.Icon;
                 const active = activeView === item.key;
                 return (
@@ -363,9 +385,10 @@ export default function AppShell({ auth }) {
         )}
         {activeView === 'admin' && <AdminView />}
         {activeView === 'plans' && (
-          <ReadingPlanView
+          <CursusView
             isLoggedIn={Boolean(auth.user)}
-            onOpenInBible={(ref) => { openInPassages(null, ref); }}
+            isAdmin={auth.user?.role === 'admin'}
+            onOpenInBible={(ref) => openInPassages(null, ref)}
           />
         )}
         <div className={activeView === 'scriptoriums' ? 'h-full' : 'hidden'}>

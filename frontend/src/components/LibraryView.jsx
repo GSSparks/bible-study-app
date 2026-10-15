@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, FileText, Folder, Search, Upload, X } from 'lucide-react';
+import { Check, ChevronDown, FileText, Folder, Library, Search, Upload, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import DocumentReader from './DocumentReader.jsx';
 
@@ -89,9 +89,8 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
         {/* Header */}
         <div className="shrink-0 border-b border-rule px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className="flex-1 text-xs font-semibold uppercase tracking-wide text-muted">
-              Documents
-            </span>
+            <Library size={16} className="shrink-0 text-brass" />
+            <h1 className="font-display flex-1 text-base font-semibold text-parchment">Library</h1>
             {isAdmin && (
               <label className="flex cursor-pointer items-center gap-1.5 rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment">
                 <Upload size={11} />
@@ -105,6 +104,7 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
               </label>
             )}
           </div>
+          <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">Documents & PDFs</p>
           {uploadError && <p className="mt-1 text-xs text-red-400">{uploadError}</p>}
         </div>
 

@@ -267,9 +267,13 @@ export const api = {
   // Reading plans
   listReadingPlans: () => request('/reading-plans'),
   getReadingPlan: (id) => request(`/reading-plans/${id}`),
+  createReadingPlan: (data) => request('/reading-plans', { method: 'POST', body: JSON.stringify(data) }),
+  updateReadingPlan: (id, data) => request(`/reading-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteReadingPlan: (id) => request(`/reading-plans/${id}`, { method: 'DELETE' }),
   getReadingPlanProgress: (id) => request(`/reading-plans/${id}/progress`),
   markReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress`, { method: 'POST', body: JSON.stringify({ dayNumber }) }),
   unmarkReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress/${dayNumber}`, { method: 'DELETE' }),
+  resetReadingPlanProgress: (id) => request(`/reading-plans/${id}/progress`, { method: 'DELETE' }),
 
   listStudyReflections: (studyId) => request(`/studies/${studyId}/reflections`),
   listStudyResources: (studyId) => request(`/studies/${studyId}/resources`),

@@ -107,7 +107,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
   return (
     <div className="flex h-full min-h-0 overflow-hidden bg-ink">
       {/* ── Sidebar ── */}
-      <aside className="flex w-72 shrink-0 flex-col border-r border-rule bg-panel text-parchment">
+      <aside className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel text-parchment">
         {/* Header */}
         <div className="shrink-0 border-b border-rule px-4 py-3">
           <div className="flex items-center gap-2">
