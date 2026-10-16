@@ -761,3 +761,107 @@ export async function getResourceContent(resourceId, lessonId, viewerId) {
     return { type: resource.type, label: resource.label, text: null, note: `No ${resource.label} entry found for ${lesson.reference}.` };
   }
 }
+
+export async function exportStudy(studyId, userId) {
+  const study = await prisma.study.findUnique({
+    where: { id: studyId },
+    include: {
+      lessons: { orderBy: { order: 'asc' } },
+      resources: { orderBy: { order: 'asc' } },
+    },
+  });
+  if (!study) throw Object.assign(new Error('Study not found.'), { status: 404 });
+  await assertCanViewStudy(study, userId);
+
+  return {
+    version: 1,
+    format: 'scriptorium-study',
+    exportedAt: new Date().toISOString(),
+    title: study.title,
+    description: study.description || null,
+    lessons: study.lessons.map((l) => ({
+      order: l.order,
+      title: l.title,
+      module: l.module || null,
+      reference: l.reference || null,
+      body: l.body || null,
+      videoUrl: l.videoUrl || null,
+      reflectionPrompt: l.reflectionPrompt || null,
+    })),
+    resources: study.resources.map((r) => ({
+      type: r.type,
+      label: r.label,
+      moduleCode: r.moduleCode || null,
+      moduleType: r.moduleType || null,
+      url: r.url || null,
+      body: r.body || null,
+      order: r.order,
+    })),
+  };
+}
+
+export async function importStudy({ scriptoriumId, creatorId, data }) {
+  if (!data || data.format !== 'scriptorium-study') {
+    throw Object.assign(new Error('Invalid study module — expected a .study.json file exported from Scriptorium.'), { status: 400 });
+  }
+  if (!data.title?.trim()) {
+    throw Object.assign(new Error('Study module has no title.'), { status: 400 });
+  }
+
+  if (scriptoriumId) {
+    const scriptorium = await getScriptorium(scriptoriumId, creatorId);
+    if (!scriptorium.isMember) {
+      throw Object.assign(new Error('Join this Scriptorium to import a study into it.'), { status: 403 });
+    }
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const study = await tx.study.create({
+      data: {
+        title: data.title.trim(),
+        description: data.description?.trim() || null,
+        scriptoriumId: scriptoriumId || null,
+        creatorId,
+      },
+    });
+
+    await tx.studyParticipant.create({
+      data: { studyId: study.id, userId: creatorId, role: 'owner' },
+    });
+
+    if (Array.isArray(data.lessons) && data.lessons.length > 0) {
+      await tx.studyLesson.createMany({
+        data: data.lessons.map((l, i) => ({
+          studyId: study.id,
+          order: Number.isFinite(l.order) ? l.order : i + 1,
+          title: l.title || 'Untitled',
+          module: l.module || null,
+          reference: l.reference || null,
+          body: l.body || null,
+          videoUrl: l.videoUrl || null,
+          reflectionPrompt: l.reflectionPrompt || null,
+        })),
+      });
+    }
+
+    if (Array.isArray(data.resources) && data.resources.length > 0) {
+      const VALID = ['commentary', 'module', 'link', 'note'];
+      await tx.studyResource.createMany({
+        data: data.resources
+          .filter((r) => VALID.includes(r.type) && r.label)
+          .map((r, i) => ({
+            studyId: study.id,
+            type: r.type,
+            label: r.label,
+            moduleCode: r.moduleCode || null,
+            moduleType: r.moduleType || null,
+            url: r.url || null,
+            body: r.body || null,
+            order: Number.isFinite(r.order) ? r.order : i,
+          })),
+      });
+    }
+
+    return study;
+  });
+}

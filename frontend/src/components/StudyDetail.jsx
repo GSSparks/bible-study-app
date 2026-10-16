@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, Video, Sparkles, FileText, BookOpen, ExternalLink, Trash2 } from 'lucide-react';
-import { getAvatarColor } from '../utils/avatar.js';
+import { Camera, Download, Video, Sparkles, FileText, BookOpen, ExternalLink, Trash2 } from 'lucide-react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
-import AvatarRoll from './AvatarRoll.jsx';
 import PassageQuickView from './PassageQuickView.jsx';
 import RichEditor from './RichEditor.jsx';
 import RichContent from './RichContent.jsx';
@@ -16,12 +14,6 @@ function parseDocumentId(url) {
   const m = url.match(/\/api\/pdf\/([^/]+)\/file/);
   return m ? m[1] : null;
 }
-
-const TABS = [
-  { key: 'content', label: 'Content' },
-  { key: 'discussion', label: 'Discussion' },
-  { key: 'members', label: 'Members' },
-];
 
 // The passage API returns processed HTML (Strong's links,
 // cross-reference markup) meant for the main interactive reader. This
@@ -59,7 +51,7 @@ function ProgressRing({ percent, size = 64 }) {
   );
 }
 
-export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel, backLabel = 'Studies' }) {
+export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuilder, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel, backLabel = 'Studies' }) {
   const [study, setStudy] = useState(null);
   const [lessons, setLessons] = useState([]);
   const [progress, setProgress] = useState(null);
@@ -82,13 +74,9 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
     setActiveLessonId(id);
     try { localStorage.setItem(`study-lesson-${studyId}`, id); } catch {}
   }
-  const [showAddLessonModal, setShowAddLessonModal] = useState(false);
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [showEditStudyModal, setShowEditStudyModal] = useState(false);
-  const [bannerUrl, setBannerUrl] = useState(null);
-  const [uploadingBanner, setUploadingBanner] = useState(false);
-  const [generatingBanner, setGeneratingBanner] = useState(false);
+
   const bannerInputRef = useRef(null);
+  const noteTextareaRef = useRef(null);
 
   function refresh() {
     setLoading(true);
@@ -121,32 +109,6 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
   }
 
   useEffect(refresh, [studyId]);
-  useEffect(() => { if (study) setBannerUrl(study.bannerUrl || null); }, [study?.id]);
-
-  async function handleBannerChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingBanner(true);
-    try {
-      const { url } = await api.uploadStudyBanner(studyId, file);
-      setBannerUrl(url);
-    } finally {
-      setUploadingBanner(false);
-      e.target.value = '';
-    }
-  }
-
-  async function handleGenerateBanner() {
-    setGeneratingBanner(true);
-    try {
-      const { url } = await api.generateStudyBanner(studyId);
-      setBannerUrl(url);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setGeneratingBanner(false);
-    }
-  }
 
   async function handleJoin() {
     try {
@@ -175,6 +137,22 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
     }
   }
 
+  async function handleExport() {
+    try {
+      const { blob, filename } = await api.exportStudy(studyId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   if (loading) return <p className="p-6 text-sm text-muted">Loading…</p>;
   if (error && !study) return <p className="p-6 text-sm text-red-400">{error}</p>;
   if (!study) return null;
@@ -182,216 +160,193 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenInPa
   const isOwner = study.myRole === 'owner';
   const isParticipant = study.isParticipant;
   const activeLesson = lessons.find((l) => l.id === activeLessonId) || null;
-  const activeLessonIndex = lessons.findIndex((l) => l.id === activeLessonId);
-  const nextLesson = activeLessonIndex >= 0 ? lessons[activeLessonIndex + 1] : lessons[0];
-  const isNextComplete = nextLesson && progress?.completedLessonIds?.includes(nextLesson.id);
-  const bannerColor = getAvatarColor(study.title);
-
-  const sidebarContent = (
-    <StudySidebar
-      study={study}
-      lessons={lessons}
-      progress={progress}
-      resources={resources}
-      activeLesson={activeLesson}
-      nextLesson={!isNextComplete ? nextLesson : null}
-      onCompleteNext={async () => {
-        if (!nextLesson) return;
-        await api.markStudyLessonComplete(nextLesson.id);
-        const p = await api.getStudyProgress(studyId);
-        setProgress(p);
-      }}
-      onJumpToLesson={(id) => {
-        jumpToLesson(id);
-        changeTab('content');
-      }}
-      ProgressRing={ProgressRing}
-      isOwner={isOwner}
-      onResourcesChanged={refresh}
-      onAskAiCompanionAbout={onAskAiCompanionAbout}
-      onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
-      onOpenBiblePanel={onOpenBiblePanel}
-    />
-  );
+  const percent = progress && progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-y-auto lg:overflow-hidden">
-      {/* Hero banner */}
-      <div className="relative h-48 shrink-0 bg-ink">
-        <div className="absolute inset-0 overflow-hidden">
-          {bannerUrl ? (
-            <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <>
-              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 25% 65%, ${bannerColor}55 0%, transparent 65%)` }} />
-              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 75% 30%, ${bannerColor}22 0%, transparent 55%)` }} />
-              <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 55% 10%, ${bannerColor}18 0%, transparent 50%)` }} />
-            </>
-          )}
-          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-ink to-transparent" />
-        </div>
-
-        <button onClick={onBack} className="absolute left-6 top-4 z-10 text-xs text-parchment/60 hover:text-parchment">
-          ‹ {backLabel}
-        </button>
-
-        <div className="absolute right-6 top-3 z-10 flex flex-wrap gap-2">
-          {!isParticipant && study.scriptoriumId && (
-            <button onClick={handleJoin} className="rounded-md border border-parchment/20 bg-ink/50 px-3 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment">
-              join
-            </button>
-          )}
-          {isOwner && (
-            <button onClick={() => setShowEditStudyModal(true)} className="rounded-md border border-parchment/20 bg-ink/50 px-3 py-1.5 text-xs text-parchment/80 backdrop-blur-sm hover:border-brass hover:text-parchment">
-              edit
-            </button>
-          )}
-          {isParticipant && !isOwner && (
-            <button onClick={handleLeave} className="rounded-md border border-parchment/20 bg-ink/50 px-3 py-1.5 text-xs text-parchment/60 backdrop-blur-sm hover:border-red-400 hover:text-red-400">
-              leave
-            </button>
-          )}
-        </div>
-
-        <div className="absolute bottom-0 left-0 z-10 px-6 pb-4">
-          <h2 className="font-display text-3xl text-parchment">{study.title}</h2>
-          <p className="mt-0.5 text-xs uppercase tracking-wider text-parchment/40">
-            {study.scriptoriumId ? 'group study' : 'solo study'}
+    <div className="flex h-full overflow-hidden">
+      {/* Left sidebar */}
+      <aside className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel">
+        <div className="shrink-0 border-b border-rule px-4 py-3">
+          <button onClick={onBack} className="mb-2 flex items-center text-xs text-muted hover:text-parchment">
+            ‹ {backLabel}
+          </button>
+          <div className="flex items-center gap-2">
+            <BookOpen size={16} className="shrink-0 text-brass" />
+            <h1 className="font-display truncate text-base font-semibold text-parchment">{study.title}</h1>
+          </div>
+          <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">
+            {study.scriptoriumId ? 'Group Study' : 'Solo Study'}
           </p>
         </div>
 
-        {participants.length > 0 && (
-          <div className="absolute bottom-4 right-6 z-10">
-            <AvatarRoll
-              members={participants}
-              total={participants.length}
-              onMemberClick={null}
-              onOverflowClick={() => changeTab('members')}
-            />
+        {study.isParticipant && (
+          <div className="shrink-0 border-b border-rule px-4 py-2.5">
+            <div className="flex items-center gap-3">
+              <div className="relative flex shrink-0 items-center justify-center">
+                <ProgressRing percent={percent} size={40} />
+                <span className="absolute text-[9px] font-medium text-parchment">{percent}%</span>
+              </div>
+              <p className="text-xs text-muted">
+                {progress ? `Lesson ${progress.completed} of ${progress.total}` : 'Not started'}
+              </p>
+            </div>
           </div>
         )}
-      </div>
-      <div className="lg:flex lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-        <div className="min-w-0 px-4 lg:flex lg:flex-1 lg:flex-col lg:overflow-hidden lg:px-6">
-          {study.description && <p className="mb-3 mt-4 max-w-2xl text-sm text-muted">{study.description}</p>}
-          {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
-          <div className="flex shrink-0 gap-6 border-b border-rule pt-4 text-sm">
-            {TABS.map((t) => (
+
+        <nav className="min-h-0 flex-1 overflow-y-auto py-1">
+          {lessons.map((l) => {
+            const isActive = l.id === activeLessonId;
+            const isComplete = progress?.completedLessonIds?.includes(l.id);
+            return (
               <button
-                key={t.key}
-                onClick={() => changeTab(t.key)}
-                className={`pb-2 ${tab === t.key ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+                key={l.id}
+                onClick={() => { jumpToLesson(l.id); if (tab !== 'content') changeTab('content'); }}
+                className={`flex w-full items-center gap-2 border-l-2 px-4 py-2 text-left text-sm leading-snug transition-colors ${
+                  isActive ? 'border-brass bg-ink/50 text-brass' : 'border-transparent text-muted hover:bg-ink/30 hover:text-parchment'
+                }`}
               >
-                {t.key === 'members' ? `Members (${participants.length})` : t.label}
+                <span className="min-w-0 flex-1 truncate">{l.title}</span>
+                {isComplete && <span className="shrink-0 text-[10px] text-brass">✓</span>}
               </button>
-            ))}
-            <button
-              onClick={() => changeTab('resources')}
-              className={`pb-2 ${tab === 'resources' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
-            >
-              Resources
+            );
+          })}
+          {lessons.length === 0 && <p className="px-4 py-3 text-xs text-muted">No lessons yet.</p>}
+        </nav>
+
+        <div className="shrink-0 border-t border-rule px-4 py-3">
+          {!isParticipant && study.scriptoriumId && (
+            <button onClick={handleJoin} className="mb-2 w-full rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass">
+              join study
             </button>
-            {isOwner && (
-              <button
-                onClick={() => changeTab('reflections')}
-                className={`pb-2 ${tab === 'reflections' ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
-              >
-                Reflections
+          )}
+          <div className="space-y-1.5 text-xs">
+            {isParticipant && (
+              <button onClick={handleExport} className="flex w-full items-center gap-1.5 text-muted hover:text-parchment">
+                <Download size={12} className="shrink-0" /> export
               </button>
             )}
-          </div>
-          <div className="pt-4 lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-            {tab === 'content' && (
-              <ContentTab
-                study={study}
-                lessons={lessons}
-                activeLesson={activeLesson}
-                onSelectLesson={jumpToLesson}
-                isOwner={isOwner}
-                onAddLesson={() => setShowAddLessonModal(true)}
-                onGenerate={() => setShowGenerateModal(true)}
-                onLessonsChanged={refresh}
-                onOpenInPassages={onOpenInPassages}
-                onAskAiCompanionAbout={onAskAiCompanionAbout}
-                onOpenBiblePanel={onOpenBiblePanel}
-              />
+            {isOwner && (
+              <button onClick={onOpenBuilder} className="flex w-full items-center gap-1.5 text-muted hover:text-parchment">✎ edit study</button>
             )}
-            {tab === 'discussion' && (
-              <div className="lg:h-full lg:overflow-y-auto">
-                <DiscussionTab lesson={activeLesson} isParticipant={study.isParticipant} currentUserId={currentUserId} />
-              </div>
-            )}
-            {tab === 'members' && (
-              <div className="lg:h-full lg:overflow-y-auto">
-                <MembersTab studyId={studyId} isOwner={isOwner} />
-              </div>
-            )}
-            {tab === 'reflections' && isOwner && (
-              <div className="lg:h-full lg:overflow-y-auto">
-                <ReflectionsTab studyId={studyId} />
-              </div>
-            )}
-            {tab === 'resources' && (
-              <div className="lg:h-full lg:overflow-y-auto">
-                <ResourcesTabContent
-                  study={study}
-                  resources={resources}
-                  activeLesson={activeLesson}
-                  isOwner={isOwner}
-                  onResourcesChanged={refresh}
-                  onAskAiCompanionAbout={onAskAiCompanionAbout}
-                  onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
-                  onOpenBiblePanel={onOpenBiblePanel}
-                />
-              </div>
+            {isParticipant && !isOwner && (
+              <button onClick={handleLeave} className="flex w-full items-center gap-1.5 text-red-400/60 hover:text-red-400">leave study</button>
             )}
           </div>
         </div>
+      </aside>
 
-        <div className="border-t border-rule p-4 lg:w-72 lg:shrink-0 lg:overflow-y-auto lg:border-t-0">{sidebarContent}</div>
+      {/* Right pane */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-page">
+        {error && <p className="shrink-0 border-b border-pageBorder px-6 py-2 text-sm text-red-500">{error}</p>}
+
+        {activeLesson ? (
+          <>
+            <div className="shrink-0 border-b border-pageBorder px-6 pb-0 pt-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="font-display text-xl text-pageText">{activeLesson.title}</h2>
+                  {(activeLesson.reference || activeLesson.module) && (
+                    <p className="mt-0.5 text-xs text-pageMuted">
+                      {activeLesson.reference}{activeLesson.module && ` · ${activeLesson.module}`}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-3 text-xs">
+                  {activeLesson.reference && activeLesson.module && (
+                    <>
+                      <button onClick={() => onOpenInPassages?.(activeLesson.module, activeLesson.reference)} className="text-pageMuted hover:text-pageAccent">open in Cell →</button>
+                      <button onClick={() => onAskAiCompanionAbout?.(activeLesson.module, activeLesson.reference)} className="text-pageMuted hover:text-pageAccent">ask AI →</button>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-5 text-sm">
+                {[
+                  { key: 'content', label: 'Content' },
+                  { key: 'discussion', label: 'Discussion' },
+                  { key: 'resources', label: 'Resources' },
+                  ...(isOwner ? [{ key: 'reflections', label: 'Reflections' }] : []),
+                  { key: 'members', label: `Members (${participants.length})` },
+                ].map(({ key, label }) => (
+                  <button key={key} onClick={() => changeTab(key)}
+                    className={`pb-2.5 ${tab === key ? 'border-b-2 border-pageAccent text-pageText' : 'text-pageMuted hover:text-pageText'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {tab === 'content' && (
+                <div className="px-6 py-8">
+                  <LessonContent
+                    lesson={activeLesson}
+                    currentUserId={study.creatorId}
+                    isOwner={isOwner}
+                    onLessonsChanged={refresh}
+                    onOpenInPassages={onOpenInPassages}
+                    onAskAiCompanionAbout={onAskAiCompanionAbout}
+                    noteTextareaRef={noteTextareaRef}
+                    onOpenBiblePanel={onOpenBiblePanel}
+                  />
+                </div>
+              )}
+              {tab === 'discussion' && (
+                <div className="px-6 py-8">
+                  <div className="mx-auto max-w-2xl">
+                    <DiscussionTab lesson={activeLesson} isParticipant={study.isParticipant} currentUserId={currentUserId} />
+                  </div>
+                </div>
+              )}
+              {tab === 'members' && (
+                <div className="px-6 py-8">
+                  <div className="mx-auto max-w-2xl">
+                    <MembersTab studyId={studyId} isOwner={isOwner} />
+                  </div>
+                </div>
+              )}
+              {tab === 'reflections' && isOwner && (
+                <div className="px-6 py-8">
+                  <div className="mx-auto max-w-2xl">
+                    <ReflectionsTab studyId={studyId} />
+                  </div>
+                </div>
+              )}
+              {tab === 'resources' && (
+                <div className="px-6 py-8">
+                  <div className="mx-auto max-w-2xl">
+                    <ResourcesTabContent
+                      study={study}
+                      resources={resources}
+                      activeLesson={activeLesson}
+                      isOwner={isOwner}
+                      onResourcesChanged={refresh}
+                      onAskAiCompanionAbout={onAskAiCompanionAbout}
+                      onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
+                      onOpenBiblePanel={onOpenBiblePanel}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center">
+            {lessons.length === 0 ? (
+              <div className="text-center">
+                <p className="mb-3 text-sm text-pageMuted">This study has no lessons yet.</p>
+                {isOwner && (
+                  <div className="flex gap-2">
+                    <button onClick={onOpenBuilder} className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent">✎ edit study</button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-pageMuted">Select a lesson to begin.</p>
+            )}
+          </div>
+        )}
       </div>
-
-      {showAddLessonModal && (
-        <AddLessonModal
-          studyId={studyId}
-          nextOrder={lessons.length + 1}
-          onClose={() => setShowAddLessonModal(false)}
-          onCreated={() => {
-            setShowAddLessonModal(false);
-            refresh();
-          }}
-        />
-      )}
-
-      {showGenerateModal && (
-        <GenerateStudyModal
-          studyId={studyId}
-          nextOrder={lessons.length + 1}
-          onClose={() => setShowGenerateModal(false)}
-          onCreated={() => {
-            setShowGenerateModal(false);
-            refresh();
-          }}
-        />
-      )}
-
-      {showEditStudyModal && (
-        <EditStudyModal
-          study={study}
-          bannerUrl={bannerUrl}
-          uploadingBanner={uploadingBanner}
-          generatingBanner={generatingBanner}
-          bannerInputRef={bannerInputRef}
-          onBannerChange={handleBannerChange}
-          onGenerateBanner={handleGenerateBanner}
-          onDelete={handleDelete}
-          onClose={() => setShowEditStudyModal(false)}
-          onSaved={() => {
-            setShowEditStudyModal(false);
-            refresh();
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -670,20 +625,20 @@ function DiscussionTab({ lesson, isParticipant, currentUserId }) {
   }
 
   if (!lesson) {
-    return <p className="text-sm text-muted">Select a lesson to see its discussion.</p>;
+    return <p className="text-sm text-pageMuted">Select a lesson to see its discussion.</p>;
   }
 
   return (
     <div>
       {isParticipant ? (
-        <form onSubmit={handlePost} className="mb-4 rounded-md border border-rule bg-panel p-3">
+        <form onSubmit={handlePost} className="mb-4 rounded-md border border-pageBorder bg-white/30 p-3">
           <textarea
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             rows={2}
             maxLength={1000}
             placeholder="Add to the discussion…"
-            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
+            className="w-full rounded border border-pageBorder bg-white/50 px-3 py-2 text-sm text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
           />
           <div className="mt-2 flex justify-end">
             <button
@@ -701,37 +656,37 @@ function DiscussionTab({ lesson, isParticipant, currentUserId }) {
         // requires actually joining the study — this line makes that
         // distinction visible rather than just silently disabling
         // controls with no explanation.
-        <p className="mb-4 text-xs text-muted">Join this study to take part in the discussion.</p>
+        <p className="mb-4 text-xs text-pageMuted">Join this study to take part in the discussion.</p>
       )}
 
-      {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
-      {loading && <p className="text-sm text-muted">Loading…</p>}
+      {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
+      {loading && <p className="text-sm text-pageMuted">Loading…</p>}
 
       <div className="space-y-3">
         {comments.map((c) => (
-          <div key={c.id} className="rounded-md border border-rule bg-panel p-3">
+          <div key={c.id} className="rounded-md border border-pageBorder bg-white/30 p-3">
             <div className="mb-1 flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Avatar username={c.author.username} size={24} />
-                <span className="text-sm text-parchment">{c.author.username}</span>
+                <span className="text-sm text-pageText">{c.author.username}</span>
               </div>
               {c.author.id === currentUserId && (
-                <button onClick={() => handleDelete(c.id)} className="text-xs text-muted hover:text-red-400">
+                <button onClick={() => handleDelete(c.id)} className="text-xs text-pageMuted hover:text-red-500">
                   delete
                 </button>
               )}
             </div>
-            <p className="mb-2 whitespace-pre-wrap text-sm text-parchment/90">{c.body}</p>
+            <p className="mb-2 whitespace-pre-wrap text-sm text-pageText/90">{c.body}</p>
             <button
               onClick={() => handleLikeToggle(c)}
               disabled={!isParticipant}
-              className={`text-xs ${c.likedByMe ? 'text-brass' : 'text-muted'} hover:text-brass disabled:cursor-not-allowed disabled:opacity-50`}
+              className={`text-xs ${c.likedByMe ? 'text-pageAccent' : 'text-pageMuted'} hover:text-pageAccent disabled:cursor-not-allowed disabled:opacity-50`}
             >
               {c.likedByMe ? '♥' : '♡'} {c.likeCount > 0 ? c.likeCount : ''}
             </button>
           </div>
         ))}
-        {!loading && comments.length === 0 && <p className="text-sm text-muted">No comments yet — be the first to share a thought.</p>}
+        {!loading && comments.length === 0 && <p className="text-sm text-pageMuted">No comments yet — be the first to share a thought.</p>}
       </div>
     </div>
   );
@@ -744,8 +699,6 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
   const [noteText, setNoteText] = useState('');
   const [noteLoading, setNoteLoading] = useState(true);
   const [savingNote, setSavingNote] = useState(false);
-  const [showEditLessonModal, setShowEditLessonModal] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [editingBody, setEditingBody] = useState(false);
   const [pendingBody, setPendingBody] = useState('');
   const [savingBody, setSavingBody] = useState(false);
@@ -875,64 +828,32 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
     }
   }
 
-  async function handleDeleteLesson() {
-    if (!confirm(`Delete "${lesson.title}"? This also removes its discussion and progress records — this can't be undone.`)) {
-      return;
-    }
-    setDeleting(true);
-    try {
-      await api.deleteStudyLesson(lesson.id);
-      onLessonsChanged();
-    } catch (e) {
-      alert(e.message);
-      setDeleting(false);
-    }
-  }
-
   return (
-    <div className="space-y-3">
+    <div className="mx-auto max-w-2xl space-y-5">
 
       {/* Passage */}
-      <div className="rounded-xl border border-pageBorder bg-page p-5">
-        <div className="mb-3 flex items-start justify-between gap-3">
+      <div className="rounded-xl border border-pageBorder bg-page p-6">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="font-display text-lg leading-snug text-pageText">
             {lesson.reference || 'No passage set'}
             {lesson.module && <span className="ml-2 text-sm font-normal text-pageMuted">{lesson.module}</span>}
           </h3>
-          <div className="flex shrink-0 flex-wrap items-center gap-3 text-xs">
-            {lesson.reference && lesson.module && (
-              <>
-                <button
-                  onClick={() => onOpenInPassages?.(lesson.module, lesson.reference)}
-                  className="text-pageMuted hover:text-pageAccent"
-                >
-                  open in Passages →
-                </button>
-                <button
-                  onClick={() => onAskAiCompanionAbout?.(lesson.module, lesson.reference)}
-                  className="text-pageMuted hover:text-pageAccent"
-                >
-                  ask AI →
-                </button>
-              </>
-            )}
-            {isOwner && (
-              <div className="flex gap-2 border-l border-pageBorder pl-3">
-                <button onClick={() => setShowEditLessonModal(true)} className="text-pageMuted hover:text-pageText">
-                  edit lesson
-                </button>
-                <button onClick={handleDeleteLesson} disabled={deleting} className="text-pageMuted hover:text-red-500 disabled:opacity-50">
-                  {deleting ? 'deleting…' : 'delete'}
-                </button>
-              </div>
-            )}
-          </div>
+          {lesson.reference && lesson.module && (
+            <div className="flex shrink-0 flex-wrap items-center gap-3 text-xs">
+              <button onClick={() => onOpenInPassages?.(lesson.module, lesson.reference)} className="text-pageMuted hover:text-pageAccent">
+                open in Cell →
+              </button>
+              <button onClick={() => onAskAiCompanionAbout?.(lesson.module, lesson.reference)} className="text-pageMuted hover:text-pageAccent">
+                ask AI →
+              </button>
+            </div>
+          )}
         </div>
         {passageError && <p className="text-sm text-red-500">{passageError}</p>}
         {!lesson.reference && <p className="text-sm italic text-pageMuted">No passage set for this lesson yet.</p>}
         {lesson.reference && !passage && !passageError && <p className="text-sm text-pageMuted">Loading…</p>}
         {passage && (
-          <p className="font-display leading-loose text-pageText">
+          <p className="font-display text-base leading-loose text-pageText">
             {passage.map((v) => (
               <span key={v.verseNr}>
                 <sup className="mr-0.5 text-xs text-pageMuted">{v.verseNr}</sup>
@@ -943,7 +864,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
         )}
       </div>
 
-      {/* Lesson video — between passage and study notes */}
+      {/* Video */}
       {(videoUrl || isOwner) && (
         <div className="overflow-hidden rounded-xl border border-rule bg-ink">
           <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden" onChange={handleVideoChange} />
@@ -968,7 +889,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
             <button
               onClick={() => videoInputRef.current?.click()}
               disabled={uploadingVideo}
-              className="flex w-full flex-col items-center justify-center gap-2 py-8 text-muted hover:text-parchment disabled:opacity-50"
+              className="flex w-full flex-col items-center justify-center gap-2 py-10 text-muted hover:text-parchment disabled:opacity-50"
             >
               <Video size={24} strokeWidth={1.5} />
               <span className="text-sm">{uploadingVideo ? 'uploading…' : 'add a lesson video'}</span>
@@ -978,10 +899,10 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
         </div>
       )}
 
-      {/* Study notes — click-to-edit in place for the owner */}
+      {/* Study Notes */}
       {(lesson.body || isOwner) && (
-        <div className="rounded-xl border border-pageBorder bg-page p-5">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="rounded-xl border border-pageBorder bg-page p-6">
+          <div className="mb-4 flex items-center justify-between">
             <h4 className="text-xs font-semibold uppercase tracking-widest text-pageMuted">Study Notes</h4>
             {isOwner && !editingBody && (
               <button
@@ -994,9 +915,9 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
           </div>
           {editingBody ? (
             <>
-              <RichEditor value={pendingBody} onChange={setPendingBody} height={260} colorMode="light" />
+              <RichEditor value={pendingBody} onChange={setPendingBody} height={300} colorMode="light" />
               {bodyError && <p className="mt-1 text-xs text-red-500">{bodyError}</p>}
-              <div className="mt-2 flex justify-end gap-2">
+              <div className="mt-3 flex justify-end gap-2">
                 <button
                   onClick={() => { setEditingBody(false); setBodyError(null); }}
                   className="text-xs text-pageMuted hover:text-pageText"
@@ -1028,96 +949,89 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
         </div>
       )}
 
-      {/* Personal note */}
-      <div className="rounded-xl border border-pageBorder bg-page p-5">
-        <h4 className="mb-3 text-xs font-semibold uppercase tracking-widest text-pageMuted">Your Personal Note</h4>
-        {noteLoading ? (
-          <p className="text-sm text-pageMuted">Loading…</p>
-        ) : (
-          <>
-            <div ref={noteTextareaRef}>
-              <RichEditor value={noteText} onChange={setNoteText} height={220} colorMode="light" />
-            </div>
-            <div className="mt-2 flex justify-end">
-              <button
-                onClick={saveNote}
-                disabled={savingNote}
-                className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
-              >
-                {savingNote ? 'saving…' : 'save note'}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+      {/* Your Response */}
+      <div className="space-y-4 border-t border-pageBorder pt-5">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-pageMuted">Your Response</p>
 
-      {/* Reflection prompt */}
-      {lesson.reflectionPrompt && (
-        <div className="rounded-xl border border-pageBorder bg-page p-5">
-          <h4 className="mb-3 text-xs font-semibold uppercase tracking-widest text-pageMuted">Reflection</h4>
-          <p className="mb-3 font-display text-base text-pageText">{lesson.reflectionPrompt}</p>
-          {reflectionSubmitted && !editingReflection ? (
-            <div>
-              <p className="mb-2 whitespace-pre-wrap text-sm text-pageText/90">{reflectionText}</p>
-              <button
-                onClick={() => setEditingReflection(true)}
-                className="text-xs text-pageMuted hover:text-pageAccent"
-              >
-                edit response
-              </button>
-            </div>
+        <div className="rounded-xl border border-pageBorder bg-page p-6">
+          <h4 className="mb-3 text-xs font-semibold uppercase tracking-widest text-pageMuted">Personal Note</h4>
+          {noteLoading ? (
+            <p className="text-sm text-pageMuted">Loading…</p>
           ) : (
             <>
-              <textarea
-                value={reflectionText}
-                onChange={(e) => setReflectionText(e.target.value)}
-                rows={4}
-                placeholder="Write your response here…"
-                className="w-full rounded border border-pageBorder bg-reading px-3 py-2 text-sm text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
-              />
-              {reflectionError && <p className="mt-1 text-xs text-red-500">{reflectionError}</p>}
-              <div className="mt-2 flex flex-wrap justify-end gap-2">
-                {editingReflection && (
-                  <button
-                    onClick={() => { setEditingReflection(false); setReflectionError(null); }}
-                    className="text-xs text-pageMuted hover:text-pageText"
-                  >
-                    cancel
-                  </button>
-                )}
-                {editingReflection ? (
-                  <button
-                    onClick={() => handleSubmitReflection(false)}
-                    disabled={savingReflection || !reflectionText.trim()}
-                    className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
-                  >
-                    {savingReflection ? 'saving…' : 'Update response'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleSubmitReflection(true)}
-                    disabled={savingReflection || !reflectionText.trim()}
-                    className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
-                  >
-                    {savingReflection ? 'saving…' : 'Submit & mark complete'}
-                  </button>
-                )}
+              <div ref={noteTextareaRef}>
+                <RichEditor value={noteText} onChange={setNoteText} height={200} colorMode="light" />
+              </div>
+              <div className="mt-3 flex justify-end">
+                <button
+                  onClick={saveNote}
+                  disabled={savingNote}
+                  className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
+                >
+                  {savingNote ? 'saving…' : 'save note'}
+                </button>
               </div>
             </>
           )}
         </div>
-      )}
 
-      {showEditLessonModal && (
-        <EditLessonModal
-          lesson={lesson}
-          onClose={() => setShowEditLessonModal(false)}
-          onSaved={() => {
-            setShowEditLessonModal(false);
-            onLessonsChanged();
-          }}
-        />
-      )}
+        {lesson.reflectionPrompt && (
+          <div className="rounded-xl border border-pageBorder bg-page p-6">
+            <h4 className="mb-1 text-xs font-semibold uppercase tracking-widest text-pageMuted">Reflection</h4>
+            <p className="mb-4 font-display text-base leading-relaxed text-pageText">{lesson.reflectionPrompt}</p>
+            {reflectionSubmitted && !editingReflection ? (
+              <div>
+                <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-pageText/90">{reflectionText}</p>
+                <button
+                  onClick={() => setEditingReflection(true)}
+                  className="text-xs text-pageMuted hover:text-pageAccent"
+                >
+                  edit response
+                </button>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={reflectionText}
+                  onChange={(e) => setReflectionText(e.target.value)}
+                  rows={5}
+                  placeholder="Write your response here…"
+                  className="w-full rounded border border-pageBorder bg-reading px-3 py-2.5 text-sm leading-relaxed text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
+                />
+                {reflectionError && <p className="mt-1 text-xs text-red-500">{reflectionError}</p>}
+                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  {editingReflection && (
+                    <button
+                      onClick={() => { setEditingReflection(false); setReflectionError(null); }}
+                      className="text-xs text-pageMuted hover:text-pageText"
+                    >
+                      cancel
+                    </button>
+                  )}
+                  {editingReflection ? (
+                    <button
+                      onClick={() => handleSubmitReflection(false)}
+                      disabled={savingReflection || !reflectionText.trim()}
+                      className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
+                    >
+                      {savingReflection ? 'saving…' : 'Update response'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleSubmitReflection(true)}
+                      disabled={savingReflection || !reflectionText.trim()}
+                      className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
+                    >
+                      {savingReflection ? 'saving…' : 'Submit & mark complete'}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
@@ -1139,21 +1053,21 @@ function MembersTab({ studyId, isOwner }) {
       .finally(() => setLoading(false));
   }, [studyId]);
 
-  if (loading) return <p className="text-sm text-muted">Loading…</p>;
-  if (error) return <p className="text-sm text-red-400">{error}</p>;
+  if (loading) return <p className="text-sm text-pageMuted">Loading…</p>;
+  if (error) return <p className="text-sm text-red-500">{error}</p>;
 
   return (
-    <div className="overflow-hidden rounded-md border border-rule">
+    <div className="overflow-hidden rounded-md border border-pageBorder">
       {members.map((m) => (
-        <div key={m.participantId} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">
+        <div key={m.participantId} className="flex items-center justify-between border-b border-pageBorder px-3 py-2 text-sm last:border-0">
           <div className="flex items-center gap-2">
             <Avatar username={m.username} size={24} />
-            <span className="text-parchment">{m.username}</span>
-            {m.role === 'owner' && <span className="text-xs text-brass">owner</span>}
+            <span className="text-pageText">{m.username}</span>
+            {m.role === 'owner' && <span className="text-xs text-pageAccent">owner</span>}
           </div>
         </div>
       ))}
-      {members.length === 0 && <p className="p-3 text-sm text-muted">No participants yet.</p>}
+      {members.length === 0 && <p className="p-3 text-sm text-pageMuted">No participants yet.</p>}
     </div>
   );
 }
@@ -1177,10 +1091,10 @@ function ReflectionsTab({ studyId }) {
       .finally(() => setLoading(false));
   }, [studyId]);
 
-  if (loading) return <p className="text-sm text-muted">Loading…</p>;
-  if (error) return <p className="text-sm text-red-400">{error}</p>;
+  if (loading) return <p className="text-sm text-pageMuted">Loading…</p>;
+  if (error) return <p className="text-sm text-red-500">{error}</p>;
   if (lessons.length === 0) {
-    return <p className="py-8 text-center text-sm text-muted">No lessons with reflection prompts yet.</p>;
+    return <p className="py-8 text-center text-sm text-pageMuted">No lessons with reflection prompts yet.</p>;
   }
 
   return (
@@ -1189,43 +1103,43 @@ function ReflectionsTab({ studyId }) {
         const isOpen = !!expanded[lesson.id];
         const count = lesson.reflections.length;
         return (
-          <div key={lesson.id} className="rounded-xl border border-rule bg-panel">
+          <div key={lesson.id} className="rounded-xl border border-pageBorder bg-white/30">
             <button
               onClick={() => setExpanded((prev) => ({ ...prev, [lesson.id]: !prev[lesson.id] }))}
               className="flex w-full items-center justify-between px-4 py-3 text-left"
             >
               <div className="min-w-0">
-                <p className="truncate font-display text-base text-parchment">
+                <p className="truncate font-display text-base text-pageText">
                   {lesson.order}. {lesson.title || 'Untitled lesson'}
                 </p>
-                <p className="mt-0.5 text-xs text-muted">
+                <p className="mt-0.5 text-xs text-pageMuted">
                   {count === 0 ? 'No responses yet' : `${count} response${count !== 1 ? 's' : ''}`}
                 </p>
               </div>
-              <span className="ml-4 shrink-0 text-muted">{isOpen ? '▲' : '▼'}</span>
+              <span className="ml-4 shrink-0 text-pageMuted">{isOpen ? '▲' : '▼'}</span>
             </button>
 
             {isOpen && (
-              <div className="border-t border-rule px-4 pb-4 pt-3">
-                <p className="mb-3 rounded-lg bg-ink/60 px-3 py-2 text-sm italic text-parchment/70">
+              <div className="border-t border-pageBorder px-4 pb-4 pt-3">
+                <p className="mb-3 rounded-lg bg-pageBorder/30 px-3 py-2 text-sm italic text-pageText/70">
                   "{lesson.reflectionPrompt}"
                 </p>
                 {count === 0 ? (
-                  <p className="text-sm text-muted">No one has responded yet.</p>
+                  <p className="text-sm text-pageMuted">No one has responded yet.</p>
                 ) : (
                   <div className="space-y-3">
                     {lesson.reflections.map((r) => (
-                      <div key={r.id} className="rounded-lg border border-rule/50 bg-ink/40 px-4 py-3">
+                      <div key={r.id} className="rounded-lg border border-pageBorder/50 bg-white/40 px-4 py-3">
                         <div className="mb-2 flex items-center gap-2">
                           <Avatar username={r.user.username} size={20} />
-                          <span className="text-xs font-medium text-parchment">
+                          <span className="text-xs font-medium text-pageText">
                             {r.user.displayName || r.user.username}
                           </span>
-                          <span className="text-xs text-muted">
+                          <span className="text-xs text-pageMuted">
                             {new Date(r.createdAt).toLocaleDateString()}
                           </span>
                         </div>
-                        <p className="whitespace-pre-wrap text-sm text-parchment/80">{r.body}</p>
+                        <p className="whitespace-pre-wrap text-sm text-pageText/80">{r.body}</p>
                       </div>
                     ))}
                   </div>
@@ -1250,8 +1164,8 @@ function ResourceCard({ resource, onClick, onRemove, isOwner }) {
   const isDoc = Boolean(docId);
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-rule bg-panel transition-colors hover:border-brass/50">
-      <div className="flex h-20 items-center justify-center border-b border-rule/50 bg-ink/50">
+    <div className="group relative overflow-hidden rounded-xl border border-pageBorder bg-white/40 transition-colors hover:border-pageAccent/50">
+      <div className="flex h-20 items-center justify-center border-b border-pageBorder/50 bg-white/30">
         {isDoc ? (
           <FileText size={22} className="text-muted/40" strokeWidth={1.5} />
         ) : isLink && hostname ? (
@@ -1270,10 +1184,10 @@ function ResourceCard({ resource, onClick, onRemove, isOwner }) {
         )}
       </div>
       <div className="px-3 py-2.5">
-        <p className="truncate font-display text-sm text-parchment">{resource.label}</p>
-        {hostname && <p className="mt-0.5 font-mono text-[10px] text-muted">{hostname}</p>}
+        <p className="truncate font-display text-sm text-pageText">{resource.label}</p>
+        {hostname && <p className="mt-0.5 font-mono text-[10px] text-pageMuted">{hostname}</p>}
         {isNote && resource.body && (
-          <p className="mt-0.5 line-clamp-2 text-xs text-muted/60">
+          <p className="mt-0.5 line-clamp-2 text-xs text-pageMuted/70">
             {resource.body.replace(/^#{1,6}\s+.+\n?/, '').replace(/[#*_`[\]]/g, '').slice(0, 80)}
           </p>
         )}
@@ -1282,7 +1196,7 @@ function ResourceCard({ resource, onClick, onRemove, isOwner }) {
       {isOwner && (
         <button
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className="absolute right-1.5 top-1.5 z-10 rounded bg-ink/80 p-1 text-muted opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
+          className="absolute right-1.5 top-1.5 z-10 rounded bg-pageBorder/80 p-1 text-pageMuted opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
         >
           <Trash2 size={11} />
         </button>
@@ -1317,7 +1231,7 @@ function ResourcesTabContent({ study, resources, activeLesson, isOwner, onResour
       )}
       {resources.length === 0 ? (
         <div className="py-16 text-center">
-          <p className="text-sm text-muted">No resources added yet.</p>
+          <p className="text-sm text-pageMuted">No resources added yet.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -1646,7 +1560,7 @@ function GenerateStudyModal({ studyId, nextOrder, onClose, onCreated }) {
                   <input
                     value={d.title}
                     onChange={(e) => updateDraft(d.tempId, 'title', e.target.value)}
-                    className="mb-2 w-full rounded border border-rule bg-panel px-2 py-1 text-sm text-parchment focus:border-brass"
+                    className="mb-2 w-full rounded border border-pageBorder px-2 py-1 text-sm focus:border-pageAccent"
                   />
                   <div className="mb-2">
                     <input
@@ -1667,7 +1581,7 @@ function GenerateStudyModal({ studyId, nextOrder, onClose, onCreated }) {
                     value={d.body || ''}
                     onChange={(e) => updateDraft(d.tempId, 'body', e.target.value)}
                     rows={2}
-                    className="w-full rounded border border-rule bg-panel px-2 py-1 text-xs text-parchment focus:border-brass"
+                    className="w-full rounded border border-pageBorder px-2 py-1 text-xs focus:border-pageAccent"
                   />
                 </div>
               ))}

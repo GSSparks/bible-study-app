@@ -280,4 +280,20 @@ export const api = {
   addStudyResource: (studyId, payload) => request(`/studies/${studyId}/resources`, { method: 'POST', body: JSON.stringify(payload) }),
   removeStudyResource: (resourceId) => request(`/studies/resources/${resourceId}`, { method: 'DELETE' }),
   getStudyResourceContent: (lessonId, resourceId) => request(`/studies/lessons/${lessonId}/resources/${resourceId}`),
+
+  exportStudy: async (id) => {
+    const res = await fetch(`/api/studies/${id}/export`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Export failed: ${res.status}`);
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('content-disposition') || '';
+    const match = cd.match(/filename="([^"]+)"/);
+    const filename = match?.[1] || `study-${id}.json`;
+    return { blob, filename };
+  },
+
+  importStudy: (scriptoriumId, data) =>
+    request('/studies/import', { method: 'POST', body: JSON.stringify({ scriptoriumId, data }) }),
 };

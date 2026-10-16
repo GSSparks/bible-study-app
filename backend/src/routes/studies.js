@@ -32,6 +32,8 @@ import {
   getReflection,
   saveReflection,
   listAllReflections,
+  exportStudy,
+  importStudy,
 } from '../services/studyService.js';
 
 export const studiesRouter = Router();
@@ -61,6 +63,16 @@ studiesRouter.post('/', async (req, res, next) => {
     const { title, description, scriptoriumId } = req.body;
     res.status(201).json(await createStudy({ creatorId: req.user.id, title, description, scriptoriumId }));
   } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.post('/import', async (req, res, next) => {
+  try {
+    const { scriptoriumId, data } = req.body;
+    res.status(201).json(await importStudy({ scriptoriumId, creatorId: req.user.id, data }));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
   }
 });
@@ -173,6 +185,18 @@ studiesRouter.delete('/comments/:commentId/like', async (req, res, next) => {
     await unlikeComment(req.params.commentId, req.user.id);
     res.status(204).end();
   } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.get('/:id/export', async (req, res, next) => {
+  try {
+    const data = await exportStudy(req.params.id, req.user.id);
+    const slug = data.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase().replace(/^-+|-+$/g, '');
+    res.setHeader('Content-Disposition', `attachment; filename="${slug}.study.json"`);
+    res.json(data);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
   }
 });

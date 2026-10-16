@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Upload } from 'lucide-react';
 import { api } from '../api/client.js';
 import RichEditor from './RichEditor.jsx';
 import { getAvatarColor } from '../utils/avatar.js';
 
-export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenStudy }) {
+export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenStudy, onOpenBuilder }) {
   const [studies, setStudies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef(null);
 
   function refresh() {
     setLoading(true);
@@ -20,10 +23,40 @@ export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenS
 
   useEffect(refresh, [scriptoriumId]);
 
+  async function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const created = await api.importStudy(scriptoriumId, data);
+      refresh();
+      onOpenStudy(created.id);
+    } catch (err) {
+      setError(err.message || 'Failed to import study.');
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
+  }
+
   return (
     <div>
       {isMember && (
-        <div className="mb-4 flex justify-end">
+        <div className="mb-4 flex items-center justify-end gap-2">
+          <label className={`flex cursor-pointer items-center gap-1.5 rounded border border-rule px-3 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+            <Upload size={12} />
+            {importing ? 'importing…' : 'import'}
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={handleImportFile}
+            />
+          </label>
           <button
             onClick={() => setShowCreateModal(true)}
             className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
@@ -81,7 +114,7 @@ export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenS
           onCreated={(id) => {
             setShowCreateModal(false);
             refresh();
-            onOpenStudy(id);
+            onOpenBuilder ? onOpenBuilder(id) : onOpenStudy(id);
           }}
         />
       )}

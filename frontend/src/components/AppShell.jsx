@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { BookOpen, BookMarked, BookText, Box, Compass, Library as LibraryIcon, Map, MapPin, Settings as SettingsIcon, Shield, StickyNote, Menu, X } from 'lucide-react';
 import BiblePanel from './BiblePanel.jsx';
@@ -63,10 +63,12 @@ export default function AppShell({ auth }) {
   const pathParts = location.pathname.split('/').filter(Boolean);
   const activeView = pathParts[0] || 'cell';
   const locationSub = pathParts[1] ?? null;
-  // /scriptoriums/:scriptoriumId/studies/:studyId
+  // /scriptoriums/:scriptoriumId/studies/:studyId[/builder]
   const urlScriptoriumId = activeView === 'scriptoriums' ? locationSub : null;
   const urlStudyId = activeView === 'scriptoriums' && pathParts[2] === 'studies' ? pathParts[3] ?? null : null;
+  const urlIsBuilder = activeView === 'scriptoriums' && pathParts[4] === 'builder';
 
+  const lastScriptoriumPath = useRef(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
@@ -119,8 +121,18 @@ export default function AppShell({ auth }) {
   });
   const [bookPanelOpen, setBookPanelOpen] = useState(false);
 
+  useEffect(() => {
+    if (activeView === 'scriptoriums') {
+      lastScriptoriumPath.current = location.pathname;
+    }
+  }, [location.pathname, activeView]);
+
   function navigate(key) {
-    routerNavigate('/' + key);
+    if (key === 'scriptoriums' && lastScriptoriumPath.current) {
+      routerNavigate(lastScriptoriumPath.current);
+    } else {
+      routerNavigate('/' + key);
+    }
     setDrawerOpen(false);
   }
 
@@ -397,6 +409,7 @@ export default function AppShell({ auth }) {
             currentUserRole={auth.user?.role}
             urlScriptoriumId={urlScriptoriumId}
             urlStudyId={urlStudyId}
+            urlIsBuilder={urlIsBuilder}
             onOpenInPassages={openInPassages}
             onAskAiCompanionAbout={askAiCompanionAbout}
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
