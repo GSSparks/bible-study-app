@@ -350,6 +350,7 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
 
             {/* Day list */}
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+              <div className="max-w-2xl">
               {Array.isArray(fullPlan.schedule) &&
                 fullPlan.schedule.map((day) => {
                   const done = completedSet.has(day.day);
@@ -404,6 +405,7 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
                     </div>
                   );
                 })}
+              </div>
             </div>
           </>
         )}

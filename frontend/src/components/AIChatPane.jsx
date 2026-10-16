@@ -315,13 +315,13 @@ export default function AIChatPane({
                     value={sessionSearch}
                     onChange={(e) => setSessionSearch(e.target.value)}
                     placeholder="Search chats…"
-                    className="w-full rounded border border-pageBorder bg-panel px-2 py-1 text-xs placeholder:text-pageMuted focus:border-brass focus:outline-none"
+                    className="w-full rounded border border-pageBorder bg-white/50 px-2 py-1 text-xs text-pageText placeholder:text-pageMuted/70 focus:border-pageAccent focus:outline-none"
                   />
                 </div>
                 <div className="max-h-64 overflow-y-auto">
                   <button
                     onClick={startNewChat}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-brass hover:bg-panel"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-brass hover:bg-pageBorder/40"
                   >
                     + New Chat
                   </button>
@@ -332,7 +332,7 @@ export default function AIChatPane({
                           key={s.id}
                           onClick={() => resumeSession(s)}
                           className={`block w-full px-3 py-2 text-left text-xs ${
-                            s.id === activeSessionId ? 'text-brass' : 'text-pageText hover:bg-panel'
+                            s.id === activeSessionId ? 'text-brass' : 'text-pageText hover:bg-pageBorder/40'
                           }`}
                         >
                           <div className="truncate">{s.title || s.reference || 'Untitled'}</div>
@@ -380,7 +380,7 @@ export default function AIChatPane({
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setRenaming(false); }}
-            className="min-w-0 flex-1 rounded border border-pageBorder bg-panel px-2 py-1 font-mono text-xs focus:border-brass focus:outline-none"
+            className="min-w-0 flex-1 rounded border border-pageBorder bg-white/50 px-2 py-1 font-mono text-xs text-pageText focus:border-pageAccent focus:outline-none"
           />
           <button onClick={commitRename} className="shrink-0 text-xs text-brass hover:text-pageText">Save</button>
           <button onClick={() => setRenaming(false)} className="shrink-0 text-xs text-pageMuted hover:text-pageText">✕</button>
@@ -407,7 +407,7 @@ export default function AIChatPane({
           </div>
         )}
         {showNotePicker && (
-          <div className="mt-1 rounded border border-pageBorder bg-panel p-2">
+          <div className="mt-1 rounded border border-pageBorder bg-pageBorder/30 p-2">
             <input
               name="note-search"
               value={noteQuery}
@@ -447,7 +447,7 @@ export default function AIChatPane({
         {messages.map((m, i) => (
           <div key={i} className={`group flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
             {m.role === 'user' ? (
-              <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-panel px-4 py-2.5 text-sm text-pageText">
+              <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-panel px-4 py-2.5 text-sm text-parchment">
                 {m.content}
               </div>
             ) : (

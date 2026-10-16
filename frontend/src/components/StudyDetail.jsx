@@ -974,7 +974,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
                   onChange={(e) => setReflectionText(e.target.value)}
                   rows={5}
                   placeholder="Write your response here…"
-                  className="w-full rounded border border-pageBorder bg-reading px-3 py-2.5 text-sm leading-relaxed text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
+                  className="w-full rounded border border-pageBorder bg-white/50 px-3 py-2.5 text-sm leading-relaxed text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
                 />
                 {reflectionError && <p className="mt-1 text-xs text-red-500">{reflectionError}</p>}
                 <div className="mt-3 flex flex-wrap justify-end gap-2">
