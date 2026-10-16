@@ -27,7 +27,7 @@ function makeStorage(subdir) {
   return multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, dest),
     filename: (_req, file, cb) => {
-      const ext = EXT[file.mimetype] || path.extname(file.originalname).toLowerCase();
+      const ext = EXT[file.mimetype.split(';')[0]] || path.extname(file.originalname).toLowerCase();
       cb(null, `${randomUUID()}${ext}`);
     },
   });
@@ -61,7 +61,7 @@ export const uploadPostMedia = multer({
 export const uploadLessonVideo = multer({
   storage: makeStorage('lesson-videos'),
   limits: { fileSize: 500 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => cb(null, VIDEO_TYPES.has(file.mimetype)),
+  fileFilter: (_req, file, cb) => cb(null, VIDEO_TYPES.has(file.mimetype.split(';')[0])),
 }).single('video');
 
 export function mimeToType(mimetype) {

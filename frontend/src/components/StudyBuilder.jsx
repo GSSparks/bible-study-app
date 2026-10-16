@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, ChevronDown, ChevronUp, Sparkles, Trash2, Video } from 'lucide-react';
 import { api } from '../api/client.js';
 import RichEditor from './RichEditor.jsx';
@@ -324,11 +324,117 @@ function LessonEditor({ lesson, studyId, onSaved, pendingBodyRef, pendingBodyDir
   const [showOutlinePrompt, setShowOutlinePrompt] = useState(false);
   const [outlineTopic, setOutlineTopic] = useState('');
   const [generatingOutline, setGeneratingOutline] = useState(false);
+
+  // Webcam recorder state
+  const [cameraMode, setCameraMode] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordedBlob, setRecordedBlob] = useState(null);
+  const [recordedUrl, setRecordedUrl] = useState(null);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [uploadingRecording, setUploadingRecording] = useState(false);
+
   const videoInputRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const cameraPreviewRef = useRef(null);
+  const timerRef = useRef(null);
 
   useEffect(() => {
     pendingBodyRef.current = body;
   }, [body]);
+
+  const attachCameraPreview = useCallback((el) => {
+    cameraPreviewRef.current = el;
+    if (el && mediaStreamRef.current) el.srcObject = mediaStreamRef.current;
+  }, []);
+
+  // Clean up camera and object URLs on unmount
+  useEffect(() => {
+    return () => {
+      stopCameraTracks();
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  function stopCameraTracks() {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+  }
+
+  function fmtTime(s) {
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  async function startCamera() {
+    setError(null);
+    setRecordedBlob(null);
+    if (recordedUrl) { URL.revokeObjectURL(recordedUrl); setRecordedUrl(null); }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      mediaStreamRef.current = stream;
+      setCameraMode(true);
+    } catch (err) {
+      setError('Camera access denied — check your browser permissions.');
+    }
+  }
+
+  function exitCamera() {
+    stopCameraTracks();
+    if (mediaRecorderRef.current && recording) mediaRecorderRef.current.stop();
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (recordedUrl) { URL.revokeObjectURL(recordedUrl); setRecordedUrl(null); }
+    setRecordedBlob(null);
+    setRecording(false);
+    setRecordingTime(0);
+    setCameraMode(false);
+  }
+
+  function startRecording() {
+    chunksRef.current = [];
+    const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4']
+      .find((t) => MediaRecorder.isTypeSupported(t)) || '';
+    const recorder = new MediaRecorder(mediaStreamRef.current, mimeType ? { mimeType } : {});
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    recorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/webm' });
+      setRecordedBlob(blob);
+      setRecordedUrl(URL.createObjectURL(blob));
+      stopCameraTracks();
+    };
+    mediaRecorderRef.current = recorder;
+    recorder.start(250);
+    setRecording(true);
+    setRecordingTime(0);
+    timerRef.current = setInterval(() => setRecordingTime((t) => t + 1), 1000);
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+    setRecording(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+  }
+
+  async function handleUseRecording() {
+    if (!recordedBlob) return;
+    setUploadingRecording(true);
+    setError(null);
+    try {
+      const mimeBase = recordedBlob.type.split(';')[0];
+      const ext = mimeBase.includes('mp4') ? 'mp4' : 'webm';
+      const file = new File([recordedBlob], `recording.${ext}`, { type: mimeBase });
+      const { url } = await api.uploadLessonVideo(lesson.id, file);
+      setVideoUrl(url);
+      onSaved();
+      exitCamera();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploadingRecording(false);
+    }
+  }
 
   function buildPayload(overrides = {}) {
     return {
@@ -517,26 +623,85 @@ function LessonEditor({ lesson, studyId, onSaved, pendingBodyRef, pendingBodyDir
         <div>
           <label className="mb-2 block text-[10px] font-semibold uppercase tracking-widest text-pageMuted">Video</label>
           <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden" onChange={handleVideoChange} />
-          {videoUrl ? (
+          {videoUrl && !cameraMode ? (
             <div className="overflow-hidden rounded-xl border border-pageBorder bg-white/30">
-              <video src={videoUrl} controls className="w-full" style={{ maxHeight: '360px' }} />
+              <video key="lesson-video" src={videoUrl} controls className="w-full" style={{ maxHeight: '360px' }} />
               <div className="flex items-center justify-between px-4 py-2">
                 <span className="text-xs text-pageMuted">Lesson Video</span>
-                <div className="flex gap-3">
-                  <button onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo} className="text-xs text-pageMuted hover:text-pageText disabled:opacity-50">
-                    {uploadingVideo ? 'uploading…' : 'replace'}
+                <div className="flex items-center gap-3">
+                  <button onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo} className="flex items-center gap-1 text-xs text-pageMuted hover:text-pageText disabled:opacity-50">
+                    <Video size={11} strokeWidth={1.5} />
+                    {uploadingVideo ? 'uploading…' : 'replace file'}
+                  </button>
+                  <button onClick={startCamera} className="flex items-center gap-1 text-xs text-pageMuted hover:text-pageText">
+                    <Camera size={11} strokeWidth={1.5} />
+                    record new
                   </button>
                   <button onClick={handleRemoveVideo} className="text-xs text-pageMuted hover:text-red-500">remove</button>
                 </div>
               </div>
             </div>
+          ) : cameraMode ? (
+            <div className="overflow-hidden rounded-xl border border-pageBorder bg-white/30">
+              {recordedBlob ? (
+                <video key="recorded-preview" src={recordedUrl} controls preload="auto" className="w-full" style={{ maxHeight: '360px' }} />
+              ) : (
+                <video key="live-preview" ref={attachCameraPreview} autoPlay muted playsInline className="w-full bg-black" style={{ maxHeight: '360px' }} />
+              )}
+              <div className="flex items-center justify-between px-4 py-2.5">
+                {recordedBlob ? (
+                  <>
+                    <span className="text-xs text-pageMuted">Recording preview</span>
+                    <div className="flex items-center gap-3">
+                      <button onClick={startCamera} className="text-xs text-pageMuted hover:text-pageText">retake</button>
+                      <button onClick={exitCamera} className="text-xs text-pageMuted hover:text-pageText">cancel</button>
+                      <button onClick={handleUseRecording} disabled={uploadingRecording}
+                        className="rounded bg-pageAccent/90 px-3 py-1 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50">
+                        {uploadingRecording ? 'uploading…' : 'use this'}
+                      </button>
+                    </div>
+                  </>
+                ) : recording ? (
+                  <>
+                    <span className="flex items-center gap-2 text-xs text-red-500">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+                      {fmtTime(recordingTime)}
+                    </span>
+                    <button onClick={stopRecording}
+                      className="rounded bg-red-500/20 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-500/30">
+                      stop
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xs text-pageMuted">Camera ready</span>
+                    <div className="flex items-center gap-3">
+                      <button onClick={exitCamera} className="text-xs text-pageMuted hover:text-pageText">cancel</button>
+                      <button onClick={startRecording}
+                        className="flex items-center gap-1.5 rounded bg-red-500/90 px-3 py-1 text-xs font-medium text-white hover:bg-red-500">
+                        <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                        record
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           ) : (
-            <button onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo}
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-pageBorder py-10 text-pageMuted hover:border-pageAccent hover:text-pageText disabled:opacity-50">
-              <Video size={22} strokeWidth={1.5} />
-              <span className="text-sm">{uploadingVideo ? 'uploading…' : 'add a lesson video'}</span>
-              <span className="text-xs text-pageMuted/50">mp4, webm, or mov · up to 500 MB</span>
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo}
+                className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-pageBorder py-8 text-pageMuted hover:border-pageAccent hover:text-pageText disabled:opacity-50">
+                <Video size={20} strokeWidth={1.5} />
+                <span className="text-xs">{uploadingVideo ? 'uploading…' : 'upload file'}</span>
+                <span className="text-[10px] text-pageMuted/50">mp4, webm, or mov</span>
+              </button>
+              <button onClick={startCamera}
+                className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-pageBorder py-8 text-pageMuted hover:border-pageAccent hover:text-pageText">
+                <Camera size={20} strokeWidth={1.5} />
+                <span className="text-xs">use camera</span>
+                <span className="text-[10px] text-pageMuted/50">record with webcam</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
