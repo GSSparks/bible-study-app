@@ -83,6 +83,7 @@ export default function TopicGuidePane({
   isLoggedIn = false,
   defaultBibleModule,
   onShowOnMap,
+  onOpenInBible,
 }) {
   const [inputValue, setInputValue] = useState(''); // what's in the text box
   const [query, setQuery] = useState('');           // committed search term (Enter)
@@ -101,7 +102,6 @@ export default function TopicGuidePane({
   const [tocOpen, setTocOpen] = useState(false);
   const contentRef = useRef(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
-  const [versePreview, setVersePreview] = useState(null); // { ref, loading, html, x, y }
   const [summaryState, setSummaryState] = useState(null); // { loading, html, error, cached }
   const inputRef = useRef(null);
 
@@ -197,14 +197,6 @@ export default function TopicGuidePane({
     return () => { cancelled = true; };
   }, [selected?.module, selected?.key]);
 
-  // ── Close verse preview on outside click ──────────────────────────────────
-  useEffect(() => {
-    if (!versePreview) return;
-    function close() { setVersePreview(null); }
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
-  }, [!!versePreview]);
-
   // ── Group DICT/BOOK results by module ────────────────────────────────────
   const grouped = useMemo(() => {
     const map = new Map();
@@ -251,22 +243,14 @@ export default function TopicGuidePane({
     }
   }
 
-  // ── Verse preview on verse-ref / xref clicks ──────────────────────────────
+  // ── Verse ref clicks → open slide-out Bible reader ────────────────────────
   function handleVerseRefClick(osisRef, event) {
-    if (!defaultBibleModule || !osisRef) return;
+    if (!osisRef) return;
     event.stopPropagation();
     const firstRef = osisRef.split(/\s+/)[0];
     const humanRef = osisToHuman(firstRef);
     if (!humanRef) return;
-    const x = Math.min(event.clientX, window.innerWidth - 330);
-    const y = event.clientY + 14;
-    setVersePreview({ ref: humanRef, loading: true, html: null, x, y });
-    api.getPassage(defaultBibleModule, humanRef)
-      .then((res) => {
-        const html = (res.verses || []).map((v) => v.content).join(' ');
-        setVersePreview((prev) => prev?.ref === humanRef ? { ...prev, loading: false, html } : prev);
-      })
-      .catch(() => setVersePreview(null));
+    onOpenInBible?.(humanRef);
   }
 
   function handleContentClick(e) {
@@ -840,29 +824,6 @@ export default function TopicGuidePane({
         />
       )}
 
-      {/* Verse preview floating card — fixed so it's never clipped by overflow containers */}
-      {versePreview && (
-        <div
-          className="fixed z-50 max-w-xs rounded-md border border-pageBorder bg-page p-3 shadow-xl"
-          style={{ left: versePreview.x, top: versePreview.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="mb-1.5 flex items-center justify-between gap-3">
-            <span className="font-sans text-xs font-medium text-pageMuted">{versePreview.ref}</span>
-            <button onClick={() => setVersePreview(null)} className="shrink-0 text-pageMuted hover:text-pageText">
-              <X size={12} />
-            </button>
-          </div>
-          {versePreview.loading ? (
-            <p className="text-xs text-pageMuted">Loading…</p>
-          ) : (
-            <div
-              className="font-display text-sm leading-relaxed text-pageText"
-              dangerouslySetInnerHTML={{ __html: versePreview.html || '' }}
-            />
-          )}
-        </div>
-      )}
     </div>
   );
 }

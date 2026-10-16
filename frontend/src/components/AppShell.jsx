@@ -400,6 +400,7 @@ export default function AppShell({ auth }) {
             initialQuery={pendingCodexQuery}
             defaultBibleModule={defaultBibleModule}
             onShowOnMap={openMapForCity}
+            onOpenInBible={(ref) => openBiblePanel(ref, null)}
           />
         </div>
         {activeView === 'settings' && (
@@ -415,7 +416,7 @@ export default function AppShell({ auth }) {
           <CursusView
             isLoggedIn={Boolean(auth.user)}
             isAdmin={auth.user?.role === 'admin'}
-            onOpenInBible={(ref) => openInPassages(null, ref)}
+            onOpenInBible={(ref) => openBiblePanel(ref, null)}
           />
         )}
         <div className={activeView === 'scriptoriums' ? 'h-full' : 'hidden'}>
