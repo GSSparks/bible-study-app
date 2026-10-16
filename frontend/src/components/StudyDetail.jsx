@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, Download, Video, Sparkles, FileText, BookOpen, ExternalLink, Trash2 } from 'lucide-react';
+import { Camera, ChevronDown, Download, Video, Sparkles, FileText, BookOpen, ExternalLink, Trash2 } from 'lucide-react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 import PassageQuickView from './PassageQuickView.jsx';
@@ -693,6 +693,7 @@ function DiscussionTab({ lesson, isParticipant, currentUserId }) {
 }
 
 function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, onAskAiCompanionAbout, noteTextareaRef, onOpenBiblePanel }) {
+  const [passageOpen, setPassageOpen] = useState(false);
   const [passage, setPassage] = useState(null);
   const [passageError, setPassageError] = useState(null);
   const [note, setNote] = useState(null);
@@ -833,34 +834,36 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
 
       {/* Passage */}
       <div>
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <button
+          onClick={() => setPassageOpen((o) => !o)}
+          className="flex w-full items-center justify-between gap-3 text-left"
+        >
           <h3 className="font-display text-lg leading-snug text-pageText">
             {lesson.reference || 'No passage set'}
             {lesson.module && <span className="ml-2 text-sm font-normal text-pageMuted">{lesson.module}</span>}
           </h3>
-          {lesson.reference && lesson.module && (
-            <div className="flex shrink-0 flex-wrap items-center gap-3 text-xs">
-              <button onClick={() => onOpenInPassages?.(lesson.module, lesson.reference)} className="text-pageMuted hover:text-pageAccent">
-                open in Cell →
-              </button>
-              <button onClick={() => onAskAiCompanionAbout?.(lesson.module, lesson.reference)} className="text-pageMuted hover:text-pageAccent">
-                ask AI →
-              </button>
-            </div>
-          )}
-        </div>
-        {passageError && <p className="text-sm text-red-500">{passageError}</p>}
-        {!lesson.reference && <p className="text-sm italic text-pageMuted">No passage set for this lesson yet.</p>}
-        {lesson.reference && !passage && !passageError && <p className="text-sm text-pageMuted">Loading…</p>}
-        {passage && (
-          <p className="font-display text-base leading-loose text-pageText">
-            {passage.map((v) => (
-              <span key={v.verseNr}>
-                <sup className="mr-0.5 text-xs text-pageMuted">{v.verseNr}</sup>
-                {stripHtml(v.content)}{' '}
-              </span>
-            ))}
-          </p>
+          <ChevronDown
+            size={16}
+            className={`shrink-0 text-pageMuted transition-transform duration-200 ${passageOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
+
+        {passageOpen && (
+          <div className="mt-4">
+            {passageError && <p className="text-sm text-red-500">{passageError}</p>}
+            {!lesson.reference && <p className="text-sm italic text-pageMuted">No passage set for this lesson yet.</p>}
+            {lesson.reference && !passage && !passageError && <p className="text-sm text-pageMuted">Loading…</p>}
+            {passage && (
+              <p className="font-display text-base leading-loose text-pageText">
+                {passage.map((v) => (
+                  <span key={v.verseNr}>
+                    <sup className="mr-0.5 text-xs text-pageMuted">{v.verseNr}</sup>
+                    {stripHtml(v.content)}{' '}
+                  </span>
+                ))}
+              </p>
+            )}
+          </div>
         )}
       </div>
 
