@@ -280,8 +280,8 @@ studiesRouter.post('/:id/lessons/bulk', async (req, res, next) => {
 
 studiesRouter.post('/:id/generate-lessons', async (req, res, next) => {
   try {
-    const { topic, weekCount, module } = req.body;
-    res.json(await generateLessonDrafts(req.params.id, req.user.id, { topic, weekCount, module }));
+    const { topic, weekCount, module, outline } = req.body;
+    res.json(await generateLessonDrafts(req.params.id, req.user.id, { topic, weekCount, module, outline }));
   } catch (err) {
     next(err);
   }

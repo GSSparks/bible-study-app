@@ -483,7 +483,7 @@ const MAX_WEEK_COUNT = 26;
  * title/body are still a useful starting draft either way, and the
  * leader can fill in the reference by hand.
  */
-export async function generateLessonDrafts(studyId, callerId, { topic, weekCount, module }) {
+export async function generateLessonDrafts(studyId, callerId, { topic, weekCount, module, outline }) {
   await assertOwnerOfStudy(studyId, callerId);
 
   if (!anthropic) {
@@ -494,6 +494,62 @@ export async function generateLessonDrafts(studyId, callerId, { topic, weekCount
     err.status = 400;
     throw err;
   }
+
+  if (outline) {
+    const system = [
+      'You are helping a Bible study leader prepare a study guide for a small group.',
+      `Write a study guide for: "${topic.trim()}".`,
+      '',
+      'If the topic is not a Bible passage, book, theological theme, or Christian study subject,',
+      'respond with exactly the single word: OFFTOPIC',
+      '',
+      'Otherwise, write a substantive, readable study guide a leader can teach from directly.',
+      'It should feel like real teaching content — not a list of what the passage is "about",',
+      'but actual explanation, context, and insight the leader can share and discuss.',
+      '',
+      'Structure (use ## headings):',
+      '## Background',
+      '  2–3 sentences of historical/literary context the group needs to understand the passage.',
+      '',
+      '## [2–3 thematic sections drawn from the text]',
+      '  Each section: a short explanatory paragraph (3–5 sentences) unpacking the key idea,',
+      '  followed by 2–3 discussion questions on their own lines, each prefixed with **Q:**',
+      '',
+      '## Application',
+      '  A short paragraph connecting the passage to everyday life, followed by 1–2 **Q:** questions.',
+      '',
+      '## Closing Prayer Focus',
+      '  2–3 sentence prompt for how to close the session in prayer.',
+      '',
+      'Verse references should appear inline (e.g. v. 3, 1 Pet 1:3–5).',
+      'Write in plain, clear prose — no bullet lists except for the **Q:** lines.',
+      'Respond with ONLY the markdown — no preamble, no explanation, no code fences.',
+    ].join('\n');
+
+    const response = await anthropic.messages.create({
+      model: config.anthropicModel,
+      max_tokens: 4096,
+      system,
+      messages: [{ role: 'user', content: 'Generate the study guide now.' }],
+    });
+
+    const body = response.content
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n')
+      .trim()
+      .replace(/^```(?:markdown)?\n?/, '')
+      .replace(/\n?```$/, '');
+
+    if (body.trim() === 'OFFTOPIC') {
+      const err = new Error('That topic doesn\'t look like a Bible passage or study subject. Please enter a passage, book, or theological theme.');
+      err.status = 400;
+      throw err;
+    }
+
+    return [{ order: 1, title: '', module: module || null, reference: null, body }];
+  }
+
   if (!module) {
     const err = new Error('A Bible module is required, so proposed references can be checked against real text.');
     err.status = 400;

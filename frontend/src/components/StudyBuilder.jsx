@@ -502,7 +502,7 @@ function LessonEditor({ lesson, studyId, onSaved, pendingBodyRef, pendingBodyDir
     setGeneratingOutline(true);
     setError(null);
     try {
-      const drafts = await api.generateStudyLessonDrafts(studyId, { topic, weekCount: 1, module: module || undefined });
+      const drafts = await api.generateStudyLessonDrafts(studyId, { topic, module: module || undefined, outline: true });
       if (drafts[0]?.body) {
         setBody(drafts[0].body);
         pendingBodyDirtyRef.current = true;
