@@ -196,7 +196,7 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
           <div
             ref={contentRef}
             className={[
-              'prose prose-sm max-w-none [&_p]:mb-6',
+              'prose prose-sm max-w-2xl [&_p]:mb-6',
               // h1 — book title (front matter, rarely seen mid-content)
               '[&_h1]:mt-8 [&_h1]:mb-3 [&_h1]:font-display [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:text-center [&_h1]:text-ink [&_h1]:tracking-tight',
               // h2 — chapter heading: large, centered, brass underline

@@ -291,8 +291,8 @@ function NoteViewer({ note, onEdit, onDelete, onOpenInCell }) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-page">
-      <div className="shrink-0 border-b border-pageBorder px-8 py-5">
-        <div className="flex items-start justify-between gap-4">
+      <div className="shrink-0 border-b border-pageBorder px-7 py-5">
+        <div className="max-w-2xl flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <h2 className="font-display text-2xl leading-snug text-pageText">
               {cleanTitle(note.title) || note.reference || 'Untitled'}
@@ -333,8 +333,8 @@ function NoteViewer({ note, onEdit, onDelete, onOpenInCell }) {
           </div>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6" data-color-mode="light">
-        <div className="markdown-body markdown-body-page text-sm leading-relaxed text-pageText">
+      <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6" data-color-mode="light">
+        <div className="markdown-body markdown-body-page max-w-2xl text-sm leading-relaxed text-pageText">
           <Markdown remarkPlugins={[remarkGfm]}>{displayBody || '*No content yet.*'}</Markdown>
         </div>
       </div>

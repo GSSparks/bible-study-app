@@ -278,7 +278,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               {tab === 'content' && (
-                <div className="px-6 py-8">
+                <div className="px-7 py-8">
                   <LessonContent
                     lesson={activeLesson}
                     currentUserId={study.creatorId}
@@ -292,29 +292,29 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                 </div>
               )}
               {tab === 'discussion' && (
-                <div className="px-6 py-8">
-                  <div className="mx-auto max-w-2xl">
+                <div className="px-7 py-8">
+                  <div className="max-w-2xl">
                     <DiscussionTab lesson={activeLesson} isParticipant={study.isParticipant} currentUserId={currentUserId} />
                   </div>
                 </div>
               )}
               {tab === 'members' && (
-                <div className="px-6 py-8">
-                  <div className="mx-auto max-w-2xl">
+                <div className="px-7 py-8">
+                  <div className="max-w-2xl">
                     <MembersTab studyId={studyId} isOwner={isOwner} />
                   </div>
                 </div>
               )}
               {tab === 'reflections' && isOwner && (
-                <div className="px-6 py-8">
-                  <div className="mx-auto max-w-2xl">
+                <div className="px-7 py-8">
+                  <div className="max-w-2xl">
                     <ReflectionsTab studyId={studyId} />
                   </div>
                 </div>
               )}
               {tab === 'resources' && (
-                <div className="px-6 py-8">
-                  <div className="mx-auto max-w-2xl">
+                <div className="px-7 py-8">
+                  <div className="max-w-2xl">
                     <ResourcesTabContent
                       study={study}
                       resources={resources}
@@ -829,10 +829,10 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="max-w-2xl space-y-5">
 
       {/* Passage */}
-      <div className="rounded-xl border border-pageBorder bg-page p-6">
+      <div>
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="font-display text-lg leading-snug text-pageText">
             {lesson.reference || 'No passage set'}
@@ -901,7 +901,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
 
       {/* Study Notes */}
       {(lesson.body || isOwner) && (
-        <div className="rounded-xl border border-pageBorder bg-page p-6">
+        <div className="border-t border-pageBorder pt-5">
           <div className="mb-4 flex items-center justify-between">
             <h4 className="text-xs font-semibold uppercase tracking-widest text-pageMuted">Study Notes</h4>
             {isOwner && !editingBody && (
@@ -950,32 +950,10 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
       )}
 
       {/* Your Response */}
-      <div className="space-y-4 border-t border-pageBorder pt-5">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-pageMuted">Your Response</p>
+      {lesson.reflectionPrompt && (
+        <div className="space-y-4 border-t border-pageBorder pt-5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-pageMuted">Your Response</p>
 
-        <div className="rounded-xl border border-pageBorder bg-page p-6">
-          <h4 className="mb-3 text-xs font-semibold uppercase tracking-widest text-pageMuted">Personal Note</h4>
-          {noteLoading ? (
-            <p className="text-sm text-pageMuted">Loading…</p>
-          ) : (
-            <>
-              <div ref={noteTextareaRef}>
-                <RichEditor value={noteText} onChange={setNoteText} height={200} colorMode="light" />
-              </div>
-              <div className="mt-3 flex justify-end">
-                <button
-                  onClick={saveNote}
-                  disabled={savingNote}
-                  className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
-                >
-                  {savingNote ? 'saving…' : 'save note'}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {lesson.reflectionPrompt && (
           <div className="rounded-xl border border-pageBorder bg-page p-6">
             <h4 className="mb-1 text-xs font-semibold uppercase tracking-widest text-pageMuted">Reflection</h4>
             <p className="mb-4 font-display text-base leading-relaxed text-pageText">{lesson.reflectionPrompt}</p>
@@ -1029,8 +1007,8 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
               </>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
     </div>
   );
