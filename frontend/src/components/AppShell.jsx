@@ -4,6 +4,7 @@ import { BookOpen, BookMarked, BookText, Box, Compass, Library as LibraryIcon, M
 import BiblePanel from './BiblePanel.jsx';
 import BookPanel from './BookPanel.jsx';
 import MapPanel from './MapPanel.jsx';
+import NotePanel from './NotePanel.jsx';
 import BibleMapView from './BibleMapView.jsx';
 import { findJourneyForRef, CITY_NAME_INDEX } from '../data/biblicalMapData.js';
 import BooksView from './BooksView.jsx';
@@ -120,6 +121,7 @@ export default function AppShell({ auth }) {
     catch { return { module: null, scrollY: 0 }; }
   });
   const [bookPanelOpen, setBookPanelOpen] = useState(false);
+  const [notePanelOpen, setNotePanelOpen] = useState(false);
 
   useEffect(() => {
     if (activeView === 'scriptoriums') {
@@ -209,15 +211,20 @@ export default function AppShell({ auth }) {
         e.preventDefault();
         setMapPanelOpen((prev) => !prev);
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        setNotePanelOpen((prev) => !prev);
+      }
       if (e.key === 'Escape') {
         if (biblePanelOpen) setBiblePanelOpen(false);
         if (bookPanelOpen) setBookPanelOpen(false);
         if (mapPanelOpen) setMapPanelOpen(false);
+        if (notePanelOpen) setNotePanelOpen(false);
       }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [biblePanelOpen, bookPanelOpen, mapPanelOpen]);
+  }, [biblePanelOpen, bookPanelOpen, mapPanelOpen, notePanelOpen]);
 
   function isVisible(item) {
     if (item.adminOnly && auth.user?.role !== 'admin') return false;
@@ -309,10 +316,18 @@ export default function AppShell({ auth }) {
           <button
             onClick={() => { setBiblePanelOpen((prev) => !prev); setDrawerOpen(false); }}
             title="Quick Bible (Ctrl+B)"
-            className={`mb-2 flex w-full items-center gap-3 rounded px-2 py-3 text-sm transition-colors lg:py-2 ${biblePanelOpen ? 'text-brass' : 'text-muted hover:bg-panel hover:text-parchment'}`}
+            className={`flex w-full items-center gap-3 rounded px-2 py-3 text-sm transition-colors lg:py-2 ${biblePanelOpen ? 'text-brass' : 'text-muted hover:bg-panel hover:text-parchment'}`}
           >
             <BookOpen size={18} strokeWidth={2} className="shrink-0" />
             Bible
+          </button>
+          <button
+            onClick={() => { setNotePanelOpen((prev) => !prev); setDrawerOpen(false); }}
+            title="Quick Note (Ctrl+N)"
+            className={`mb-2 flex w-full items-center gap-3 rounded px-2 py-3 text-sm transition-colors lg:py-2 ${notePanelOpen ? 'text-brass' : 'text-muted hover:bg-panel hover:text-parchment'}`}
+          >
+            <StickyNote size={18} strokeWidth={2} className="shrink-0" />
+            Notepad
           </button>
           {auth.user ? (
             <UserMenu
@@ -475,6 +490,13 @@ export default function AppShell({ auth }) {
         onBookChange={updateBookReader}
         onOpenInBooks={(module) => { openBook(module); setBookPanelOpen(false); }}
         isLoggedIn={Boolean(auth.user)}
+      />
+
+      <NotePanel
+        open={notePanelOpen}
+        onClose={() => setNotePanelOpen(false)}
+        isLoggedIn={Boolean(auth.user)}
+        onOpenInNotes={() => navigate('notes')}
       />
 
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} onLogin={auth.login} />}

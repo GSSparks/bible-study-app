@@ -252,20 +252,7 @@ export default function NotesView({ isLoggedIn, onOpenInCell }) {
 
       {/* ── Right pane ── */}
       <div className="min-h-0 flex-1 overflow-hidden">
-        {showEditor ? (
-          <NoteEditor
-            editingId={editingId}
-            editTitle={editTitle}
-            setEditTitle={setEditTitle}
-            editBody={editBody}
-            setEditBody={setEditBody}
-            saving={saving}
-            error={error}
-            onSave={save}
-            onCancel={cancelEdit}
-            titleInputRef={titleInputRef}
-          />
-        ) : showViewer ? (
+        {showViewer ? (
           <NoteViewer
             note={selectedNote}
             onEdit={() => startEdit(selectedNote)}
@@ -273,15 +260,30 @@ export default function NotesView({ isLoggedIn, onOpenInCell }) {
             onOpenInCell={isBibleRef(selectedNote.reference) ? () => onOpenInCell?.(selectedNote.reference) : null}
           />
         ) : (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex h-full items-center justify-center bg-page">
             <div className="text-center">
-              <StickyNote size={32} className="mx-auto mb-3 text-muted/30" strokeWidth={1} />
-              <p className="font-display text-parchment">Select a note to read</p>
-              <p className="mt-1 text-xs text-muted">or create a new one with + New</p>
+              <StickyNote size={32} className="mx-auto mb-3 text-pageMuted/30" strokeWidth={1} />
+              <p className="font-display text-pageText">Select a note to read</p>
+              <p className="mt-1 text-xs text-pageMuted">or create a new one with + New</p>
             </div>
           </div>
         )}
       </div>
+
+      {/* ── Slide-out editor panel ── */}
+      <NoteEditorPanel
+        open={showEditor}
+        editingId={editingId}
+        editTitle={editTitle}
+        setEditTitle={setEditTitle}
+        editBody={editBody}
+        setEditBody={setEditBody}
+        saving={saving}
+        error={error}
+        onSave={save}
+        onCancel={cancelEdit}
+        titleInputRef={titleInputRef}
+      />
     </div>
   );
 }
@@ -342,40 +344,56 @@ function NoteViewer({ note, onEdit, onDelete, onOpenInCell }) {
   );
 }
 
-function NoteEditor({ editingId, editTitle, setEditTitle, editBody, setEditBody, saving, error, onSave, onCancel, titleInputRef }) {
+function NoteEditorPanel({ open, editingId, editTitle, setEditTitle, editBody, setEditBody, saving, error, onSave, onCancel, titleInputRef }) {
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="shrink-0 border-b border-rule bg-panel px-8 py-4">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-            {editingId === 'new' ? 'New note' : 'Edit note'}
-          </p>
-          <div className="flex items-center gap-2">
-            <button onClick={onCancel} className="text-xs text-muted hover:text-parchment">
-              Cancel
-            </button>
-            <button
-              onClick={onSave}
-              disabled={saving || !editBody.trim()}
-              className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
+    <>
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 ${
+          open ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+        onClick={onCancel}
+      />
+
+      {/* Panel — always mounted so state persists during transition */}
+      <div
+        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-page shadow-2xl transition-transform duration-300 ease-in-out sm:w-[600px] ${
+          open ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="shrink-0 border-b border-pageBorder px-6 py-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wider text-pageMuted">
+              {editingId === 'new' ? 'New note' : 'Edit note'}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onSave}
+                disabled={saving || !editBody.trim()}
+                className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={onCancel} className="rounded p-1 text-pageMuted hover:text-pageText">
+                <X size={16} />
+              </button>
+            </div>
           </div>
+          {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
         </div>
-        {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5" data-color-mode="light">
+          <input
+            ref={titleInputRef}
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}
+            placeholder="Title (optional)"
+            className="mb-4 w-full bg-transparent font-display text-2xl text-pageText placeholder:text-pageMuted/40 focus:outline-none"
+          />
+          <MDEditor value={editBody} onChange={(v) => setEditBody(v || '')} height={500} preview="edit" />
+        </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-8 py-5" data-color-mode="dark">
-        <input
-          ref={titleInputRef}
-          value={editTitle}
-          onChange={(e) => setEditTitle(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Escape') onCancel(); }}
-          placeholder="Title (optional)"
-          className="mb-4 w-full rounded border border-rule bg-panel px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
-        />
-        <MDEditor value={editBody} onChange={(v) => setEditBody(v || '')} height={400} preview="edit" />
-      </div>
-    </div>
+    </>
   );
 }
