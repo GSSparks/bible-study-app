@@ -380,24 +380,29 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
       {/* Entry content — relative flex wrapper for TOC sidebar */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden bg-page text-pageText">
 
-        {/* TOC sidebar */}
+        {/* TOC: drops from top on mobile, slides from left on desktop */}
         {toc.length > 0 && (
           <div
-            className={`shrink-0 overflow-y-auto border-r border-pageBorder transition-[width] duration-300 ease-in-out ${
-              tocOpen ? 'w-44' : 'w-0'
-            }`}
+            className={[
+              'bg-panel border-rule',
+              'absolute left-0 right-0 top-0 z-20 border-b transition-[max-height] duration-300 ease-in-out',
+              'lg:relative lg:top-auto lg:border-b-0 lg:border-r lg:shrink-0 lg:transition-[width]',
+              tocOpen
+                ? 'max-h-64 overflow-y-auto lg:max-h-none lg:w-52 lg:overflow-y-auto'
+                : 'max-h-0 overflow-hidden lg:max-h-none lg:w-0 lg:overflow-hidden',
+            ].join(' ')}
           >
-            <div className="min-w-44 px-3 py-4">
-              <p className="mb-2 font-sans text-[9px] uppercase tracking-widest text-pageMuted">Contents</p>
+            <div className="min-w-52 px-3 py-4">
+              <p className="mb-2 font-ui text-[9px] uppercase tracking-widest text-muted">Contents</p>
               <nav className="space-y-0.5">
                 {toc.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => jumpToSection(item.id)}
-                    className={`block w-full truncate text-left text-xs leading-snug transition-colors hover:text-pageAccent ${
+                    className={`block w-full text-left text-xs leading-snug transition-colors hover:text-brass ${
                       item.major
-                        ? 'py-1 font-sans font-semibold text-pageText/80'
-                        : 'py-0.5 pl-3 text-pageMuted'
+                        ? 'py-1 font-ui font-semibold text-parchment/80'
+                        : 'py-0.5 pl-3 text-muted'
                     }`}
                   >
                     {item.text}
@@ -408,13 +413,24 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
           </div>
         )}
 
-        {/* Tab button */}
+        {/* Mobile TOC toggle — fixed top-left square button */}
         {toc.length > 0 && (
           <button
             onClick={() => setTocOpen((o) => !o)}
             title={tocOpen ? 'Close contents' : 'Open contents'}
-            style={{ left: tocOpen ? '11rem' : 0 }}
-            className="absolute top-16 z-10 flex h-8 w-5 items-center justify-center rounded-r border border-l-0 border-pageBorder bg-page text-pageMuted shadow-sm transition-[left] duration-300 ease-in-out hover:text-pageAccent"
+            className="absolute left-2 top-2 z-30 flex h-7 w-7 items-center justify-center rounded border border-rule bg-panel text-muted shadow-sm hover:text-brass lg:hidden"
+          >
+            <List size={11} />
+          </button>
+        )}
+
+        {/* Desktop TOC toggle — animated left-edge tab */}
+        {toc.length > 0 && (
+          <button
+            onClick={() => setTocOpen((o) => !o)}
+            title={tocOpen ? 'Close contents' : 'Open contents'}
+            style={{ left: tocOpen ? '13rem' : 0 }}
+            className="absolute top-16 z-10 hidden h-8 w-5 items-center justify-center rounded-r border border-l-0 border-rule bg-panel text-muted shadow-sm transition-[left] duration-300 ease-in-out hover:text-brass lg:flex"
           >
             <List size={11} />
           </button>

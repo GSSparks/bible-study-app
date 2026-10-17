@@ -138,12 +138,17 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
 
   return (
     <div className="relative flex h-full min-h-0 overflow-hidden">
-      {/* Sliding TOC sidebar */}
+      {/* TOC: drops from top on mobile, slides from left on desktop */}
       {toc.length > 0 && (
         <div
-          className={`shrink-0 overflow-y-auto border-r border-rule bg-panel transition-[width] duration-300 ease-in-out ${
-            tocOpen ? 'w-52' : 'w-0'
-          }`}
+          className={[
+            'bg-panel border-rule',
+            'absolute left-0 right-0 top-0 z-20 border-b transition-[max-height] duration-300 ease-in-out',
+            'lg:relative lg:top-auto lg:border-b-0 lg:border-r lg:shrink-0 lg:transition-[width]',
+            tocOpen
+              ? 'max-h-64 overflow-y-auto lg:max-h-none lg:w-52 lg:overflow-y-auto'
+              : 'max-h-0 overflow-hidden lg:max-h-none lg:w-0 lg:overflow-hidden',
+          ].join(' ')}
         >
           <div className="min-w-52 px-3 py-4">
             <p className="mb-2 font-ui text-[9px] uppercase tracking-widest text-muted">Contents</p>
@@ -152,7 +157,7 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
                 <button
                   key={item.id}
                   onClick={() => jumpToSection(item.id)}
-                  className={`block w-full truncate text-left text-xs leading-snug transition-colors hover:text-brass ${
+                  className={`block w-full text-left text-xs leading-snug transition-colors hover:text-brass ${
                     item.level === 1
                       ? 'py-1 font-ui font-semibold text-parchment/80'
                       : item.level === 2
@@ -168,13 +173,24 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
         </div>
       )}
 
-      {/* TOC toggle tab */}
+      {/* Mobile TOC toggle — fixed top-left square button */}
+      {toc.length > 0 && (
+        <button
+          onClick={() => setTocOpen((o) => !o)}
+          title={tocOpen ? 'Close contents' : 'Open contents'}
+          className="absolute left-2 top-2 z-30 flex h-7 w-7 items-center justify-center rounded border border-rule bg-panel text-muted shadow-sm hover:text-brass lg:hidden"
+        >
+          <List size={11} />
+        </button>
+      )}
+
+      {/* Desktop TOC toggle — animated left-edge tab */}
       {toc.length > 0 && (
         <button
           onClick={() => setTocOpen((o) => !o)}
           title={tocOpen ? 'Close contents' : 'Open contents'}
           style={{ left: tocOpen ? '13rem' : 0 }}
-          className="absolute top-16 z-10 flex h-8 w-5 items-center justify-center rounded-r border border-l-0 border-rule bg-panel text-muted shadow-sm transition-[left] duration-300 ease-in-out hover:text-brass"
+          className="absolute top-16 z-10 hidden h-8 w-5 items-center justify-center rounded-r border border-l-0 border-rule bg-panel text-muted shadow-sm transition-[left] duration-300 ease-in-out hover:text-brass lg:flex"
         >
           <List size={11} />
         </button>
