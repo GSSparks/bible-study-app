@@ -129,8 +129,8 @@ describe('API client', () => {
       const [url] = global.fetch.mock.calls[0];
       expect(url).toContain('/api/notes/highlights');
       expect(url).toContain('reference=');
-      // URLSearchParams encodes the colon
-      expect(decodeURIComponent(url)).toContain('John 3:16');
+      const params = new URLSearchParams(url.split('?')[1]);
+      expect(params.get('reference')).toBe('John 3:16');
     });
   });
 
@@ -158,7 +158,8 @@ describe('API client', () => {
       const [url] = global.fetch.mock.calls[0];
       expect(url).toContain('/api/bible-maps/for-reference');
       expect(url).toContain('ref=');
-      expect(decodeURIComponent(url)).toContain('John 3:16');
+      const params = new URLSearchParams(url.split('?')[1]);
+      expect(params.get('ref')).toBe('John 3:16');
     });
   });
 
