@@ -21,6 +21,101 @@ function Attribution() {
   );
 }
 
+function ZoomableImage({ src, alt }) {
+  const [{ scale, pan }, setView] = useState({ scale: 1, pan: { x: 0, y: 0 } });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragging = useRef(false);
+  const lastPt = useRef(null);
+  const containerRef = useRef(null);
+
+  function clampPan(x, y, s) {
+    const el = containerRef.current;
+    if (!el) return { x, y };
+    const mx = (el.clientWidth  * (s - 1)) / 2;
+    const my = (el.clientHeight * (s - 1)) / 2;
+    return { x: Math.min(mx, Math.max(-mx, x)), y: Math.min(my, Math.max(-my, y)) };
+  }
+
+  function applyZoom(factor) {
+    setView(({ scale: prev, pan: p }) => {
+      const next = Math.min(10, Math.max(1, prev * factor));
+      return { scale: next, pan: next <= 1 ? { x: 0, y: 0 } : clampPan(p.x, p.y, next) };
+    });
+  }
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e) => { e.preventDefault(); applyZoom(e.deltaY < 0 ? 1.15 : 1 / 1.15); };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function onMouseDown(e) {
+    if (scale <= 1) return;
+    e.preventDefault();
+    dragging.current = true;
+    setIsDragging(true);
+    lastPt.current = { x: e.clientX, y: e.clientY };
+  }
+
+  function onMouseMove(e) {
+    if (!dragging.current || !lastPt.current) return;
+    const dx = e.clientX - lastPt.current.x;
+    const dy = e.clientY - lastPt.current.y;
+    lastPt.current = { x: e.clientX, y: e.clientY };
+    setView(({ scale: s, pan: p }) => ({ scale: s, pan: clampPan(p.x + dx, p.y + dy, s) }));
+  }
+
+  function onMouseUp() { dragging.current = false; setIsDragging(false); }
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative h-full w-full overflow-hidden select-none"
+      style={{ cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+    >
+      <img
+        src={src}
+        alt={alt}
+        draggable={false}
+        className="pointer-events-none h-full w-full object-contain"
+        style={{
+          transform: `scale(${scale}) translate(${pan.x / scale}px, ${pan.y / scale}px)`,
+          transformOrigin: 'center center',
+          transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+          willChange: 'transform',
+        }}
+      />
+      <div className="absolute bottom-2 right-2 flex items-center gap-1 rounded bg-panel/80 px-1 py-0.5 backdrop-blur-sm">
+        <button
+          onClick={() => applyZoom(1 / 1.5)}
+          disabled={scale <= 1}
+          className="rounded px-1.5 py-0.5 font-mono text-xs text-muted hover:text-parchment disabled:opacity-30"
+        >−</button>
+        <span className="min-w-[3ch] text-center font-mono text-[10px] tabular-nums text-muted">
+          {scale > 1 ? `${Math.round(scale * 100)}%` : ''}
+        </span>
+        <button
+          onClick={() => applyZoom(1.5)}
+          disabled={scale >= 10}
+          className="rounded px-1.5 py-0.5 font-mono text-xs text-muted hover:text-parchment disabled:opacity-30"
+        >+</button>
+        {scale > 1 && (
+          <button
+            onClick={() => setView({ scale: 1, pan: { x: 0, y: 0 } })}
+            className="ml-0.5 rounded px-1.5 py-0.5 font-ui text-[10px] text-muted hover:text-parchment"
+          >↺</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PassageMapView({ passageRef }) {
   const [maps, setMaps] = useState(null);
   const [idx, setIdx] = useState(0);
@@ -81,16 +176,9 @@ function PassageMapView({ passageRef }) {
             <p className="font-ui text-sm text-muted">No map available for this passage.</p>
           </div>
         )}
-        {imageUrl && (
-          <img
-            key={imageUrl}
-            src={imageUrl}
-            alt={current.title || 'Bible map'}
-            className="h-full w-full object-contain"
-          />
-        )}
+        {imageUrl && <ZoomableImage key={imageUrl} src={imageUrl} alt={current.title || 'Bible map'} />}
         {maps?.length > 1 && (
-          <div className="absolute bottom-10 right-3 flex items-center gap-1">
+          <div className="absolute bottom-12 right-3 flex items-center gap-1">
             <button
               onClick={() => setIdx((i) => Math.max(0, i - 1))}
               disabled={idx === 0}
@@ -137,7 +225,7 @@ function BrowseView({ maps }) {
         </div>
         <div className="relative min-h-0 flex-1 overflow-hidden">
           {selected.imageUrl ? (
-            <img src={selected.imageUrl} alt={selected.title} className="h-full w-full object-contain" />
+            <ZoomableImage src={selected.imageUrl} alt={selected.title} />
           ) : (
             <div className="flex h-full items-center justify-center">
               <p className="font-ui text-sm text-muted">Image not available.</p>
