@@ -29,7 +29,11 @@ COPY backend/ ./
 RUN npx prisma generate
 
 # --- Stage 3: runtime image ---
-FROM node:22-bookworm-slim AS runtime
+# Use full bookworm (not -slim) — node-sword-interface's SWORD C++ library
+# links against several system libraries (libgnutls, libnettle, libhogweed,
+# libp11-kit, etc.) that bookworm-slim strips. The slim image causes a
+# SIGSEGV in SWORD's deferred event-loop initialisation callback.
+FROM node:22-bookworm AS runtime
 # Runtime needs libcurl for SWORD, and tesseract+poppler for PDF OCR
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-gnutls-dev \
