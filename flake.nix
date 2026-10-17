@@ -15,7 +15,7 @@
         devShells.default = pkgs.mkShell {
           # Build-time tools — go into PATH
           nativeBuildInputs = with pkgs; [
-            nodejs_20   # runtime + npm
+            nodejs_22   # runtime + npm (LTS)
             python3     # required by node-gyp (builds node-sword-interface + argon2)
             gnumake     # required by node-gyp
             gcc         # C++ compiler for native modules

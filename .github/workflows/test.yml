@@ -34,11 +34,27 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
-      - name: Install backend dependencies
+      # node-sword-interface requires the SWORD C++ library (libsword) to compile
+      # its native Node.js addon.  That library is not in Ubuntu's apt repos and
+      # is not needed at test time — the entire module is aliased to a JS mock in
+      # vitest.config.js.  Skip all postinstall/gyp scripts, then rebuild only
+      # argon2 (the one other native module we actually call at test time), and
+      # generate the Prisma client that prisma's own postinstall would have done.
+      - name: Install backend dependencies (skip native builds)
         working-directory: backend
-        run: npm install
+        run: npm install --ignore-scripts
+
+      - name: Build argon2 native module
+        working-directory: backend
+        run: npm rebuild argon2
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres:testpass@localhost:5432/scriptorium_test
 
       - name: Run Prisma migrations
         working-directory: backend
@@ -67,11 +83,11 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install
+        run: npm install --ignore-scripts
 
       - name: Run frontend tests
         working-directory: frontend
