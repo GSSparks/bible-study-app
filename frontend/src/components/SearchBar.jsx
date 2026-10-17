@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 
 // Matches "John 3", "1 Cor 13:1", "Romans 8:28-30", "Gen.1.1" — anything
 // that looks like a book name followed by a chapter/verse number.
@@ -6,7 +6,7 @@ function looksLikeReference(q) {
   return /^(\d\s+)?[a-z][a-z.]+\.?\s+\d/i.test(q.trim());
 }
 
-export default function SearchBar({ activeModule, onJump, onSearch }) {
+const SearchBar = forwardRef(function SearchBar({ activeModule, onJump, onSearch }, ref) {
   const [query, setQuery] = useState('');
 
   function handleSubmit(e) {
@@ -24,10 +24,11 @@ export default function SearchBar({ activeModule, onJump, onSearch }) {
   return (
     <form onSubmit={handleSubmit} className="flex items-center gap-2 w-full">
       <input
+        ref={ref}
         name="reference-search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Reference (John 3:16) or search words…"
+        placeholder="Reference or search — press / to focus"
         className="w-full rounded-md border border-rule bg-panel px-4 py-2 font-sans text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
       />
       <button
@@ -38,4 +39,6 @@ export default function SearchBar({ activeModule, onJump, onSearch }) {
       </button>
     </form>
   );
-}
+});
+
+export default SearchBar;

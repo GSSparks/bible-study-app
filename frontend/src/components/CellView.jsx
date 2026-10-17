@@ -32,6 +32,7 @@ export default function CellView({
   onOpenMap,
   onFocusedReferenceChange,
 }) {
+  const searchInputRef = useRef(null);
   const cellInit = useRef(null);
   if (cellInit.current === null) {
     const ref = (() => {
@@ -137,6 +138,34 @@ export default function CellView({
     onAiDocumentConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingAiDocument?.nonce]);
+
+  // Keyboard shortcuts for Cell navigation. None of these keys conflict with
+  // native browser actions: / is safe, ArrowLeft/Right are safe when not in an input.
+  useEffect(() => {
+    function onKey(e) {
+      const active = document.activeElement;
+      const inInput = active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA' || active?.isContentEditable;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      if (e.key === '/' && !inInput) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !inInput) {
+        e.preventDefault();
+        const m = focusedReference.trim().match(/^(.*?)\s+(\d+)(?::\d+.*)?$/);
+        if (!m) return;
+        const chapter = parseInt(m[2], 10) + (e.key === 'ArrowLeft' ? -1 : 1);
+        if (chapter < 1) return;
+        navigateFocus(`${m[1]} ${chapter}:1`);
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [focusedReference]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function navigateFocus(reference) {
     if (reference === focusedReference) return;
@@ -350,7 +379,7 @@ export default function CellView({
 
         {/* Search */}
         <div className="min-w-0 flex-1">
-          <SearchBar activeModule={firstBibleTab?.module} onJump={navigateFocus} onSearch={routeToSearch} />
+          <SearchBar ref={searchInputRef} activeModule={firstBibleTab?.module} onJump={navigateFocus} onSearch={routeToSearch} />
         </div>
 
         {/* Window toggles */}

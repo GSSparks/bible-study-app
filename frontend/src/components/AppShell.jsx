@@ -213,7 +213,7 @@ export default function AppShell({ auth }) {
         e.preventDefault();
         setMapPanelOpen((prev) => !prev);
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+      if ((e.ctrlKey || e.metaKey) && e.key === '`') {
         e.preventDefault();
         setNotePanelOpen((prev) => !prev);
       }
@@ -325,7 +325,7 @@ export default function AppShell({ auth }) {
           </button>
           <button
             onClick={() => { setNotePanelOpen((prev) => !prev); setDrawerOpen(false); }}
-            title="Quick Note (Ctrl+N)"
+            title="Quick Note (Ctrl+`)"
             className={`mb-2 flex w-full items-center gap-3 rounded px-2 py-3 text-sm transition-colors lg:py-2 ${notePanelOpen ? 'text-brass' : 'text-muted hover:bg-panel hover:text-parchment'}`}
           >
             <StickyNote size={18} strokeWidth={2} className="shrink-0" />
