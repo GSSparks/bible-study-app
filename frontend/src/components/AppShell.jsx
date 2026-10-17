@@ -246,7 +246,7 @@ export default function AppShell({ auth }) {
   const activeItem = allItems.find((item) => item.key === activeView) || allItems[0];
 
   return (
-    <div className="flex h-screen min-h-0 bg-ink text-parchment">
+    <div className="flex min-h-0 bg-ink text-parchment" style={{ height: '100dvh' }}>
       {/* Mobile backdrop */}
       {drawerOpen && (
         <div

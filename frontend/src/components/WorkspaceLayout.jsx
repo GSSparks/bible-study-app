@@ -1,5 +1,19 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { MapPin } from 'lucide-react';
+import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, Link, MapPin } from 'lucide-react';
+
+const PANE_ICONS = {
+  bible: BookOpen, commentary: ScrollText, dictionary: BookA,
+  crossrefs: GitBranch, passageguide: Compass, document: FileText,
+  search: Search, links: Link,
+};
+const PANE_LABELS = {
+  bible: 'Bible', commentary: 'Commentary', dictionary: 'Dictionary',
+  crossrefs: 'Cross-refs', passageguide: 'Guide', document: 'Docs',
+  search: 'Search', links: 'Links',
+};
+// Fixed order for the mobile tab strip — always shows all pane types so the
+// strip doubles as the open/close control (replacing the desktop window toggles).
+const MOBILE_TAB_TYPES = ['bible', 'commentary', 'dictionary', 'crossrefs', 'passageguide', 'document', 'search', 'links'];
 import { api } from '../api/client.js';
 import { PANE_TYPES } from '../hooks/useWorkspaceLayout.js';
 import { abbreviateTitle } from '../utils/abbreviateTitle.js';
@@ -67,7 +81,7 @@ function ColDropZone({ colId, position, isActive, onDragOver, onDrop }) {
 
 // ─── Individual pane shell ────────────────────────────────────────────────────
 
-function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging, onDragStart, onDragEnd }) {
+function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging, onDragStart, onDragEnd, isMobile }) {
   const [interlinearMode, setInterlinearMode] = useState(false);
 
   const {
@@ -262,7 +276,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
               </div>
             </div>
 
-            {strongsDrawer?.targetRowId === row.id && (
+            {!isMobile && strongsDrawer?.targetRowId === row.id && (
               <StrongsDrawer
                 strongsKey={strongsDrawer.key}
                 morph={strongsDrawer.morph}
@@ -274,7 +288,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 onSearchTopical={openTopicalSearch}
               />
             )}
-            {verseDrawer?.targetRowId === row.id && (
+            {!isMobile && verseDrawer?.targetRowId === row.id && (
               <VerseDrawer
                 osisRef={verseDrawer.osisRef}
                 module={defaultBibleModule}
@@ -307,7 +321,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 </div>
               ))}
             </div>
-            {strongsDrawer?.targetRowId === row.id && (
+            {!isMobile && strongsDrawer?.targetRowId === row.id && (
               <StrongsDrawer
                 strongsKey={strongsDrawer.key}
                 morph={strongsDrawer.morph}
@@ -319,7 +333,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 onSearchTopical={openTopicalSearch}
               />
             )}
-            {verseDrawer?.targetRowId === row.id && (
+            {!isMobile && verseDrawer?.targetRowId === row.id && (
               <VerseDrawer
                 osisRef={verseDrawer.osisRef}
                 module={defaultBibleModule}
@@ -351,7 +365,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 </div>
               ))}
             </div>
-            {strongsDrawer?.targetRowId === row.id && (
+            {!isMobile && strongsDrawer?.targetRowId === row.id && (
               <StrongsDrawer
                 strongsKey={strongsDrawer.key}
                 morph={strongsDrawer.morph}
@@ -363,7 +377,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 onSearchTopical={openTopicalSearch}
               />
             )}
-            {verseDrawer?.targetRowId === row.id && (
+            {!isMobile && verseDrawer?.targetRowId === row.id && (
               <VerseDrawer
                 osisRef={verseDrawer.osisRef}
                 module={defaultBibleModule}
@@ -384,7 +398,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 onVerseRefClick={onVerseRefClick}
               />
             </div>
-            {verseDrawer?.targetRowId === row.id && (
+            {!isMobile && verseDrawer?.targetRowId === row.id && (
               <VerseDrawer
                 osisRef={verseDrawer.osisRef}
                 module={defaultBibleModule}
@@ -420,7 +434,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 isLoggedIn={Boolean(auth?.user)}
               />
             </div>
-            {strongsDrawer?.targetRowId === row.id && (
+            {!isMobile && strongsDrawer?.targetRowId === row.id && (
               <StrongsDrawer
                 strongsKey={strongsDrawer.key}
                 morph={strongsDrawer.morph}
@@ -432,7 +446,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 onSearchTopical={openTopicalSearch}
               />
             )}
-            {verseDrawer?.targetRowId === row.id && (
+            {!isMobile && verseDrawer?.targetRowId === row.id && (
               <VerseDrawer
                 osisRef={verseDrawer.osisRef}
                 module={defaultBibleModule}
@@ -480,8 +494,8 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
 
   return (
     <div className={`flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity duration-100 ${isDragging ? 'opacity-30' : ''}`}>
-      {/* Chrome row — drag handle */}
-      <div
+      {/* Chrome row — drag handle (desktop only; useless on touch) */}
+      {!isMobile && <div
         draggable
         onDragStart={(e) => {
           e.dataTransfer.effectAllowed = 'move';
@@ -512,7 +526,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
             ✕
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Tab strip (only for pane types with tabs) */}
       {row.type === 'document' && (
@@ -652,6 +666,26 @@ export default function WorkspaceLayout({
   const containerRef = useRef(null);
   const [dragging, setDragging] = useState(null); // { colId, rowId }
   const [over, setOver] = useState(null);
+  const [mobilePaneId, setMobilePaneId] = useState(null);
+  const prevPaneIdsRef = useRef(null);
+
+  // Flat ordered list of all panes for the mobile view.
+  const allPanes = columns.flatMap((col) => col.rows.map((row) => ({ col, row })));
+  const activeMobilePaneId = mobilePaneId ?? allPanes[0]?.row.id ?? null;
+
+  // Auto-switch to a newly added pane on mobile; clear stale ID when a pane is removed.
+  useEffect(() => {
+    const currentIds = new Set(columns.flatMap((col) => col.rows.map((r) => r.id)));
+    const prev = prevPaneIdsRef.current;
+    if (prev !== null) {
+      setMobilePaneId((cur) => {
+        if (cur && !currentIds.has(cur)) return null;
+        const newId = [...currentIds].find((id) => !prev.has(id));
+        return newId ?? cur;
+      });
+    }
+    prevPaneIdsRef.current = currentIds;
+  }, [columns]);
 
   const primaryBiblePaneId = (() => {
     for (const col of columns) {
@@ -740,7 +774,102 @@ export default function WorkspaceLayout({
   const lastCol = columns[columns.length - 1];
 
   return (
-    <div ref={containerRef} className="flex h-full min-h-0 overflow-hidden">
+    <div className="h-full min-h-0 overflow-hidden">
+
+      {/* ── Mobile layout: one pane at a time with a scrollable tab strip ── */}
+      {(() => {
+        const biblePaneId = allPanes.find(({ row }) => row.type === 'bible')?.row.id ?? null;
+        // On mobile, navigating a verse reference should also switch the visible pane
+        // to Bible so the user sees the result immediately.
+        const mobileShared = {
+          ...shared,
+          onNavigate: (ref) => {
+            shared.onNavigate(ref);
+            if (biblePaneId) setMobilePaneId(biblePaneId);
+          },
+        };
+        return (
+          <div className="relative flex h-full min-h-0 flex-col lg:hidden">
+            {/* Pane tab bar — shows all pane types; open ones are highlighted (tap to
+                switch), closed ones are dimmed (tap to open). Replaces the desktop
+                window-toggle icons which are hidden on mobile. */}
+            <div className="flex shrink-0 overflow-x-auto border-b border-rule bg-panel">
+              {MOBILE_TAB_TYPES.map((type) => {
+                const Icon = PANE_ICONS[type] ?? FileText;
+                const openPane = allPanes.find(({ row }) => row.type === type);
+                const isOpen = Boolean(openPane);
+                const isActive = openPane?.row.id === activeMobilePaneId;
+                return (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      if (isOpen) {
+                        setMobilePaneId(openPane.row.id);
+                      } else {
+                        const lastCol = columns[columns.length - 1];
+                        const lastRow = lastCol.rows[lastCol.rows.length - 1];
+                        layoutOps.splitPane(lastCol.id, lastRow.id, type);
+                        // mobilePaneId auto-updates via the columns useEffect
+                      }
+                    }}
+                    className={`flex shrink-0 flex-col items-center gap-0.5 px-4 py-2 text-xs transition-colors ${
+                      isActive ? 'border-b-2 border-brass text-brass'
+                      : isOpen  ? 'text-parchment hover:text-brass'
+                      :           'text-muted/50 hover:text-muted'
+                    }`}
+                    title={isOpen ? PANE_LABELS[type] : `Open ${PANE_LABELS[type]}`}
+                  >
+                    <Icon size={15} strokeWidth={2} />
+                    <span>{PANE_LABELS[type] ?? type}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Pane content — all mounted, CSS toggles visibility */}
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              {allPanes.map(({ col, row }) => (
+                <div key={row.id} className={`absolute inset-0 flex flex-col ${row.id === activeMobilePaneId ? '' : 'hidden'}`}>
+                  <PaneShell
+                    col={col} row={row} shared={mobileShared} layoutOps={layoutOps}
+                    primaryBiblePaneId={primaryBiblePaneId}
+                    isDragging={false} onDragStart={() => {}} onDragEnd={() => {}}
+                    isMobile
+                  />
+                </div>
+              ))}
+            </div>
+            {/* Strong's and verse drawers — rendered as bottom-sheet overlays on mobile
+                (suppressed inside PaneShell via isMobile so they don't clip) */}
+            {shared.strongsDrawer && (
+              <div className="absolute bottom-0 left-0 right-0 z-50 shadow-lg">
+                <StrongsDrawer
+                  strongsKey={shared.strongsDrawer.key}
+                  morph={shared.strongsDrawer.morph}
+                  wordText={shared.strongsDrawer.wordText}
+                  module={shared.strongsDrawer.module}
+                  onClose={() => shared.setStrongsDrawer(null)}
+                  onNavigateKey={(key) => shared.setStrongsDrawer((prev) => ({ ...prev, key, morph: undefined }))}
+                  onOpenInDictionary={shared.openStrongsInDictionary}
+                  onSearchTopical={shared.openTopicalSearch}
+                />
+              </div>
+            )}
+            {shared.verseDrawer && (
+              <div className="absolute bottom-0 left-0 right-0 z-50 shadow-lg">
+                <VerseDrawer
+                  osisRef={shared.verseDrawer.osisRef}
+                  module={shared.defaultBibleModule}
+                  onClose={() => shared.setVerseDrawer(null)}
+                  onOpenInTab={shared.openVerseTab}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Desktop layout: multi-column resizable panes ── */}
+      <div ref={containerRef} className="hidden h-full min-h-0 lg:flex overflow-hidden">
       {/* Left-edge column drop zone */}
       {isAnyDragging && (
         <ColDropZone
@@ -810,6 +939,8 @@ export default function WorkspaceLayout({
           </button>
         </div>
       )}
+      </div>{/* end desktop layout */}
+
     </div>
   );
 }
