@@ -29,7 +29,7 @@ COPY backend/ ./
 RUN npx prisma generate
 
 # --- Stage 3: runtime image ---
-FROM node:22-bookworm-slim AS runtime
+FROM node:22-bookworm AS runtime
 # Runtime needs libcurl for SWORD, and tesseract+poppler for PDF OCR
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-gnutls-dev \
