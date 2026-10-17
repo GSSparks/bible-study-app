@@ -113,20 +113,18 @@ export function useWorkspaceLayout() {
   }
 
   function splitPane(colId, rowId, type = 'crossrefs') {
-    let newPaneId = null;
+    const newPane = makePane(type);
     update((cols) =>
       cols.map((col) => {
         if (col.id !== colId) return col;
         const idx = col.rows.findIndex((r) => r.id === rowId);
         if (idx === -1) return col;
-        const newPane = makePane(type);
-        newPaneId = newPane.id;
         const rows = [...col.rows];
         rows.splice(idx + 1, 0, newPane);
         return { ...col, rows };
       })
     );
-    return newPaneId;
+    return newPane.id;
   }
 
   function setPaneType(colId, rowId, type) {
@@ -195,7 +193,7 @@ export function useWorkspaceLayout() {
   }
 
   function addTab(colId, rowId, module, title, initialReference = null) {
-    let newId = null;
+    const tab = { ...makeTab(module, title), reference: initialReference };
     update((cols) =>
       cols.map((col) =>
         col.id !== colId
@@ -204,14 +202,12 @@ export function useWorkspaceLayout() {
               ...col,
               rows: col.rows.map((row) => {
                 if (row.id !== rowId) return row;
-                const tab = { ...makeTab(module, title), reference: initialReference };
-                newId = tab.id;
                 return { ...row, tabs: [...row.tabs, tab], activeTabId: tab.id };
               }),
             }
       )
     );
-    return newId;
+    return tab.id;
   }
 
   function removeTab(colId, rowId, tabId) {
