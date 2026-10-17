@@ -17,14 +17,12 @@ services:
       MERRIAM_WEBSTER_API_KEY: ${MERRIAM_WEBSTER_API_KEY:-}
       SESSION_SECRET: ${SESSION_SECRET:-}
       BIBLE_MAPS_PATH: /data/bible-maps
-      BIBLE_MAPS_CACHE_PATH: /data/bible-maps-cache
     volumes:
       - sword_modules:/data/sword-modules
       - md_modules:/data/md-modules
       - pdf_storage:/data/pdfs
       - ./uploads:/data/uploads
-      - ./bible-images:/data/bible-maps
-      - bible_maps_cache:/data/bible-maps-cache
+      - ./biblicaopenbiblemaps:/data/bible-maps:ro
     depends_on:
       db:
         condition: service_healthy
@@ -50,4 +48,3 @@ volumes:
   md_modules:
   pdf_storage:
   pg_data:
-  bible_maps_cache:

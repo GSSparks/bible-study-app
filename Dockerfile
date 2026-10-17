@@ -38,10 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr-eng \
     poppler-utils \
     antiword \
-    imagemagick \
-    ghostscript \
-    && rm -rf /var/lib/apt/lists/* \
-    && sed -i '/pattern="PDF"/s/rights="none"/rights="read|write"/' /etc/ImageMagick-6/policy.xml
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=backend-build /app/backend ./

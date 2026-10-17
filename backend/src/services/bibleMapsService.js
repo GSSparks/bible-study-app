@@ -1,116 +1,88 @@
 import fs from 'node:fs/promises';
 import { createReadStream, existsSync } from 'node:fs';
 import path from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { toOsis } from './referenceParser.js';
 
-const execFileAsync = promisify(execFile);
+const MAPS_PATH  = process.env.BIBLE_MAPS_PATH || '/data/bible-maps';
+const JSON_DIR   = path.join(MAPS_PATH, 'eng', 'json');
+const IMAGES_DIR = path.join(MAPS_PATH, 'eng', 'json', 'images');
 
-const MAPS_PATH = process.env.BIBLE_MAPS_PATH || '/data/bible-maps';
-const CACHE_PATH = process.env.BIBLE_MAPS_CACHE_PATH || path.join(MAPS_PATH, 'cache');
+// ── Numeric book-code (BBCCCVVV) → OSIS book abbreviation ─────────────────────
 
-// ── Book name normalisation ───────────────────────────────────────────────────
+const BOOK_NUM_TO_OSIS = [
+  null,                                                          // 0
+  'Gen',  'Exod', 'Lev',    'Num',    'Deut',                  // 1–5
+  'Josh', 'Judg', 'Ruth',   '1Sam',   '2Sam',                  // 6–10
+  '1Kgs', '2Kgs', '1Chr',   '2Chr',   'Ezra',                  // 11–15
+  'Neh',  'Esth', 'Job',    'Ps',     'Prov',                  // 16–20
+  'Eccl', 'Song', 'Isa',    'Jer',    'Lam',                   // 21–25
+  'Ezek', 'Dan',  'Hos',    'Joel',   'Amos',                  // 26–30
+  'Obad', 'Jonah','Mic',    'Nah',    'Hab',                   // 31–35
+  'Zeph', 'Hag',  'Zech',   'Mal',                             // 36–39
+  'Matt', 'Mark', 'Luke',   'John',   'Acts',                  // 40–44
+  'Rom',  '1Cor', '2Cor',   'Gal',    'Eph',                   // 45–49
+  'Phil', 'Col',  '1Thess', '2Thess', '1Tim',                  // 50–54
+  '2Tim', 'Titus','Phlm',   'Heb',    'Jas',                   // 55–59
+  '1Pet', '2Pet', '1John',  '2John',  '3John',                 // 60–64
+  'Jude', 'Rev',                                                // 65–66
+];
 
-const FULL_TO_OSIS = {
-  genesis: 'Gen', exodus: 'Exod', leviticus: 'Lev', numbers: 'Num',
-  deuteronomy: 'Deut', joshua: 'Josh', judges: 'Judg', ruth: 'Ruth',
-  '1samuel': '1Sam', '2samuel': '2Sam', '1kings': '1Kgs', '2kings': '2Kgs',
-  '1chronicles': '1Chr', '2chronicles': '2Chr', ezra: 'Ezra', nehemiah: 'Neh',
-  esther: 'Esth', job: 'Job', psalms: 'Ps', psalm: 'Ps', proverbs: 'Prov',
-  ecclesiastes: 'Eccl', qoheleth: 'Eccl', songofsolomon: 'Song', songofsongs: 'Song',
-  isaiah: 'Isa', jeremiah: 'Jer', lamentations: 'Lam', ezekiel: 'Ezek',
-  daniel: 'Dan', hosea: 'Hos', joel: 'Joel', amos: 'Amos', obadiah: 'Obad',
-  jonah: 'Jonah', micah: 'Mic', nahum: 'Nah', habakkuk: 'Hab',
-  zephaniah: 'Zeph', haggai: 'Hag', zechariah: 'Zech', malachi: 'Mal',
-  matthew: 'Matt', mark: 'Mark', luke: 'Luke', john: 'John', acts: 'Acts',
-  romans: 'Rom', '1corinthians': '1Cor', '2corinthians': '2Cor',
-  galatians: 'Gal', ephesians: 'Eph', philippians: 'Phil', colossians: 'Col',
-  '1thessalonians': '1Thess', '2thessalonians': '2Thess',
-  '1timothy': '1Tim', '2timothy': '2Tim', titus: 'Titus', philemon: 'Phlm',
-  hebrews: 'Heb', james: 'Jas', '1peter': '1Pet', '2peter': '2Pet',
-  '1john': '1John', '2john': '2John', '3john': '3John', jude: 'Jude',
-  revelation: 'Rev', revelations: 'Rev',
-};
-
-// ── Reference parsing ─────────────────────────────────────────────────────────
-
-function parseRefString(str) {
-  if (!str) return null;
-  const osis = toOsis(str);
-  if (!osis) return null;
-  const first = osis.split(',')[0];
-  const start = first.split('-')[0];
-  const end = first.includes('-') ? first.split('-')[1] : start;
-  const sParts = start.split('.');
-  const eParts = end.split('.');
-  if (!sParts[0]) return null;
-  return {
-    osisBook: sParts[0],
-    chapter: sParts[1] ? parseInt(sParts[1]) : null,
-    verseStart: sParts[2] ? parseInt(sParts[2]) : null,
-    verseEnd: eParts[2] ? parseInt(eParts[2]) : null,
-  };
+function parseNumericRef(ref8) {
+  if (!ref8 || ref8.length < 8) return null;
+  const bookNum  = parseInt(ref8.slice(0, 2), 10);
+  const chapter  = parseInt(ref8.slice(2, 5), 10);
+  const verse    = parseInt(ref8.slice(5, 8), 10);
+  const osisBook = BOOK_NUM_TO_OSIS[bookNum];
+  if (!osisBook || !chapter) return null;
+  return { osisBook, chapter, verse };
 }
 
-// ── Index normalisation ───────────────────────────────────────────────────────
-
-// Internal entry shape: { id, filename, title, refs[] }
-// filename is needed to locate the PDF for on-demand conversion.
-
-function normaliseEntry(raw) {
-  // Rich object from maps-index.json: { id, title, references[], filename? }
-  if (raw && typeof raw === 'object' && raw.id) {
-    const refs = (raw.references ?? []).map(s => parseRefString(s)).filter(Boolean);
-    return {
-      id: String(raw.id),
-      filename: raw.filename ?? null,
-      title: raw.title ?? '',
-      refs,
-    };
-  }
-
-  // Plain filename string (from directory scan): "Exodus 12:29-41-1030.pdf"
-  if (typeof raw === 'string') {
-    const filename = path.basename(raw);
-    const base = path.basename(raw, '.pdf');
-    const idMatch = base.match(/-(\d+)$/);
-    if (!idMatch) return null;
-    const id = idMatch[1];
-    const title = base.slice(0, base.lastIndexOf(`-${id}`)).trim();
-    // Try parsing comma-separated references from the title
-    const refs = title.split(',').map(s => parseRefString(s.trim())).filter(Boolean);
-    return { id, filename, title, refs };
-  }
-
-  return null;
-}
+// ── Index ─────────────────────────────────────────────────────────────────────
 
 let index = null;
 
 async function buildIndex() {
-  // Prefer maps-index.json (generated by scripts/build-maps-index.mjs)
-  const jsonPath = path.join(MAPS_PATH, 'maps-index.json');
+  let files;
   try {
-    const raw = JSON.parse(await fs.readFile(jsonPath, 'utf8'));
-    if (Array.isArray(raw)) {
-      index = raw.map(normaliseEntry).filter(Boolean);
-      return index;
-    }
-  } catch { /* fall through */ }
-
-  // Fall back to scanning for PDFs on disk
-  try {
-    const files = await fs.readdir(MAPS_PATH);
-    index = files.filter(f => /\.pdf$/i.test(f)).map(f => normaliseEntry(f)).filter(Boolean);
+    files = await fs.readdir(JSON_DIR);
   } catch {
     index = [];
+    return index;
   }
+
+  const contentFiles = files.filter(f => /^\d+\.content\.json$/.test(f));
+
+  const entries = await Promise.all(contentFiles.map(async (file) => {
+    try {
+      const raw  = JSON.parse(await fs.readFile(path.join(JSON_DIR, file), 'utf8'));
+      const item = Array.isArray(raw) ? raw[0] : raw;
+      if (!item?.content_id) return null;
+
+      const refs = (item.associations?.passage ?? []).map((p) => {
+        const start = parseNumericRef(p.start_ref);
+        const end   = parseNumericRef(p.end_ref);
+        if (!start) return null;
+        const sameBook = end?.osisBook === start.osisBook;
+        return {
+          osisBook:     start.osisBook,
+          startChapter: start.chapter,
+          startVerse:   start.verse,
+          endChapter:   sameBook ? end.chapter : start.chapter,
+          endVerse:     sameBook ? end.verse   : start.verse,
+        };
+      }).filter(Boolean);
+
+      return { id: item.content_id, title: item.title ?? '', refs };
+    } catch {
+      return null;
+    }
+  }));
+
+  index = entries.filter(Boolean);
   return index;
 }
 
 export function invalidateIndex() { index = null; }
-
 async function getIndex() { return index ?? buildIndex(); }
 
 // ── Reference matching ────────────────────────────────────────────────────────
@@ -120,21 +92,34 @@ function parseQueryRef(humanRef) {
   if (!osis) return null;
   const first = osis.split(',')[0].split('-')[0];
   const parts = first.split('.');
+  if (!parts[0]) return null;
   return {
     osisBook: parts[0],
-    chapter: parts[1] ? parseInt(parts[1]) : null,
-    verse: parts[2] ? parseInt(parts[2]) : null,
+    chapter:  parts[1] ? parseInt(parts[1]) : null,
+    verse:    parts[2] ? parseInt(parts[2]) : null,
   };
 }
 
 function refMatches(mapRef, query) {
   if (mapRef.osisBook !== query.osisBook) return false;
-  if (mapRef.chapter == null) return true; // whole-book map
-  if (query.chapter == null || mapRef.chapter !== query.chapter) return false;
-  if (mapRef.verseStart == null) return true; // whole-chapter map
-  if (query.verse == null) return true;
-  return mapRef.verseStart <= query.verse && (mapRef.verseEnd ?? 999) >= query.verse;
+  if (mapRef.startChapter == null) return true; // whole-book map
+
+  if (query.chapter == null) return true; // book-level query
+
+  const endCh = mapRef.endChapter ?? mapRef.startChapter;
+  if (query.chapter < mapRef.startChapter || query.chapter > endCh) return false;
+
+  if (query.verse == null) return true; // chapter-level query is within range
+
+  if (query.chapter === mapRef.startChapter && query.chapter === endCh) {
+    return query.verse >= (mapRef.startVerse ?? 1) && query.verse <= (mapRef.endVerse ?? 999);
+  }
+  if (query.chapter === mapRef.startChapter) return query.verse >= (mapRef.startVerse ?? 1);
+  if (query.chapter === endCh)               return query.verse <= (mapRef.endVerse ?? 999);
+  return true; // chapter strictly between start and end chapters
 }
+
+// ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getAllMaps() {
   return getIndex();
@@ -147,38 +132,19 @@ export async function findMapsForReference(humanRef) {
   return maps.filter(m => m.refs.some(r => refMatches(r, query)));
 }
 
-// ── API response shape ────────────────────────────────────────────────────────
-
 export function toApiShape(entry) {
   return {
-    id: entry.id,
-    title: entry.title,
-    filename: entry.filename,
-    imageUrl: entry.filename ? `/api/bible-maps/image/${encodeURIComponent(entry.filename)}` : null,
+    id:       entry.id,
+    title:    entry.title,
+    imageUrl: `/api/bible-maps/image/${entry.id}.png`,
   };
 }
 
-// ── PDF → PNG conversion (on-demand, cached) ──────────────────────────────────
+// ── Image serving ─────────────────────────────────────────────────────────────
 
-export async function convertToImage(filename) {
-  const pdfPath = path.join(MAPS_PATH, filename);
-  const cacheName = filename.replace(/\.pdf$/i, '.png');
-  const imgPath = path.join(CACHE_PATH, cacheName);
-  if (existsSync(imgPath)) return imgPath;
-  await fs.mkdir(CACHE_PATH, { recursive: true });
-  try {
-    await execFileAsync('convert', ['-density', '150', '-quality', '90', `${pdfPath}[0]`, imgPath]);
-  } catch {
-    await execFileAsync('gs', [
-      '-dNOPAUSE', '-dBATCH', '-dFirstPage=1', '-dLastPage=1',
-      '-sDEVICE=png16m', '-r150', `-sOutputFile=${imgPath}`, pdfPath,
-    ]);
-  }
-  return imgPath;
-}
-
-export function streamCachedImage(filename, res) {
-  const imgPath = path.join(CACHE_PATH, filename.replace(/\.pdf$/i, '.png'));
+export function streamImage(filename, res) {
+  if (!/^(NT|OT)\d+\.png$/i.test(filename)) return false;
+  const imgPath = path.join(IMAGES_DIR, filename);
   if (!existsSync(imgPath)) return false;
   res.setHeader('Content-Type', 'image/png');
   res.setHeader('Cache-Control', 'public, max-age=604800');

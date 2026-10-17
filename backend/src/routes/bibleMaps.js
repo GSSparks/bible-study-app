@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAllMaps, findMapsForReference, convertToImage, streamCachedImage, invalidateIndex, toApiShape } from '../services/bibleMapsService.js';
+import { getAllMaps, findMapsForReference, streamImage, invalidateIndex, toApiShape } from '../services/bibleMapsService.js';
 
 export const bibleMapsRouter = Router();
 
@@ -25,24 +25,15 @@ bibleMapsRouter.get('/for-reference', async (req, res, next) => {
   }
 });
 
-// GET /api/bible-maps/image/:filename — serve locally-converted PNG (fallback for self-hosted PDFs)
-bibleMapsRouter.get('/image/:filename', async (req, res, next) => {
-  try {
-    const filename = decodeURIComponent(req.params.filename);
-    if (/[/\\]/.test(filename) || !filename.toLowerCase().endsWith('.pdf')) {
-      return res.status(400).end();
-    }
-    if (streamCachedImage(filename, res)) return;
-    await convertToImage(filename);
-    if (!streamCachedImage(filename, res)) {
-      res.status(404).json({ error: 'Map image not available. Ensure ImageMagick or Ghostscript is installed.' });
-    }
-  } catch (err) {
-    next(err);
+// GET /api/bible-maps/image/:filename — serve PNG from submodule
+bibleMapsRouter.get('/image/:filename', (req, res) => {
+  const filename = req.params.filename;
+  if (!streamImage(filename, res)) {
+    res.status(404).json({ error: 'Map image not found.' });
   }
 });
 
-// POST /api/bible-maps/reindex — rebuild in-memory index after adding new files
+// POST /api/bible-maps/reindex — rebuild in-memory index
 bibleMapsRouter.post('/reindex', (_req, res) => {
   invalidateIndex();
   res.json({ ok: true });

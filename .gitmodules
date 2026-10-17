@@ -1,0 +1,3 @@
+[submodule "biblicaopenbiblemaps"]
+	path = biblicaopenbiblemaps
+	url = git@github.com:BibleAquifer/BiblicaOpenBibleMaps.git
