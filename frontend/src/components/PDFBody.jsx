@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
-import { Bookmark, BookOpen, ChevronLeft, ChevronRight, ExternalLink, Minus, Pencil, Plus, ScanText, Search, StickyNote, Trash2, X } from 'lucide-react';
+import { Bookmark, BookMarked, BookOpen, ChevronLeft, ChevronRight, ExternalLink, Maximize2, Minus, Pencil, Plus, ScanText, Search, StickyNote, Trash2, X } from 'lucide-react';
 import { BOOK_HIGHLIGHT_COLORS } from '../utils/bookHtml.js';
 import { detectBibleRefs } from '../utils/bibleRefDetect.js';
 import { api } from '../api/client.js';
@@ -117,6 +117,10 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
   const [scale, setScale] = useState(1.2);
   const [pageRefs, setPageRefs] = useState([]);
   const [loadError, setLoadError] = useState(null);
+  const [showRefPanel, setShowRefPanel] = useState(false);
+  const [nativePageWidth, setNativePageWidth] = useState(null);
+  const scaleRef = useRef(1.2);
+  const scrollAreaRef = useRef(null);
 
   // TOC
   const [tocItems, setTocItems] = useState([]);
@@ -165,6 +169,50 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [numPages]);
+
+  // Keep scaleRef in sync for pinch handler closure
+  useEffect(() => { scaleRef.current = scale; }, [scale]);
+
+  // ── Pinch-to-zoom ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    let startDist = null;
+    let startScale = 1;
+
+    function pinchDist(touches) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.hypot(dx, dy);
+    }
+
+    function onTouchStart(e) {
+      if (e.touches.length === 2) {
+        startDist = pinchDist(e.touches);
+        startScale = scaleRef.current;
+      }
+    }
+
+    function onTouchMove(e) {
+      if (e.touches.length !== 2 || startDist === null) return;
+      e.preventDefault();
+      const newScale = Math.min(3, Math.max(0.5, +(startScale * pinchDist(e.touches) / startDist).toFixed(2)));
+      setScale(newScale);
+    }
+
+    function onTouchEnd(e) {
+      if (e.touches.length < 2) startDist = null;
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
 
   // ── Load highlights ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -233,15 +281,20 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
   // ── PDF document load ──────────────────────────────────────────────────────
   function onDocumentLoadSuccess(pdfDoc) {
     pdfDocRef.current = pdfDoc;
-    pageTextsRef.current = null; // invalidate search index for new document
+    pageTextsRef.current = null;
     setNumPages(pdfDoc.numPages);
     setLoadError(null);
     setPageNumber(1);
+    setNativePageWidth(null);
     setSearchQuery('');
     setSearchResults([]);
     pdfDoc.getOutline()
       .then((outline) => setTocItems(outline ?? []))
       .catch(() => setTocItems([]));
+  }
+
+  function onPageRenderSuccess({ width }) {
+    setNativePageWidth((prev) => prev ?? Math.round(width / scaleRef.current));
   }
 
   const onGetTextSuccess = useCallback(({ items }) => {
@@ -265,6 +318,12 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
   function nextPage() { setPageNumber((p) => Math.min(numPages ?? p, p + 1)); setPageRefs([]); }
   function zoomIn()   { setScale((s) => Math.min(3, +(s + 0.2).toFixed(1))); }
   function zoomOut()  { setScale((s) => Math.max(0.5, +(s - 0.2).toFixed(1))); }
+  function fitWidth() {
+    const el = scrollAreaRef.current;
+    if (!el || !nativePageWidth) return;
+    const availW = el.clientWidth - 32;
+    setScale(Math.min(3, Math.max(0.5, +(availW / nativePageWidth).toFixed(2))));
+  }
 
   // ── Annotation handlers ────────────────────────────────────────────────────
   function handleMouseUp(e) {
@@ -481,7 +540,7 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 
         {/* Toolbar */}
-        <div className="flex shrink-0 items-center gap-2 border-b border-pageBorder bg-page/80 px-4 py-2">
+        <div className="flex shrink-0 items-center gap-1 border-b border-pageBorder bg-page/80 px-2 py-2 lg:gap-2 lg:px-4">
           <button onClick={prevPage} disabled={pageNumber <= 1}
             className="rounded p-1 text-pageMuted hover:text-pageText disabled:opacity-30">
             <ChevronLeft size={16} />
@@ -494,40 +553,45 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
             <ChevronRight size={16} />
           </button>
 
-          <div className="mx-2 h-4 w-px bg-pageBorder" />
+          <div className="mx-0.5 h-4 w-px bg-pageBorder lg:mx-2" />
 
           <button onClick={zoomOut} disabled={scale <= 0.5}
             className="rounded p-1 text-pageMuted hover:text-pageText disabled:opacity-30">
             <Minus size={14} />
           </button>
-          <span className="w-10 text-center font-mono text-xs text-pageMuted">{Math.round(scale * 100)}%</span>
+          <span className="w-9 text-center font-mono text-xs text-pageMuted lg:w-10">{Math.round(scale * 100)}%</span>
           <button onClick={zoomIn} disabled={scale >= 3}
             className="rounded p-1 text-pageMuted hover:text-pageText disabled:opacity-30">
             <Plus size={14} />
           </button>
+          <button onClick={fitWidth} disabled={!nativePageWidth} title="Fit width"
+            className="rounded p-1 text-pageMuted hover:text-pageText disabled:opacity-30">
+            <Maximize2 size={13} />
+          </button>
 
           {tocItems.length > 0 && (
             <>
-              <div className="mx-2 h-4 w-px bg-pageBorder" />
+              <div className="mx-0.5 h-4 w-px bg-pageBorder lg:mx-2" />
               <button
                 onClick={() => { setShowToc((v) => !v); setShowBookmarks(false); }}
-                className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs transition-colors ${
+                className={`flex items-center gap-1.5 rounded border px-2 py-1 text-xs transition-colors lg:px-2.5 ${
                   showToc
                     ? 'border-pageAccent bg-pageAccent/10 text-pageAccent'
                     : 'border-pageBorder text-pageMuted hover:border-pageAccent hover:text-pageText'
                 }`}
               >
-                <BookOpen size={12} /> Contents
+                <BookOpen size={12} />
+                <span className="hidden sm:inline">Contents</span>
               </button>
             </>
           )}
 
           {isLoggedIn && (
             <>
-              <div className="mx-2 h-4 w-px bg-pageBorder" />
+              <div className="mx-0.5 h-4 w-px bg-pageBorder lg:mx-2" />
               <button
                 onClick={() => { setShowBookmarks((v) => !v); setShowToc(false); }}
-                className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs transition-colors ${
+                className={`flex items-center gap-1.5 rounded border px-2 py-1 text-xs transition-colors lg:px-2.5 ${
                   showBookmarks
                     ? 'border-pageAccent bg-pageAccent/10 text-pageAccent'
                     : currentPageBookmark
@@ -536,9 +600,9 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
                 }`}
               >
                 <Bookmark size={12} className={currentPageBookmark ? 'fill-pageAccent' : ''} />
-                Bookmarks
+                <span className="hidden sm:inline">Bookmarks</span>
                 {docBookmarks.length > 0 && (
-                  <span className="ml-0.5 rounded-full bg-pageAccent/20 px-1.5 py-px text-[10px] text-pageAccent">
+                  <span className="hidden rounded-full bg-pageAccent/20 px-1.5 py-px text-[10px] text-pageAccent sm:inline">
                     {docBookmarks.length}
                   </span>
                 )}
@@ -548,6 +612,22 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
 
           <div className="flex-1" />
 
+          {/* Refs panel toggle — mobile only */}
+          <button
+            onClick={() => setShowRefPanel((v) => !v)}
+            title="Bible references on this page"
+            className={`flex items-center gap-1 rounded border px-2 py-1 text-xs transition-colors lg:hidden ${
+              showRefPanel
+                ? 'border-pageAccent bg-pageAccent/10 text-pageAccent'
+                : 'border-pageBorder text-pageMuted hover:border-pageAccent hover:text-pageText'
+            }`}
+          >
+            <BookMarked size={12} />
+            {pageRefs.length > 0 && (
+              <span className="font-mono text-[10px]">{pageRefs.length}</span>
+            )}
+          </button>
+
           <button
             onClick={() => {
               setShowSearch((v) => {
@@ -555,17 +635,18 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
                 return !v;
               });
             }}
-            className={`flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs transition-colors ${
+            className={`flex items-center gap-1.5 rounded border px-2 py-1 text-xs transition-colors lg:px-2.5 ${
               showSearch
                 ? 'border-pageAccent bg-pageAccent/10 text-pageAccent'
                 : 'border-pageBorder text-pageMuted hover:border-pageAccent hover:text-pageText'
             }`}
           >
-            <Search size={12} /> Search
+            <Search size={12} />
+            <span className="hidden sm:inline">Search</span>
           </button>
 
           <a href={fileUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded border border-pageBorder px-2.5 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText">
+            className="hidden items-center gap-1.5 rounded border border-pageBorder px-2.5 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText lg:flex">
             <ExternalLink size={12} /> Open file
           </a>
         </div>
@@ -715,6 +796,7 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
 
         {/* Page canvas */}
         <div
+          ref={scrollAreaRef}
           className="min-h-0 flex-1 select-text overflow-auto bg-[#525659] p-4"
           onMouseUp={handleMouseUp}
         >
@@ -740,6 +822,7 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
                     renderTextLayer={true}
                     renderAnnotationLayer={false}
                     onGetTextSuccess={onGetTextSuccess}
+                    onRenderSuccess={onPageRenderSuccess}
                     className="bg-white"
                   />
                 </Document>
@@ -750,7 +833,7 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
       </div>
 
       {/* ── Reference sidebar ── */}
-      <aside className="flex w-52 shrink-0 flex-col border-l border-pageBorder bg-page">
+      <aside className={`w-52 shrink-0 flex-col border-l border-pageBorder bg-page ${showRefPanel ? 'flex' : 'hidden'} lg:flex`}>
         <div className="shrink-0 border-b border-pageBorder px-3 py-2.5">
           <p className="font-ui text-[10px] font-semibold uppercase tracking-widest text-pageMuted">
             Passages on page {pageNumber}
