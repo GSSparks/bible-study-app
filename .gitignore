@@ -5,3 +5,4 @@ dist/
 backend/public/
 images/
 .claude-account
+.claude/
