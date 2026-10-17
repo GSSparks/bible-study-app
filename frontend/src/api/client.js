@@ -296,4 +296,8 @@ export const api = {
 
   importStudy: (scriptoriumId, data) =>
     request('/studies/import', { method: 'POST', body: JSON.stringify({ scriptoriumId, data }) }),
+
+  getAllMaps: () => request('/bible-maps/all'),
+  getMapsForReference: (ref) =>
+    request(`/bible-maps/for-reference?ref=${encodeURIComponent(ref)}`),
 };

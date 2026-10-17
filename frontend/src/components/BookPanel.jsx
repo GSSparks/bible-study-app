@@ -21,9 +21,9 @@ export default function BookPanel({ open, onClose, bookReader, onBookChange, onO
 
   return (
     <>
-      {/* Mobile/overlay backdrop */}
+      {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 lg:hidden ${
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         onClick={onClose}
@@ -31,7 +31,7 @@ export default function BookPanel({ open, onClose, bookReader, onBookChange, onO
 
       {/* Panel — always mounted so scroll state persists */}
       <div
-        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-rule bg-page shadow-2xl transition-transform duration-300 ease-in-out sm:w-[660px] ${
+        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-rule bg-page shadow-2xl transition-transform duration-300 ease-in-out sm:w-[600px] ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

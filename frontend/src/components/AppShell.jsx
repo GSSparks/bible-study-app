@@ -75,6 +75,7 @@ export default function AppShell({ auth }) {
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [biblePanelOpen, setBiblePanelOpen] = useState(false);
   const [pendingBiblePanel, setPendingBiblePanel] = useState(null);
+  const [currentBibleRef, setCurrentBibleRef] = useState(null);
   // 'My Scriptorium' as the initial value matches the backend's own
   // default, so there's no flash of a different placeholder before the
   // real fetch resolves.
@@ -182,6 +183,7 @@ export default function AppShell({ auth }) {
   }
 
   function openMapForRef(ref) {
+    if (ref) setCurrentBibleRef(ref);
     const match = findJourneyForRef(ref);
     setPendingMapContext(match ? { ...match, nonce: Date.now() } : { nonce: Date.now() });
     setMapPanelOpen(true);
@@ -392,6 +394,7 @@ export default function AppShell({ auth }) {
             onAiDocumentConsumed={() => setPendingAiDocument(null)}
             onOpenCodex={openCodex}
             onOpenMap={openMapForRef}
+            onFocusedReferenceChange={setCurrentBibleRef}
           />
         </div>
         <div className={activeView === 'codex' ? 'h-full' : 'hidden'}>
@@ -473,6 +476,7 @@ export default function AppShell({ auth }) {
         open={mapPanelOpen}
         onClose={() => setMapPanelOpen(false)}
         pendingMapContext={pendingMapContext}
+        passageRef={currentBibleRef}
         onOpenInCell={(ref) => { openInPassages(null, ref); setMapPanelOpen(false); }}
         onOpenInCodex={(term) => { openCodex(term); setMapPanelOpen(false); }}
         onOpenInMapView={() => navigate('map')}
@@ -483,6 +487,7 @@ export default function AppShell({ auth }) {
         pendingOpen={pendingBiblePanel}
         onPendingConsumed={() => setPendingBiblePanel(null)}
         defaultBibleModule={defaultBibleModule}
+        onReferenceChange={setCurrentBibleRef}
       />
       <BookPanel
         open={bookPanelOpen}

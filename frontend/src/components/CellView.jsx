@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, MapPin, Search } from 'lucide-react';
+import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search } from 'lucide-react';
 import SearchBar from './SearchBar.jsx';
 import WorkspaceLayout from './WorkspaceLayout.jsx';
 import { api } from '../api/client.js';
@@ -30,6 +30,7 @@ export default function CellView({
   onAiDocumentConsumed,
   onOpenCodex,
   onOpenMap,
+  onFocusedReferenceChange,
 }) {
   const cellInit = useRef(null);
   if (cellInit.current === null) {
@@ -88,12 +89,13 @@ export default function CellView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingBibleOpen?.nonce]);
 
-  // Persist navigation state
+  // Persist navigation state and broadcast reference to other panels
   useEffect(() => {
     try {
       localStorage.setItem('cell-reference', focusedReference);
       localStorage.setItem('cell-nav-history', JSON.stringify(navHistory));
     } catch {}
+    onFocusedReferenceChange?.(focusedReference);
   }, [focusedReference, navHistory]);
 
   // Find or create a Passage Guide pane, then set the pending request
@@ -312,6 +314,7 @@ export default function CellView({
     dictionaryRefreshNonce,
     onPersonalCommentarySaved: () => setCommentaryRefreshNonce((n) => n + 1),
     onPersonalDictionarySaved: () => setDictionaryRefreshNonce((n) => n + 1),
+    onOpenMap,
   };
 
   return (
@@ -362,15 +365,6 @@ export default function CellView({
               </button>
             );
           })}
-          {onOpenMap && (
-            <button
-              onClick={() => onOpenMap(focusedReference)}
-              title="Show on Map (Ctrl+M)"
-              className="rounded p-1.5 text-muted transition-colors hover:text-parchment"
-            >
-              <MapPin size={16} strokeWidth={2} />
-            </button>
-          )}
         </div>
       </div>
 

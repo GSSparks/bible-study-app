@@ -1,4 +1,6 @@
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { MapPin } from 'lucide-react';
+import { api } from '../api/client.js';
 import { PANE_TYPES } from '../hooks/useWorkspaceLayout.js';
 import { abbreviateTitle } from '../utils/abbreviateTitle.js';
 import ReaderPane from './ReaderPane.jsx';
@@ -93,6 +95,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
     dictionaryRefreshNonce,
     onPersonalCommentarySaved,
     onPersonalDictionarySaved,
+    onOpenMap,
   } = shared;
 
   const { removePane, splitPane, addTab, removeTab, setActiveTab, swapTabModule,
@@ -103,6 +106,16 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
   const paneRef = row.type === 'bible'
     ? (activeTab?.reference ?? focusedReference)
     : focusedReference;
+
+  const [hasMaps, setHasMaps] = useState(false);
+  useEffect(() => {
+    if (row.type !== 'bible' || !paneRef) { setHasMaps(false); return; }
+    let cancelled = false;
+    api.getMapsForReference(paneRef)
+      .then((maps) => { if (!cancelled) setHasMaps(maps.length > 0); })
+      .catch(() => { if (!cancelled) setHasMaps(false); });
+    return () => { cancelled = true; };
+  }, [paneRef, row.type]);
 
   function handleBibleNavigate(ref) {
     if (activeTab) setBibleTabReference(col.id, row.id, activeTab.id, ref);
@@ -180,6 +193,15 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
             {activeTab && (
               <div className="flex shrink-0 items-center border-b border-rule bg-panel px-3 py-1.5">
                 <RefNav reference={paneRef} onNavigate={handleBibleNavigate} />
+                {hasMaps && (
+                  <button
+                    onClick={() => onOpenMap?.(paneRef)}
+                    title="Map available for this passage"
+                    className="ml-2 shrink-0 text-verdigris opacity-80 hover:opacity-100"
+                  >
+                    <MapPin size={13} strokeWidth={2} />
+                  </button>
+                )}
                 <div className="flex-1" />
                 <ModulePicker
                   kind="bible"

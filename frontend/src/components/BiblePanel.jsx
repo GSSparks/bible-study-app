@@ -8,7 +8,7 @@ import VerseDrawer from './VerseDrawer.jsx';
 import { useTabbedWindow } from '../hooks/useTabbedWindow.js';
 import { api } from '../api/client.js';
 
-export default function BiblePanel({ open, onClose, pendingOpen, onPendingConsumed, defaultBibleModule }) {
+export default function BiblePanel({ open, onClose, pendingOpen, onPendingConsumed, defaultBibleModule, onReferenceChange }) {
   const [reference, setReference] = useState('John 3:16');
   const [navHistory, setNavHistory] = useState({ entries: ['John 3:16'], index: 0 });
   const bible = useTabbedWindow([{ id: 'panel-0', module: '', title: 'Bible' }]);
@@ -40,6 +40,7 @@ export default function BiblePanel({ open, onClose, pendingOpen, onPendingConsum
   function navigateTo(ref) {
     if (ref === reference) return;
     setReference(ref);
+    onReferenceChange?.(ref);
     setNavHistory((prev) => {
       const truncated = prev.entries.slice(0, prev.index + 1);
       return { entries: [...truncated, ref], index: truncated.length };
@@ -62,15 +63,15 @@ export default function BiblePanel({ open, onClose, pendingOpen, onPendingConsum
 
   return (
     <>
-      {/* Mobile backdrop — only on small screens */}
+      {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 lg:hidden ${open ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-300 ${open ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
         onClick={onClose}
       />
 
       {/* Panel — always mounted so tab/scroll state persists */}
       <div
-        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-pageBorder bg-page shadow-2xl transition-transform duration-300 ease-in-out sm:w-[500px] ${
+        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-pageBorder bg-page shadow-2xl transition-transform duration-300 ease-in-out sm:w-[600px] ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
