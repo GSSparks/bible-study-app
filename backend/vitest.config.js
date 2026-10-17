@@ -8,6 +8,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    fileParallelism: false,
     setupFiles: ['./tests/setup.js'],
     alias: {
       'node-sword-interface': resolve(__dirname, './__mocks__/node-sword-interface.js'),

@@ -4,6 +4,7 @@ process.env.SESSION_SECRET = 'test-session-secret-ci';
 process.env.NODE_ENV = 'test';
 
 import { PrismaClient } from '@prisma/client';
+import { resetBootstrapCache } from '../src/middleware/auth.js';
 
 const prisma = new PrismaClient();
 
@@ -51,6 +52,7 @@ export async function cleanDb() {
 }
 
 afterEach(async () => {
+  resetBootstrapCache();
   await cleanDb();
 });
 

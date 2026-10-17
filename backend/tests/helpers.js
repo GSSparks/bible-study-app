@@ -25,6 +25,12 @@ export async function bootstrapTestAdmin(agent) {
   const res = await agent
     .post('/api/auth/bootstrap')
     .send({ username: 'admin', password: 'adminpass123' });
+  if (res.status === 409) {
+    // Already bootstrapped (stale cache) — just log in instead.
+    await loginAs(agent, 'admin', 'adminpass123');
+    const me = await agent.get('/api/auth/me');
+    return me.body.user;
+  }
   if (res.status !== 200) {
     throw new Error(`Bootstrap failed: ${res.status} ${JSON.stringify(res.body)}`);
   }

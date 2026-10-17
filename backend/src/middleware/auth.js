@@ -55,6 +55,10 @@ export function requireAdmin(req, res, next) {
  *  single request and just short-circuits from then on. */
 let bootstrapCompletedCache = false;
 
+export function resetBootstrapCache() {
+  bootstrapCompletedCache = false;
+}
+
 export async function blockUntilBootstrapped(req, res, next) {
   // req.originalUrl (not req.path) deliberately — req.path is relative
   // to wherever a middleware happens to be mounted (app.use('/api', ...)

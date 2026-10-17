@@ -5,7 +5,9 @@ import { requireAdmin, requireLogin } from '../middleware/auth.js';
 
 export const authRouter = Router();
 
-const loginLimiter = rateLimit({
+const noop = (req, res, next) => next();
+
+const loginLimiter = process.env.NODE_ENV === 'test' ? noop : rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
@@ -15,7 +17,7 @@ const loginLimiter = rateLimit({
 
 // Bootstrap creates the account that owns the whole instance — an even
 // more sensitive action than a regular login, so a tighter limit.
-const bootstrapLimiter = rateLimit({
+const bootstrapLimiter = process.env.NODE_ENV === 'test' ? noop : rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
   standardHeaders: true,
