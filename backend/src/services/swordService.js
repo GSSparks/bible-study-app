@@ -327,23 +327,24 @@ class SwordService {
           const chapterVerses = getChapter(start.book, c);
           const lower = c === start.chapter ? start.verse : 1;
           const upper = c === end.chapter ? end.verse : Infinity;
-          verses.push(...chapterVerses.filter((v) => Number(v.verseNr) >= lower && Number(v.verseNr) <= upper));
+          verses.push(...chapterVerses.filter((v) => Number(v.verseNr) >= lower && Number(v.verseNr) <= upper).map((v) => ({ ...v, _book: start.book })));
         }
       } else {
         const p = this._parseOsisPoint(item);
         const chapterVerses = getChapter(p.book, p.chapter);
         const match = chapterVerses.find((v) => Number(v.verseNr) === p.verse);
-        if (match) verses.push(match);
+        if (match) verses.push({ ...match, _book: p.book });
       }
     }
 
     return verses.map((v) => {
-      const { content, titles } = this.processVerseContent(v.content);
-      return { ...v, content, titles };
+      const { _book, ...rest } = v;
+      const { content, titles } = this.processVerseContent(rest.content, _book ?? null);
+      return { ...rest, content, titles };
     });
   }
 
-  processVerseContent(html) {
+  processVerseContent(html, currentBookOsis = null) {
     if (!html) return { content: '', titles: [] };
     const flattened = this.flattenBlockTags(html);
     const withoutMilestones = this.stripMilestones(flattened);
@@ -352,7 +353,9 @@ class SwordService {
     const footnotesCollapsed = this.normalizeFootnoteMarkup(crossRefsCollapsed);
     const dictLinked = this.linkStrongsCrossReferences(footnotesCollapsed);
     const strongsNormalized = this.normalizeStrongsMarkup(dictLinked);
-    const content = this.wrapVerseReferences(strongsNormalized);
+    const abbrevExpanded = this.expandScriprefAbbreviations(strongsNormalized);
+    const withNamedRefs = this.wrapVerseReferences(abbrevExpanded, currentBookOsis);
+    const content = currentBookOsis ? this.linkBareScripRefs(withNamedRefs, currentBookOsis) : withNamedRefs;
     return { content, titles };
   }
 
@@ -500,7 +503,7 @@ class SwordService {
     });
   }
 
-  wrapVerseReferences(html) {
+  wrapVerseReferences(html, currentBookOsis = null) {
     const tagSpans = [];
     const tagRe = /<[^>]*>/g;
     let tagMatch;
@@ -509,7 +512,7 @@ class SwordService {
     }
     const insideExistingTag = (pos) => tagSpans.some(([s, e]) => pos >= s && pos < e);
 
-    const matches = findReferencesInText(html).filter((m) => !insideExistingTag(m.start) && !insideExistingTag(m.end - 1));
+    const matches = findReferencesInText(html, currentBookOsis).filter((m) => !insideExistingTag(m.start) && !insideExistingTag(m.end - 1));
     if (matches.length === 0) return html;
     let out = '';
     let cursor = 0;
@@ -520,6 +523,88 @@ class SwordService {
     }
     out += html.slice(cursor);
     return out;
+  }
+
+  // Expands TSK-style book abbreviations that bcv_parser doesn't recognise,
+  // applied only within sword-scripref spans to avoid false positives in prose.
+  // Must run before wrapVerseReferences so the parser can resolve the refs.
+  expandScriprefAbbreviations(html) {
+    // Abbreviations followed by a space + digit (chapter number) are safe to
+    // expand without risk of matching unrelated words in prose.
+    const ABBREVS = [
+      [/\bDe\b(?=\s+\d)/g, 'Deut'],  // Deuteronomy (TSK / KJV-era)
+      [/\bLe\b(?=\s+\d)/g, 'Lev'],   // Leviticus
+      [/\bCa\b(?=\s+\d)/g, 'Song'],  // Canticles (Song of Solomon)
+      [/\bEs\b(?=\s+\d)/g, 'Esth'],  // Esther
+    ];
+    return this.replaceBalancedSpans(html, 'sword-scripref', (attrs, inner) => {
+      let result = inner;
+      for (const [re, replacement] of ABBREVS) {
+        result = result.replace(re, replacement);
+      }
+      return result === inner ? null : `<span${attrs}>${result}</span>`;
+    });
+  }
+
+  // Wraps bare chapter:verse refs (e.g. "13:45; 17:17,18") inside sword-scripref
+  // spans that wrapVerseReferences couldn't resolve because bcv_parser has no
+  // book context for them. Only operates within sword-scripref spans, only on
+  // text nodes (skips text already inside nested verse-ref spans), and only when
+  // currentBookOsis is known.
+  linkBareScripRefs(html, currentBookOsis) {
+    if (!currentBookOsis) return html;
+    return this.replaceBalancedSpans(html, 'sword-scripref', (attrs, inner) => {
+      // Collect character ranges that are NOT inside any nested HTML element.
+      const freeRanges = [];
+      const tagRe = /<\/?[^>]*>/g;
+      let depth = 0;
+      let textStart = 0;
+      let m;
+      while ((m = tagRe.exec(inner))) {
+        const tag = m[0];
+        const isSelfClose = tag.endsWith('/>');
+        const isClose = !isSelfClose && tag.startsWith('</');
+        if (!isClose && !isSelfClose) {
+          if (depth === 0 && m.index > textStart) freeRanges.push([textStart, m.index]);
+          depth++;
+        } else if (isClose) {
+          depth = Math.max(0, depth - 1);
+          if (depth === 0) textStart = m.index + tag.length;
+        }
+      }
+      if (depth === 0 && textStart < inner.length) freeRanges.push([textStart, inner.length]);
+
+      // Match bare chapter:verse refs (e.g. "13:45", "17:17,18", "22:19-20")
+      // within those free text ranges only.
+      const bareRefRe = /(\d+):(\d+(?:[,-]\d+)*)/g;
+      const replacements = [];
+      for (const [rangeStart, rangeEnd] of freeRanges) {
+        const segment = inner.slice(rangeStart, rangeEnd);
+        bareRefRe.lastIndex = 0;
+        let rm;
+        while ((rm = bareRefRe.exec(segment))) {
+          const chapter = parseInt(rm[1], 10);
+          const firstVerse = parseInt(rm[2].split(/[,-]/)[0], 10);
+          replacements.push({
+            start: rangeStart + rm.index,
+            end: rangeStart + rm.index + rm[0].length,
+            osis: `${currentBookOsis}.${chapter}.${firstVerse}`,
+            text: rm[0],
+          });
+        }
+      }
+
+      if (replacements.length === 0) return null;
+      let out = '';
+      let cursor = 0;
+      for (const r of replacements) {
+        out += inner.slice(cursor, r.start);
+        out += `<span class="verse-ref" data-ref="${r.osis}">${r.text}</span>`;
+        cursor = r.end;
+      }
+      out += inner.slice(cursor);
+      return `<span${attrs}>${out}</span>`;
+    });
   }
 
   stripHtml(html) {

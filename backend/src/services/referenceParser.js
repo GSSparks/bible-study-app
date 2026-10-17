@@ -66,13 +66,21 @@ detectionBcv.set_options({
  * including any HTML markup already in the string, as long as the
  * reference text itself isn't split across a tag boundary.
  */
-export function findReferencesInText(text) {
-  const parsed = detectionBcv.parse(text).parsed_entities();
+export function findReferencesInText(text, currentBookOsis = null) {
+  // Prepend the current book name so the parser's book-propagation logic resolves
+  // bare chapter:verse refs (e.g. TSK's "13:45; 17:17,18") against that book.
+  const prefix = currentBookOsis ? `${currentBookOsis} ` : '';
+  const offset = prefix.length;
+  const parsed = detectionBcv.parse(prefix + text).parsed_entities();
   const matches = [];
   for (const group of parsed) {
     for (const entity of group.entities || []) {
       if (entity.osis && entity.indices) {
-        matches.push({ osis: entity.osis, start: entity.indices[0], end: entity.indices[1] });
+        const start = entity.indices[0] - offset;
+        const end = entity.indices[1] - offset;
+        if (start >= 0) {
+          matches.push({ osis: entity.osis, start, end });
+        }
       }
     }
   }

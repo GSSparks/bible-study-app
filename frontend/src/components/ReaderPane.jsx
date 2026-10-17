@@ -231,7 +231,7 @@ export default function ReaderPane({
     const hi = Math.max(selectedRange.anchor, selectedRange.focus);
     for (let i = lo; i <= hi; i++) {
       const v = verses[i];
-      if (v && highlightMap.has(`${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`)) return true;
+      if (v && highlightMap.has(`${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`)) return true;
     }
     return false;
   }, [selectedRange, verses, highlightMap]);
@@ -242,7 +242,7 @@ export default function ReaderPane({
     if (loIdx === null || hiIdx === null) return false;
     for (let i = loIdx; i <= hiIdx; i++) {
       const v = verses[i];
-      if (v && highlightMap.has(`${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`)) return true;
+      if (v && highlightMap.has(`${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`)) return true;
     }
     return false;
   }, [phraseSelection, verses, highlightMap]);
@@ -262,7 +262,7 @@ export default function ReaderPane({
       return;
     }
     if (focusMode) {
-      onNavigate?.(`${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`);
+      onNavigate?.(`${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`);
     }
     setSelectedRange({ anchor: v.__index, focus: v.__index, x: e.clientX, y: e.clientY + 16 });
   }
@@ -507,7 +507,7 @@ export default function ReaderPane({
     const hiIdx = spannedIndices.length ? Math.max(...spannedIndices) : null;
     const firstVerse = loIdx !== null ? verses[loIdx] : null;
     const verseRef = firstVerse
-      ? `${firstVerse.bibleBookShortTitle} ${firstVerse.chapter}:${firstVerse.verseNr}`
+      ? `${firstVerse.bibleBookShortTitle} ${firstVerse.chapter}:${parseInt(firstVerse.verseNr, 10)}`
       : null;
 
     const rect = range.getBoundingClientRect();
@@ -602,7 +602,7 @@ export default function ReaderPane({
                   <div className="flex flex-wrap items-start gap-x-2 gap-y-4">
                     {seg.verses.map((v) => {
                       const verseKey = `${v.chapter}-${v.verseNr}`;
-                      const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
+                      const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`;
                       const hlColor = showMarginalia ? highlightMap.get(verseRef)?.color : null;
                       const tokens = parseVerseTokens(v.content);
                       return (
@@ -646,7 +646,7 @@ export default function ReaderPane({
                     {seg.verses.map((v) => {
                       const verseKey = `${v.chapter}-${v.verseNr}`;
                       const isFocused = focusMode && verseKey === focusedVerseKey;
-                      const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
+                      const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`;
                       const hlColor = showMarginalia ? highlightMap.get(verseRef)?.color : null;
                       return (
                         <span

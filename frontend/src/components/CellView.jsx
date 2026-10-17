@@ -34,7 +34,14 @@ export default function CellView({
 }) {
   const cellInit = useRef(null);
   if (cellInit.current === null) {
-    const ref = (() => { try { return localStorage.getItem('cell-reference') || 'John 3:16'; } catch { return 'John 3:16'; } })();
+    const ref = (() => {
+      try {
+        const raw = localStorage.getItem('cell-reference') || 'John 3:16';
+        // Strip sub-verse notation (e.g. "Acts 6:9:1" → "Acts 6:9") that may
+        // have been stored by older code before SWORD verseNr normalization.
+        return raw.replace(/^(\S+\s+\d+:\d+):\d+$/, '$1');
+      } catch { return 'John 3:16'; }
+    })();
     const history = (() => { try { const h = JSON.parse(localStorage.getItem('cell-nav-history') || 'null'); return h?.entries?.length ? h : null; } catch { return null; } })();
     cellInit.current = {
       reference: ref,
