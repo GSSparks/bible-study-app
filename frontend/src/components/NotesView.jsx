@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import MDEditor from '@uiw/react-md-editor';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, ExternalLink, Plus, Search, StickyNote, Trash2, X } from 'lucide-react';
+import { Bot, ChevronLeft, ExternalLink, Plus, Search, StickyNote, Trash2, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
@@ -38,6 +38,7 @@ export default function NotesView({ isLoggedIn, onOpenInCell }) {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(null);
+  const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
@@ -86,6 +87,7 @@ export default function NotesView({ isLoggedIn, onOpenInCell }) {
     setEditTitle('');
     setEditBody('');
     setError(null);
+    setMobileShowDetail(true);
     setTimeout(() => titleInputRef.current?.focus(), 0);
   }
 
@@ -152,7 +154,7 @@ export default function NotesView({ isLoggedIn, onOpenInCell }) {
   return (
     <div className="flex h-full min-h-0">
       {/* ── Sidebar ── */}
-      <div className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel">
+      <div className={`flex shrink-0 flex-col border-r border-rule bg-panel ${mobileShowDetail ? 'hidden lg:flex lg:w-64' : 'w-full lg:w-64'}`}>
         {/* Header */}
         <div className="shrink-0 border-b border-rule px-4 py-3">
           <div className="flex items-center gap-2">
@@ -226,7 +228,7 @@ export default function NotesView({ isLoggedIn, onOpenInCell }) {
               return (
                 <button
                   key={n.id}
-                  onClick={() => { setSelectedId(n.id); setEditingId(null); }}
+                  onClick={() => { setSelectedId(n.id); setEditingId(null); setMobileShowDetail(true); }}
                   className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${
                     active
                       ? 'border-brass bg-ink/50 text-brass'
@@ -251,7 +253,16 @@ export default function NotesView({ isLoggedIn, onOpenInCell }) {
       </div>
 
       {/* ── Right pane ── */}
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${mobileShowDetail ? 'flex' : 'hidden lg:flex'}`}>
+        {mobileShowDetail && (
+          <button
+            onClick={() => { setMobileShowDetail(false); setSelectedId(null); setEditingId(null); }}
+            className="flex shrink-0 items-center gap-1.5 border-b border-rule px-4 py-2.5 text-sm text-muted hover:text-parchment lg:hidden"
+          >
+            <ChevronLeft size={15} />
+            Notes
+          </button>
+        )}
         {showViewer ? (
           <NoteViewer
             note={selectedNote}

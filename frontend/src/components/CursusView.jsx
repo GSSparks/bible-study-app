@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookMarked, Check, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { BookMarked, Check, ChevronLeft, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { api } from '../api/client.js';
 
 function parseScheduleText(text) {
@@ -46,6 +46,7 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
   const [editForm, setEditForm] = useState({ name: '', description: '', schedule: '' });
   const [saving, setSaving] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [mobileShowDetail, setMobileShowDetail] = useState(false);
 
   useEffect(() => {
     loadPlans();
@@ -122,6 +123,7 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
   function startNew() {
     setEditing('new');
     setEditForm({ name: '', description: '', schedule: '' });
+    setMobileShowDetail(true);
   }
 
   function startEdit() {
@@ -195,7 +197,7 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
   return (
     <div className="flex h-full min-h-0">
       {/* ── Sidebar ── */}
-      <div className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel">
+      <div className={`flex shrink-0 flex-col border-r border-rule bg-panel ${mobileShowDetail ? 'hidden lg:flex lg:w-64' : 'w-full lg:w-64'}`}>
         {/* Header */}
         <div className="shrink-0 border-b border-rule px-4 py-3">
           <div className="flex items-center gap-2">
@@ -228,7 +230,7 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
               return (
                 <button
                   key={plan.id}
-                  onClick={() => { setSelectedId(plan.id); setEditing(null); }}
+                  onClick={() => { setSelectedId(plan.id); setEditing(null); setMobileShowDetail(true); }}
                   className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${
                     active
                       ? 'border-brass bg-ink/40 text-brass'
@@ -265,7 +267,16 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
       </div>
 
       {/* ── Right pane ── */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${mobileShowDetail ? 'flex' : 'hidden lg:flex'}`}>
+        {mobileShowDetail && (
+          <button
+            onClick={() => { setMobileShowDetail(false); setSelectedId(null); setEditing(null); }}
+            className="flex shrink-0 items-center gap-1.5 border-b border-rule px-4 py-2.5 text-sm text-muted hover:text-parchment lg:hidden"
+          >
+            <ChevronLeft size={15} />
+            Cursus
+          </button>
+        )}
         {/* Empty state */}
         {showEmpty && (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">

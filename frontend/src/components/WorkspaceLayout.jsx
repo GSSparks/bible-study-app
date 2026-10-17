@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, Link, MapPin } from 'lucide-react';
+import PassageMapsModal from './PassageMapsModal.jsx';
 
 const PANE_ICONS = {
   bible: BookOpen, commentary: ScrollText, dictionary: BookA,
@@ -109,7 +110,6 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
     dictionaryRefreshNonce,
     onPersonalCommentarySaved,
     onPersonalDictionarySaved,
-    onOpenMap,
   } = shared;
 
   const { removePane, splitPane, addTab, removeTab, setActiveTab, swapTabModule,
@@ -122,6 +122,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
     : focusedReference;
 
   const [hasMaps, setHasMaps] = useState(false);
+  const [mapModalOpen, setMapModalOpen] = useState(false);
   useEffect(() => {
     if (row.type !== 'bible' || !paneRef) { setHasMaps(false); return; }
     let cancelled = false;
@@ -209,9 +210,9 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 <RefNav reference={paneRef} onNavigate={handleBibleNavigate} />
                 {hasMaps && (
                   <button
-                    onClick={() => onOpenMap?.(paneRef)}
-                    title="Map available for this passage"
-                    className="ml-2 shrink-0 text-verdigris opacity-80 hover:opacity-100"
+                    onClick={() => setMapModalOpen(true)}
+                    title="View maps for this passage"
+                    className="ml-2 shrink-0 text-verdigris opacity-70 hover:opacity-100"
                   >
                     <MapPin size={13} strokeWidth={2} />
                   </button>
@@ -552,6 +553,13 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
       )}
 
       {renderContent()}
+
+      {mapModalOpen && (
+        <PassageMapsModal
+          reference={paneRef}
+          onClose={() => setMapModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

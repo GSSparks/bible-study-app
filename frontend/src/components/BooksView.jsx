@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, ChevronLeft } from 'lucide-react';
 import { api } from '../api/client.js';
 import BookPane from './BookPane.jsx';
 
@@ -16,9 +16,11 @@ export default function BooksView({ bookReader, onBookChange, isLoggedIn = false
   }, []);
 
   const selectedModule = bookReader?.module ?? null;
+  const [mobileShowReader, setMobileShowReader] = useState(false);
 
   function handleSelectBook(book) {
     onBookChange?.({ module: book.name, scrollY: 0 });
+    setMobileShowReader(true);
   }
 
   function handleScrollChange(y) {
@@ -28,7 +30,7 @@ export default function BooksView({ bookReader, onBookChange, isLoggedIn = false
   return (
     <div className="flex h-full min-h-0">
       {/* Sidebar */}
-      <div className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel">
+      <div className={`flex shrink-0 flex-col border-r border-rule bg-panel ${mobileShowReader ? 'hidden lg:flex lg:w-64' : 'w-full lg:w-64'}`}>
         <div className="shrink-0 border-b border-rule px-4 py-3">
           <div className="flex items-center gap-2">
             <BookOpen size={16} className="text-brass" />
@@ -65,7 +67,16 @@ export default function BooksView({ bookReader, onBookChange, isLoggedIn = false
       </div>
 
       {/* Reader */}
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${mobileShowReader ? 'flex' : 'hidden lg:flex'}`}>
+        {mobileShowReader && (
+          <button
+            onClick={() => setMobileShowReader(false)}
+            className="flex shrink-0 items-center gap-1.5 border-b border-rule px-4 py-2.5 text-sm text-muted hover:text-parchment lg:hidden"
+          >
+            <ChevronLeft size={15} />
+            Books
+          </button>
+        )}
         {!selectedModule ? (
           <div className="flex h-full items-center justify-center text-sm text-pageMuted">
             Select a book from the sidebar to start reading.

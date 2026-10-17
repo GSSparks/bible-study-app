@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, FileText, Folder, Library, Search, Upload, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, FileText, Folder, Library, Search, Upload, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import DocumentReader from './DocumentReader.jsx';
 
@@ -20,6 +20,7 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
   const [activeCollection, setActiveCollection] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  const [mobileShowReader, setMobileShowReader] = useState(false);
   const sortRef = useRef(null);
 
   useEffect(() => { refreshDocs(); }, []);
@@ -85,7 +86,7 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
   return (
     <div className="flex h-full min-h-0">
       {/* ── Sidebar ── */}
-      <div className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel">
+      <div className={`flex shrink-0 flex-col border-r border-rule bg-panel ${mobileShowReader ? 'hidden lg:flex lg:w-64' : 'w-full lg:w-64'}`}>
         {/* Header */}
         <div className="shrink-0 border-b border-rule px-4 py-3">
           <div className="flex items-center gap-2">
@@ -205,7 +206,7 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
               return (
                 <button
                   key={doc.id}
-                  onClick={() => setSelectedId(doc.id)}
+                  onClick={() => { setSelectedId(doc.id); setMobileShowReader(true); }}
                   className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${
                     active
                       ? 'border-brass bg-ink/40 text-brass'
@@ -230,7 +231,16 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
       </div>
 
       {/* ── Reader pane ── */}
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${mobileShowReader ? 'flex' : 'hidden lg:flex'}`}>
+        {mobileShowReader && (
+          <button
+            onClick={() => setMobileShowReader(false)}
+            className="flex shrink-0 items-center gap-1.5 border-b border-rule px-4 py-2.5 text-sm text-muted hover:text-parchment lg:hidden"
+          >
+            <ChevronLeft size={15} />
+            Library
+          </button>
+        )}
         {!selectedId ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <FileText size={40} className="text-muted/25" strokeWidth={1} />

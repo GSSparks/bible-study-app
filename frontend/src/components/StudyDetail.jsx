@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, ChevronDown, Download, Video, Sparkles, FileText, BookOpen, ExternalLink, Trash2 } from 'lucide-react';
+import { Camera, ChevronDown, ChevronLeft, Download, Video, Sparkles, FileText, BookOpen, ExternalLink, Trash2 } from 'lucide-react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 import PassageQuickView from './PassageQuickView.jsx';
@@ -61,6 +61,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
 
   const [participants, setParticipants] = useState([]);
   const [activeLessonId, setActiveLessonId] = useState(null);
+  const [mobileShowLesson, setMobileShowLesson] = useState(false);
   const [tab, setTab] = useState(() => {
     try { return localStorage.getItem(`study-tab-${studyId}`) || 'content'; } catch { return 'content'; }
   });
@@ -165,7 +166,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left sidebar */}
-      <aside className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel">
+      <aside className={`flex shrink-0 flex-col border-r border-rule bg-panel ${mobileShowLesson ? 'hidden lg:flex lg:w-64' : 'w-full lg:w-64'}`}>
         <div className="shrink-0 border-b border-rule px-4 py-3">
           <button onClick={onBack} className="mb-2 flex items-center text-xs text-muted hover:text-parchment">
             ‹ {backLabel}
@@ -200,7 +201,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
             return (
               <button
                 key={l.id}
-                onClick={() => { jumpToLesson(l.id); if (tab !== 'content') changeTab('content'); }}
+                onClick={() => { jumpToLesson(l.id); if (tab !== 'content') changeTab('content'); setMobileShowLesson(true); }}
                 className={`flex w-full items-center gap-2 border-l-2 px-4 py-2 text-left text-sm leading-snug transition-colors ${
                   isActive ? 'border-brass bg-ink/50 text-brass' : 'border-transparent text-muted hover:bg-ink/30 hover:text-parchment'
                 }`}
@@ -236,7 +237,14 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
       </aside>
 
       {/* Right pane */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-page">
+      <div className={`flex min-w-0 flex-1 flex-col overflow-hidden bg-page ${mobileShowLesson ? 'flex' : 'hidden lg:flex'}`}>
+        <button
+          onClick={() => setMobileShowLesson(false)}
+          className="flex shrink-0 items-center gap-1.5 border-b border-rule px-4 py-2.5 text-sm text-muted hover:text-parchment lg:hidden"
+        >
+          <ChevronLeft size={15} />
+          Lessons
+        </button>
         {error && <p className="shrink-0 border-b border-pageBorder px-6 py-2 text-sm text-red-500">{error}</p>}
 
         {activeLesson ? (

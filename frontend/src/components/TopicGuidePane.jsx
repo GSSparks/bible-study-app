@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookText, ChevronLeft, ChevronRight, ExternalLink, List, MapPin, Search, Sparkles, Volume2, X } from 'lucide-react';
+import { BookText, ChevronLeft, ChevronRight, ExternalLink, List, Search, Sparkles, Volume2, X } from 'lucide-react';
 import { api } from '../api/client.js';
-import { CITY_NAME_INDEX } from '../data/biblicalMapData.js';
 import FootnotePopup from './FootnotePopup.jsx';
 import { osisToHuman } from '../utils/osisToHuman.js';
 import { injectTocLinks } from '../utils/dictHtml.js';
@@ -82,7 +81,6 @@ export default function TopicGuidePane({
   onStrongsClick,
   isLoggedIn = false,
   defaultBibleModule,
-  onShowOnMap,
   onOpenInBible,
 }) {
   const [inputValue, setInputValue] = useState(''); // what's in the text box
@@ -335,8 +333,8 @@ export default function TopicGuidePane({
   return (
     <div className="flex h-full overflow-hidden">
 
-      {/* ── Left nav panel (dark) ── */}
-      <div className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel">
+      {/* ── Left nav panel (dark) — hidden on mobile when detail is visible ── */}
+      <div className={`flex shrink-0 flex-col border-r border-rule bg-panel ${selected ? 'hidden lg:flex lg:w-64' : 'w-full lg:w-64'}`}>
 
         {/* Header */}
         <div className="shrink-0 border-b border-rule px-4 py-3">
@@ -396,15 +394,6 @@ export default function TopicGuidePane({
                 <Sparkles size={12} className="shrink-0 opacity-70" />
                 AI Overview
               </button>
-              {onShowOnMap && CITY_NAME_INDEX[query.trim().toLowerCase()] && (
-                <button
-                  onClick={() => onShowOnMap(query.trim())}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-muted transition-colors hover:bg-ink/40 hover:text-parchment"
-                >
-                  <MapPin size={12} className="shrink-0 opacity-70" />
-                  Show on Map
-                </button>
-              )}
             </div>
           )}
 
@@ -497,7 +486,7 @@ export default function TopicGuidePane({
       </div>
 
       {/* ── Right content panel (parchment) ── */}
-      <div className="relative flex min-w-0 flex-1 overflow-hidden bg-page">
+      <div className={`relative flex min-w-0 flex-1 overflow-hidden bg-page ${selected ? 'flex' : 'hidden lg:flex'}`}>
 
         {/* TOC sidebar — slides in from the left when a DICT entry has sections */}
         {toc.length > 0 && (
@@ -536,6 +525,20 @@ export default function TopicGuidePane({
             className="absolute top-20 z-10 flex h-8 w-5 items-center justify-center rounded-r border border-l-0 border-pageBorder bg-page text-pageMuted shadow-sm transition-[left] duration-300 ease-in-out hover:text-pageAccent"
           >
             <List size={11} />
+          </button>
+        )}
+
+        {/* Content column — flex-col so the mobile back bar sits above the article */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+
+        {/* Mobile back button */}
+        {selected && (
+          <button
+            onClick={() => setNav((n) => ({ ...n, index: -1, stack: [] }))}
+            className="flex shrink-0 items-center gap-1.5 border-b border-pageBorder px-4 py-2.5 text-sm text-pageMuted hover:text-pageText lg:hidden"
+          >
+            <ChevronLeft size={15} />
+            Back to results
           </button>
         )}
 
@@ -813,6 +816,7 @@ export default function TopicGuidePane({
           </>
         )}
         </div>{/* end scrollable article */}
+        </div>{/* end content column */}
       </div>{/* end right content panel */}
 
       {footnotePopup && (

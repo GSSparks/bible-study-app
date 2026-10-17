@@ -29,7 +29,6 @@ export default function CellView({
   pendingAiDocument,
   onAiDocumentConsumed,
   onOpenCodex,
-  onOpenMap,
   onFocusedReferenceChange,
 }) {
   const searchInputRef = useRef(null);
@@ -350,7 +349,6 @@ export default function CellView({
     dictionaryRefreshNonce,
     onPersonalCommentarySaved: () => setCommentaryRefreshNonce((n) => n + 1),
     onPersonalDictionarySaved: () => setDictionaryRefreshNonce((n) => n + 1),
-    onOpenMap,
   };
 
   return (

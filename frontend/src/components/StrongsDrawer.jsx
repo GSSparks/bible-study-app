@@ -33,9 +33,17 @@ export default function StrongsDrawer({
   useEffect(() => {
     setLoading(true);
     setError(null);
-    Promise.all(keys.map((k) => api.getStrongsEntry(k).then((entry) => ({ key: k, entry }))))
-      .then(setEntries)
-      .catch((e) => setError(e.message))
+    Promise.allSettled(keys.map((k) => api.getStrongsEntry(k).then((entry) => ({ key: k, entry }))))
+      .then((results) => {
+        const fulfilled = results
+          .filter((r) => r.status === 'fulfilled')
+          .map((r) => r.value);
+        if (fulfilled.length === 0 && results.length > 0) {
+          setError(results[0].reason?.message ?? 'No entry found');
+        } else {
+          setEntries(fulfilled);
+        }
+      })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current.key]);
