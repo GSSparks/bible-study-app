@@ -1,5 +1,5 @@
 # --- Stage 1: build the frontend ---
-FROM node:22-bookworm AS frontend-build
+FROM node:20-bookworm AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install
@@ -7,7 +7,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # --- Stage 2: build the backend, including native SWORD compilation ---
-FROM node:22-bookworm AS backend-build
+FROM node:20-bookworm AS backend-build
 # node-sword-interface compiles the SWORD C++ engine from source on
 # install, so it needs a full toolchain. This step is the slow part of
 # the image build (expect several minutes the first time).
@@ -29,7 +29,7 @@ COPY backend/ ./
 RUN npx prisma generate
 
 # --- Stage 3: runtime image ---
-FROM node:22-bookworm AS runtime
+FROM node:20-bookworm AS runtime
 # Runtime needs libcurl for SWORD, and tesseract+poppler for PDF OCR
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-gnutls-dev \
