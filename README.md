@@ -7,7 +7,8 @@
 
 <p align="center">
   <img src="docs/screenshot_1.png" alt="Scriptorium cell view" width="800">
-  <img src="docs/screenshot_2.png" alt="Scriptorium study lesson view" width="800">
+  <img src="docs/screenshot_3.png" alt="Scriptorium study view" width="800">
+  <img src="docs/screenshot_2.png" alt="Scriptorium study lesson view" width="800">  
 </p>
 
 Scriptorium is a self-hosted Bible study environment: real text from the SWORD engine (same library behind Ezra Bible App and Xiphos), an LLM study assistant grounded in the passages you actually have open, structured multi-week Studies with AI-drafted lesson outlines, and small-group coordination through Scriptoriums — all from one Docker container.
