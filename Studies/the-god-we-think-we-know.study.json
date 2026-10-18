@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "format": "scriptorium-study",
+  "exportedAt": "2026-10-17T00:00:00.000Z",
+  "title": "The God We Think We Know",
+  "description": "A four-lesson journey through the ways Scripture challenges our assumptions about God, goodness, judgment, mercy, and trust.",
+  "lessons": [
+    {
+      "order": 1,
+      "title": "Lesson 1 — When God Doesn't Fit Our Expectations",
+      "module": "KJV",
+      "reference": "Job 38:1-18; Job 42:1-6",
+      "body": "## Opening\nWe often approach God with a picture already formed: what He should do, how He should answer, and what a good life should look like. Scripture sometimes comforts that picture—and sometimes overturns it.\n\n## Key Themes\n**Human limits** — God does not answer Job by giving him a neat explanation for every loss. He confronts Job with the vastness of creation and the limits of human perspective.\n\n**Honest faith** — Job's questions are not treated as though they were meaningless. The book makes room for grief and bewilderment while challenging the assumption that we can fully judge God's work from our small vantage point.\n\n**Humility, not silence** — Trust does not require pretending we understand everything. It means acknowledging that our understanding is not the whole story.\n\n## Discussion\n- What expectations about God have you inherited without examining them?\n- When has a painful experience challenged your picture of what God is like?\n- What is the difference between honest questioning and deciding in advance that God must be wrong?\n- How can a community sit with someone's unanswered questions without rushing to explain them?",
+      "videoUrl": null,
+      "reflectionPrompt": "What expectation about God might you need to hold more humbly? Write a prayer that is honest about what you do not understand."
+    },
+    {
+      "order": 2,
+      "title": "Lesson 2 — The God Who Shows Mercy",
+      "module": "KJV",
+      "reference": "Jonah 3:10–4:11; Matthew 5:43-48",
+      "body": "## Context\nJonah is angry not because God has been cruel, but because God has shown mercy to people Jonah believes should be judged. The story asks whether we love God's justice only when it benefits us.\n\n## Key Themes\n**Mercy can offend us** — Jonah knows God is gracious, yet resents that grace when it reaches his enemies.\n\n**The boundaries of compassion** — God uses the plant and the city to expose Jonah's selective concern. Jonah cares about his comfort more than a city full of people.\n\n**Becoming like the Father** — Jesus calls His followers to love enemies, moving mercy beyond the circle of people we naturally favor.\n\n## Discussion\n- Who is hardest for you to imagine God forgiving?\n- Why can mercy toward someone who hurt us feel like injustice?\n- Does loving an enemy mean excusing harm or removing every boundary? Why or why not?\n- Where might your compassion be narrower than God's concern?",
+      "videoUrl": null,
+      "reflectionPrompt": "Name one person or group you tend to reduce to a label. What would it mean to pray for their good without pretending wrong is right?"
+    },
+    {
+      "order": 3,
+      "title": "Lesson 3 — When Good People Suffer",
+      "module": "KJV",
+      "reference": "Psalm 73:1-28; Luke 13:1-5",
+      "body": "## Opening\nOne of the oldest faith questions is why life seems unfair: some people flourish while others suffer. Psalm 73 does not hide the writer's envy or confusion. It shows a struggle that changes when his perspective widens.\n\n## Key Themes\n**Faith can admit envy** — The psalmist tells the truth about what he sees instead of dressing up his feelings.\n\n**Appearances are incomplete** — What looks like success from a distance may not reveal the whole life or its final direction.\n\n**Avoid easy explanations** — In Luke 13, Jesus rejects the idea that victims of tragedy were necessarily worse sinners than others. Suffering should not become an excuse to blame the wounded.\n\n## Discussion\n- What kinds of unfairness make you question God's goodness?\n- Have you ever used a simple explanation to avoid the pain of someone else's suffering?\n- How can we speak honestly about hope without minimizing grief?\n- What changes for the psalmist when he enters God's sanctuary?",
+      "videoUrl": null,
+      "reflectionPrompt": "Where are you tempted to measure God's goodness by whether life seems fair to you? What truth from these passages can help you stay honest and hopeful?"
+    },
+    {
+      "order": 4,
+      "title": "Lesson 4 — Trust Without Control",
+      "module": "KJV",
+      "reference": "Proverbs 3:1-8; Matthew 6:25-34",
+      "body": "## Context\nTrust is easy to praise when outcomes are predictable. These passages call us to trust God while living responsibly in a world we cannot completely control.\n\n## Key Themes\n**Trust is a direction** — Proverbs calls for confidence in the Lord rather than treating our own understanding as sufficient.\n\n**Worry and attention** — Jesus does not deny that people need food and clothing. He challenges anxiety's power to consume our attention and rule our lives.\n\n**Today's faithfulness** — Jesus directs His hearers toward today's responsibilities rather than borrowing tomorrow's troubles.\n\n## Discussion\n- What do you most want to control because uncertainty frightens you?\n- How can trust coexist with planning, work, and wise precautions?\n- What is the difference between taking a concern seriously and letting it dominate you?\n- What might “seek first the kingdom” change in your actual schedule or decisions?",
+      "videoUrl": null,
+      "reflectionPrompt": "Choose one concern you cannot fully control. Identify one responsible action you can take, one thing you must release, and one way to seek God's kingdom today."
+    }
+  ],
+  "resources": [
+    {
+      "type": "note",
+      "label": "Leader Notes",
+      "moduleCode": null,
+      "moduleType": null,
+      "url": null,
+      "body": "**Facilitator guidance:**\n\nEach lesson can be used as a 45–60 minute group study or personal study. Read the listed passages in context before discussion. Choose 2–3 questions rather than rushing through every prompt. Make room for honest disagreement and unanswered questions; distinguish what the passage says from personal inference. Close with the reflection prompt and prayer.",
+      "order": 0
+    }
+  ]
+}

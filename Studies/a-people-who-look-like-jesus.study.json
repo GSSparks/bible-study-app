@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "format": "scriptorium-study",
+  "exportedAt": "2026-10-17T00:00:00.000Z",
+  "title": "A People Who Look Like Jesus",
+  "description": "Four lessons about Christian community: unity across differences, shared burdens, speech that builds up, and love made visible through action.",
+  "lessons": [
+    {
+      "order": 1,
+      "title": "Lesson 1 — Unity Without Uniformity",
+      "module": "KJV",
+      "reference": "John 17:20-23; Ephesians 4:1-16",
+      "body": "## Opening\nJesus prays for His followers to be one, and Paul describes a body made up of different members. Biblical unity is not sameness; it is a shared life shaped by Christ.\n\n## Key Themes\n**Unity is a witness** — In John 17, the unity of believers is connected to the world's recognition of Jesus' mission.\n\n**Difference belongs in the body** — Ephesians describes varied gifts and roles working toward maturity.\n\n**Truth and love together** — Growth requires both speaking truth and doing so in love. Avoiding every disagreement is not the same as unity.\n\n## Discussion\n- What is the difference between unity and uniformity?\n- Which disagreements are matters of faithfulness, and which are preferences we elevate too highly?\n- How can truth be spoken in a way that builds rather than humiliates?\n- What would help a divided community mature together?",
+      "videoUrl": null,
+      "reflectionPrompt": "Identify one difference you tend to treat as a threat. What question could you ask to understand the other person more honestly?"
+    },
+    {
+      "order": 2,
+      "title": "Lesson 2 — Carry One Another's Burdens",
+      "module": "KJV",
+      "reference": "Galatians 6:1-10; Romans 12:9-16",
+      "body": "## Context\nPaul joins restoration, humility, mutual burden-bearing, and personal responsibility. Christian community neither abandons people to struggle alone nor pretends that each person has no responsibility for their choices.\n\n## Key Themes\n**Restore gently** — Correction should be marked by gentleness and self-awareness, not superiority.\n\n**Shared burdens** — Some loads are too heavy to carry alone. Love makes room for practical support.\n\n**Perseverance in doing good** — Paul encourages continued generosity even when results are slow or unseen.\n\n## Discussion\n- Why can it be easier to criticize someone's struggle than help carry it?\n- What does gentle restoration look like when harm has been done?\n- How do we balance personal responsibility with compassion?\n- What kinds of burdens in your community are easy to overlook?",
+      "videoUrl": null,
+      "reflectionPrompt": "Ask someone how you can help with a real burden. Make the offer specific enough that it could lead to action."
+    },
+    {
+      "order": 3,
+      "title": "Lesson 3 — Words That Heal or Wound",
+      "module": "KJV",
+      "reference": "James 3:1-12; Ephesians 4:25-32",
+      "body": "## Opening\nWords are small, but their effects can be enormous. James compares the tongue to a bit, a rudder, and a fire; Paul connects truthful speech with kindness and forgiveness.\n\n## Key Themes\n**Speech reveals direction** — A small instrument can steer something much larger. Our words can direct relationships toward trust or destruction.\n\n**Blessing and cursing** — James exposes the contradiction of praising God while degrading people made in God's likeness.\n\n**Replace, don't merely restrain** — Ephesians pairs putting away destructive speech with speaking what builds others up.\n\n## Discussion\n- What kinds of speech are treated as normal but leave people wounded?\n- How do sarcasm, gossip, and “just being honest” sometimes disguise harm?\n- What does it mean to speak truth in a way that gives grace to the hearer?\n- Is there a conversation you need to repair? What would a sincere apology include?",
+      "videoUrl": null,
+      "reflectionPrompt": "For one day, notice the effect of your words before you speak. If you have wounded someone, consider a direct apology without excuses."
+    },
+    {
+      "order": 4,
+      "title": "Lesson 4 — Love That Becomes Visible",
+      "module": "KJV",
+      "reference": "1 John 3:16-18; Matthew 25:31-46; James 2:14-17",
+      "body": "## Context\nThese passages connect love and faith to concrete action. They do not present deeds as a way to purchase God's love; they challenge any claim to love that remains indifferent to a neighbor's need.\n\n## Key Themes\n**Love in deed and truth** — First John asks what it means to see a sibling in need and close one's heart.\n\n**Attention to the overlooked** — Jesus' picture of judgment places striking emphasis on how people respond to those who are hungry, vulnerable, sick, or imprisoned.\n\n**Faith becomes embodied** — James challenges words of blessing that offer no practical help.\n\n## Discussion\n- Why is it possible to speak sincerely about love and still fail to act?\n- Which needs are visible in your community, and which are hidden?\n- How can service respect people's dignity rather than turn them into projects?\n- What is one sustainable way a group could respond to a local need?",
+      "videoUrl": null,
+      "reflectionPrompt": "Choose one practical act of care—food, time, advocacy, companionship, or material help. Decide when and how you will do it, and how you can preserve the person's dignity."
+    }
+  ],
+  "resources": [
+    {
+      "type": "note",
+      "label": "Leader Notes",
+      "moduleCode": null,
+      "moduleType": null,
+      "url": null,
+      "body": "**Facilitator guidance:**\n\nEach lesson can be used as a 45–60 minute group study or personal study. Read the listed passages in context before discussion. Choose 2–3 questions rather than rushing through every prompt. Make room for honest disagreement and unanswered questions; distinguish what the passage says from personal inference. Close with the reflection prompt and prayer.",
+      "order": 0
+    }
+  ]
+}
