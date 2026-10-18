@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, ChevronDown, List } from 'lucide-react';
+import { Bookmark, ChevronDown, List, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import { injectTocLinks } from '../utils/dictHtml.js';
@@ -380,29 +380,25 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
       {/* Entry content — relative flex wrapper for TOC sidebar */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden bg-page text-pageText">
 
-        {/* TOC: drops from top on mobile, slides from left on desktop */}
+        {/* Desktop: sliding TOC panel */}
         {toc.length > 0 && (
           <div
             className={[
-              'bg-panel border-rule',
-              'absolute left-0 right-0 top-0 z-20 border-b transition-[max-height] duration-300 ease-in-out',
-              'lg:relative lg:top-auto lg:border-b-0 lg:border-r lg:shrink-0 lg:transition-[width]',
-              tocOpen
-                ? 'max-h-64 overflow-y-auto lg:max-h-none lg:w-52 lg:overflow-y-auto'
-                : 'max-h-0 overflow-hidden lg:max-h-none lg:w-0 lg:overflow-hidden',
+              'hidden lg:flex lg:shrink-0 overflow-hidden bg-page transition-[width] duration-300 ease-in-out',
+              tocOpen ? 'w-52 border-r border-pageBorder' : 'w-0',
             ].join(' ')}
           >
-            <div className="min-w-52 px-3 py-4">
-              <p className="mb-2 font-ui text-[9px] uppercase tracking-widest text-muted">Contents</p>
+            <div className="w-52 shrink-0 overflow-y-auto px-3 py-4">
+              <p className="mb-2 font-ui text-[9px] uppercase tracking-widest text-pageMuted">Contents</p>
               <nav className="space-y-0.5">
                 {toc.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => jumpToSection(item.id)}
-                    className={`block w-full text-left text-xs leading-snug transition-colors hover:text-brass ${
+                    className={`block w-full text-left text-xs leading-snug transition-colors hover:text-pageAccent ${
                       item.major
-                        ? 'py-1 font-ui font-semibold text-parchment/80'
-                        : 'py-0.5 pl-3 text-muted'
+                        ? 'py-1 font-ui font-semibold text-pageText/80'
+                        : 'py-0.5 pl-3 text-pageMuted'
                     }`}
                   >
                     {item.text}
@@ -413,24 +409,57 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
           </div>
         )}
 
-        {/* Mobile TOC toggle — fixed top-left square button */}
+        {/* Desktop: static toggle tab — flex sibling, never animates position */}
         {toc.length > 0 && (
           <button
             onClick={() => setTocOpen((o) => !o)}
             title={tocOpen ? 'Close contents' : 'Open contents'}
-            className="absolute left-2 top-2 z-30 flex h-7 w-7 items-center justify-center rounded border border-rule bg-panel text-muted shadow-sm hover:text-brass lg:hidden"
+            className="mt-16 hidden h-8 w-5 shrink-0 items-center justify-center self-start rounded-r border border-l-0 border-pageBorder bg-page text-pageMuted shadow-sm hover:text-pageAccent lg:flex"
           >
             <List size={11} />
           </button>
         )}
 
-        {/* Desktop TOC toggle — animated left-edge tab */}
+        {/* Mobile: TOC drops from top with close button in header */}
         {toc.length > 0 && (
+          <div
+            className={[
+              'absolute left-0 right-0 top-0 z-20 overflow-hidden border-b border-pageBorder bg-page transition-[max-height] duration-300 ease-in-out lg:hidden',
+              tocOpen ? 'max-h-64' : 'max-h-0',
+            ].join(' ')}
+          >
+            <div className="px-3 py-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="font-ui text-[9px] uppercase tracking-widest text-pageMuted">Contents</p>
+                <button onClick={() => setTocOpen(false)} className="rounded p-0.5 text-pageMuted hover:text-pageAccent">
+                  <X size={11} />
+                </button>
+              </div>
+              <nav className="max-h-48 space-y-0.5 overflow-y-auto">
+                {toc.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => jumpToSection(item.id)}
+                    className={`block w-full text-left text-xs leading-snug transition-colors hover:text-pageAccent ${
+                      item.major
+                        ? 'py-1 font-ui font-semibold text-pageText/80'
+                        : 'py-0.5 pl-3 text-pageMuted'
+                    }`}
+                  >
+                    {item.text}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile: open button — only shown when TOC is closed */}
+        {toc.length > 0 && !tocOpen && (
           <button
-            onClick={() => setTocOpen((o) => !o)}
-            title={tocOpen ? 'Close contents' : 'Open contents'}
-            style={{ left: tocOpen ? '13rem' : 0 }}
-            className="absolute top-16 z-10 hidden h-8 w-5 items-center justify-center rounded-r border border-l-0 border-rule bg-panel text-muted shadow-sm transition-[left] duration-300 ease-in-out hover:text-brass lg:flex"
+            onClick={() => setTocOpen(true)}
+            title="Open contents"
+            className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded border border-pageBorder bg-page text-pageMuted shadow-sm hover:text-pageAccent lg:hidden"
           >
             <List size={11} />
           </button>

@@ -102,6 +102,17 @@ export default function AppShell({ auth }) {
     }
   }
 
+  // If no default Bible has been chosen (fresh install or first mobile session),
+  // auto-select the first installed Bible module so the Lexicon pane works
+  // immediately without requiring the user to visit Settings first.
+  useEffect(() => {
+    if (defaultBibleModule) return;
+    api.listInstalledModules('BIBLE')
+      .then((mods) => { if (mods.length > 0) setDefaultBibleModule(mods[0].name); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Cross-view deep links for CellView and AI Companion remain nonce-
   // based because those views don't have URL sub-params — the passage
   // open request and AI question are transient actions, not shareable
