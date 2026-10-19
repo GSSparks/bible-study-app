@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 
+/** The avatar-triggered account menu. Deliberately takes `items` as a
+ * plain [{ label, onClick }] array rather than hardcoding menu entries
+ * as JSX inside this component — adding a future option (friends,
+ * groups, notification settings, whatever comes next) is just adding
+ * another entry to the array the caller passes in, not restructuring
+ * this component itself. Log out is kept separate/pinned at the
+ * bottom rather than folded into `items`, since it's a different kind
+ * of action (destructive/session-ending) from the rest. Same portal +
+ * full-screen click-outside-catcher pattern used elsewhere in this app
+ * (StrongsPopup, ContextZoomMenu, etc.). */
+
 export default function UserMenu({ username, items = [], onLogout }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
