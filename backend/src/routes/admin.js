@@ -6,6 +6,7 @@ import { requireAdmin } from '../middleware/auth.js';
 import { getDbHealth, getUserMetrics, getContentMetrics } from '../services/metricsService.js';
 import { listVisibilityOverrides, setModuleAvailability } from '../services/moduleVisibilityService.js';
 import { swordService } from '../services/swordService.js';
+import { listMdModules } from '../services/mdModuleService.js';
 import { UPLOADS_PATH } from '../middleware/upload.js';
 import { prisma } from '../db/prisma.js';
 import { listAllCached, deleteById } from '../services/factbookSummaryService.js';
@@ -36,17 +37,24 @@ adminRouter.get('/metrics', async (req, res, next) => {
 adminRouter.get('/modules/visibility', async (req, res, next) => {
   try {
     const type = req.query.type || 'BIBLE';
-    const [installed, overrides] = await Promise.all([
+    const [installed, overrides, mdModules] = await Promise.all([
       swordService.listInstalledModules(type),
       listVisibilityOverrides(),
+      listMdModules(type),
     ]);
     const overrideMap = new Map(overrides.map((o) => [o.moduleCode, o.availableToUsers]));
-    const result = installed.map((m) => ({
+    const swordResult = installed.map((m) => ({
       name: m.name,
       description: m.description,
       availableToUsers: overrideMap.has(m.name) ? overrideMap.get(m.name) : true,
     }));
-    res.json(result);
+    const mdResult = mdModules.map((m) => ({
+      name: m.name,
+      description: m.description,
+      availableToUsers: true,
+      isMd: true,
+    }));
+    res.json([...swordResult, ...mdResult]);
   } catch (err) {
     next(err);
   }

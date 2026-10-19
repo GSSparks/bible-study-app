@@ -368,18 +368,20 @@ function ModulesTab() {
                     <div className="font-mono text-xs text-muted">{m.name}</div>
                   </div>
                   <div className="ml-2 flex shrink-0 gap-1">
-                    <button
-                      disabled={toggling === m.name}
-                      onClick={() => handleToggle(m.name, m.availableToUsers)}
-                      className={`rounded border px-2 py-1 text-xs disabled:opacity-50 ${
-                        m.availableToUsers
-                          ? 'border-verdigris text-verdigris hover:border-red-400 hover:text-red-400'
-                          : 'border-rule text-muted hover:border-brass hover:text-brass'
-                      }`}
-                      title={m.availableToUsers ? 'Visible to users — click to hide' : 'Hidden from users — click to show'}
-                    >
-                      {toggling === m.name ? '…' : m.availableToUsers ? 'available' : 'hidden'}
-                    </button>
+                    {!m.isMd && (
+                      <button
+                        disabled={toggling === m.name}
+                        onClick={() => handleToggle(m.name, m.availableToUsers)}
+                        className={`rounded border px-2 py-1 text-xs disabled:opacity-50 ${
+                          m.availableToUsers
+                            ? 'border-verdigris text-verdigris hover:border-red-400 hover:text-red-400'
+                            : 'border-rule text-muted hover:border-brass hover:text-brass'
+                        }`}
+                        title={m.availableToUsers ? 'Visible to users — click to hide' : 'Hidden from users — click to show'}
+                      >
+                        {toggling === m.name ? '…' : m.availableToUsers ? 'available' : 'hidden'}
+                      </button>
+                    )}
                     <button
                       disabled={removing === m.name}
                       onClick={() => handleRemove(m.name)}

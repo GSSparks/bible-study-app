@@ -75,7 +75,14 @@ class SwordService {
     // 'BOOK' is our internal label; SWORD / node-sword-interface uses 'GENBOOK'
     // for the "General Books" category (RawGenBook driver).
     const swordType = moduleType === 'BOOK' ? 'GENBOOK' : moduleType;
-    return this.sword.getAllRepoModules(repoName, swordType);
+    const modules = await this.sword.getAllRepoModules(repoName, swordType);
+    // getAllRepoModules ignores the GENBOOK type filter (same behaviour as
+    // getAllLocalModules) — apply the same category-field filter used in
+    // _detectBookModules so only actual General Books are returned.
+    if (moduleType === 'BOOK') {
+      return modules.filter((m) => m.type === 'Generic Books');
+    }
+    return modules;
   }
 
   listInstalledModules(moduleType = 'BIBLE') {
