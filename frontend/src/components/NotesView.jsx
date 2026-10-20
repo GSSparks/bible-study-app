@@ -136,7 +136,6 @@ export default function NotesView({ isLoggedIn, onOpenInCell }) {
       setError(e.message);
     }
   }
-//   Export notes section
   async function exportNotes() {
     const md = notes.map((n) => {
       const title = cleanTitle(n.title) || n.reference || 'Untitled';
@@ -328,7 +327,6 @@ export default function NotesView({ isLoggedIn, onOpenInCell }) {
 
 function NoteViewer({ note, onEdit, onDelete, onOpenInCell }) {
   const displayBody = stripLeadingHeading(note.body);
-//  Exporting Per Note
   function exportNote() {
     const title = cleanTitle(note.title) || note.reference || 'Untitled';
     const meta = [];
