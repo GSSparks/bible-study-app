@@ -89,7 +89,7 @@ export default function CellView({
     if (pendingBibleOpen.module) {
       openVerseTab(pendingBibleOpen.module, pendingBibleOpen.reference);
     } else {
-      navigateFocus(pendingBibleOpen.reference);
+      openExternalRef(pendingBibleOpen.reference);
     }
     onBibleOpenConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -222,6 +222,74 @@ export default function CellView({
     routeToAiChat({ type: 'document', documentId: docId });
   }
 
+  // Open a ref from an external view (no module specified). Reuses any bible
+  // tab already showing the same book+chapter; otherwise opens a new tab.
+  function openExternalRef(reference) {
+    function bookChapterOf(ref) {
+      if (!ref) return null;
+      const m = ref.trim().match(/^((?:\d\s+)?[A-Za-z]+(?:\s+[A-Za-z]+)*)\s+(\d+)/i);
+      return m ? `${m[1].trim().toLowerCase()} ${m[2]}` : null;
+    }
+
+    // Update focused reference + nav history without touching any tab's stored reference.
+    // navigateFocus() also calls setBibleTabReference on the current activeTabId which
+    // is stale during this function — that overwrites the wrong tab's position.
+    function commitFocus(ref) {
+      setFocusedReference(ref);
+      setNavHistory((prev) => {
+        const truncated = prev.entries.slice(0, prev.index + 1);
+        return { entries: [...truncated, ref], index: truncated.length };
+      });
+      try { localStorage.setItem('cell-last-reference', ref); } catch {}
+    }
+
+    const targetBC = bookChapterOf(reference);
+
+    if (targetBC) {
+      for (const col of layout.columns) {
+        for (const row of col.rows) {
+          if (row.type !== 'bible') continue;
+          for (const tab of row.tabs) {
+            const tabRef = tab.reference || focusedReference;
+            if (bookChapterOf(tabRef) === targetBC) {
+              layout.setActiveTab(col.id, row.id, tab.id);
+              layout.setBibleTabReference(col.id, row.id, tab.id, reference);
+              commitFocus(reference);
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    // No matching tab — open a new one, seeding it with the target reference
+    // so only the new tab starts there; existing tabs keep their own positions.
+    const firstBibleCol = layout.columns.find((c) => c.rows.some((r) => r.type === 'bible'));
+    const firstBibleRow = firstBibleCol?.rows.find((r) => r.type === 'bible');
+    const module = defaultBibleModule || firstBibleRow?.tabs[0]?.module || '';
+    if (firstBibleCol && firstBibleRow && module) {
+      // Pin any tab with reference=null to the current focusedReference before we
+      // change it. Tabs with no explicit reference fall back to focusedReference for
+      // display, so changing focusedReference would silently move them to the new passage.
+      for (const col of layout.columns) {
+        for (const row of col.rows) {
+          if (row.type !== 'bible') continue;
+          for (const tab of row.tabs) {
+            if (!tab.reference) {
+              layout.setBibleTabReference(col.id, row.id, tab.id, focusedReference);
+            }
+          }
+        }
+      }
+      const allTabs = layout.columns.flatMap((col) => col.rows.flatMap((row) => row.tabs));
+      const title = allTabs.find((t) => t.module === module)?.title || module;
+      layout.addTab(firstBibleCol.id, firstBibleRow.id, module, title, reference);
+      commitFocus(reference);
+    } else {
+      navigateFocus(reference);
+    }
+  }
+
   function openVerseTab(module, osisRef) {
     setVerseDrawer(null);
     const firstBibleCol = layout.columns.find((c) => c.rows.some((r) => r.type === 'bible'));
@@ -232,9 +300,10 @@ export default function CellView({
         layout.setActiveTab(firstBibleCol.id, firstBibleRow.id, existingTab.id);
         layout.setBibleTabReference(firstBibleCol.id, firstBibleRow.id, existingTab.id, osisRef);
       } else {
-        // navigateFocus sets focusedReference — new tab falls back to it until navigated
+        const allTabs = layout.columns.flatMap((col) => col.rows.flatMap((row) => row.tabs));
+        const title = allTabs.find((t) => t.module === module)?.title || module;
         navigateFocus(osisRef);
-        layout.addTab(firstBibleCol.id, firstBibleRow.id, module, module);
+        layout.addTab(firstBibleCol.id, firstBibleRow.id, module, title);
         return;
       }
     }
@@ -344,6 +413,7 @@ export default function CellView({
     verseDrawer,
     setVerseDrawer,
     openVerseTab,
+    openExternalRef,
     commentaryRefreshNonce,
     dictionaryRefreshNonce,
     onPersonalCommentarySaved: () => setCommentaryRefreshNonce((n) => n + 1),

@@ -106,6 +106,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
     verseDrawer,
     setVerseDrawer,
     openVerseTab,
+    openExternalRef,
     commentaryRefreshNonce,
     dictionaryRefreshNonce,
     onPersonalCommentarySaved,
@@ -398,7 +399,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 reference={focusedReference}
                 module={defaultBibleModule}
                 onVerseRefClick={onVerseRefClick}
-                onNavigate={(ref) => openVerseTab(defaultBibleModule, ref)}
+                onNavigate={openExternalRef}
               />
             </div>
             {!isMobile && verseDrawer?.targetRowId === row.id && (
