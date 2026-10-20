@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, BookMarked, BookText, Box, Compass, Library as LibraryIcon, Map, Settings as SettingsIcon, Shield, StickyNote, Menu, X } from 'lucide-react';
+import { BookOpen, BookMarked, BookText, Box, Compass, Library as LibraryIcon, Map, Settings as SettingsIcon, Shield, StickyNote, Users, Menu, X } from 'lucide-react';
 import BiblePanel from './BiblePanel.jsx';
 import BookPanel from './BookPanel.jsx';
 import NotePanel from './NotePanel.jsx';
@@ -14,6 +14,7 @@ import AdminView from './AdminView.jsx';
 import ScriptoriumsView from './ScriptoriumsView.jsx';
 import LibraryView from './LibraryView.jsx';
 import NotesView from './NotesView.jsx';
+import FellowsView from './FellowsView.jsx';
 import CursusView from './CursusView.jsx';
 import LoginModal from './LoginModal.jsx';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
@@ -42,6 +43,7 @@ const NAV_GROUPS = [
     label: 'Community',
     items: [
       { key: 'scriptoriums', label: 'Scriptoriums', Icon: Box, requiresAuth: true },
+      { key: 'fellows', label: 'Fellows', Icon: Users, requiresAuth: true },
     ],
   },
   {
@@ -431,6 +433,9 @@ export default function AppShell({ auth }) {
             bibleModule={defaultBibleModule}
           />
         </div>
+        {activeView === 'fellows' && (
+          <FellowsView isLoggedIn={Boolean(auth.user)} />
+        )}
         <div className={activeView === 'books' ? 'h-full' : 'hidden'}>
           <BooksView
             bookReader={bookReader}
@@ -452,6 +457,7 @@ export default function AppShell({ auth }) {
           activeView !== 'scriptoriums' &&
           activeView !== 'library' &&
           activeView !== 'notes' &&
+          activeView !== 'fellows' &&
           activeView !== 'books' &&
           activeView !== 'map' && (
           <PlaceholderView title={activeItem.label} description={activeItem.description} />
