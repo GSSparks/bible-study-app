@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookText, ChevronLeft, ChevronRight, ExternalLink, List, Search, Sparkles, Volume2, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import FootnotePopup from './FootnotePopup.jsx';
+import VerseHoverCard from './VerseHoverCard.jsx';
 import { osisToHuman } from '../utils/osisToHuman.js';
 import { injectTocLinks } from '../utils/dictHtml.js';
 
@@ -82,6 +83,7 @@ export default function TopicGuidePane({
   isLoggedIn = false,
   defaultBibleModule,
   onOpenInBible,
+  onOpenInCell,
 }) {
   const [inputValue, setInputValue] = useState(''); // what's in the text box
   const [query, setQuery] = useState('');           // committed search term (Enter)
@@ -101,6 +103,8 @@ export default function TopicGuidePane({
   const contentRef = useRef(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
   const [summaryState, setSummaryState] = useState(null); // { loading, html, error, cached }
+  const [hoverCard, setHoverCard] = useState(null); // { ref, rect }
+  const closeTimer = useRef(null);
   const inputRef = useRef(null);
 
   const selected = nav.stack[nav.index] ?? null;
@@ -239,6 +243,34 @@ export default function TopicGuidePane({
     } catch {
       setQuery(key);
     }
+  }
+
+  // ── Verse ref hover card ──────────────────────────────────────────────────
+  function scheduleHoverClose() {
+    closeTimer.current = setTimeout(() => setHoverCard(null), 150);
+  }
+
+  function cancelHoverClose() {
+    clearTimeout(closeTimer.current);
+  }
+
+  function handleContentMouseOver(e) {
+    if (!defaultBibleModule) return;
+    const verseEl = e.target.closest('.verse-ref');
+    if (verseEl?.dataset.ref) {
+      cancelHoverClose();
+      setHoverCard({ ref: verseEl.dataset.ref, rect: verseEl.getBoundingClientRect() });
+      return;
+    }
+    const xrefEl = e.target.closest('.xref-marker');
+    if (xrefEl?.dataset.refs) {
+      cancelHoverClose();
+      const firstRef = xrefEl.dataset.refs.split(/\s+/)[0];
+      const humanRef = osisToHuman(firstRef);
+      if (humanRef) setHoverCard({ ref: humanRef, rect: xrefEl.getBoundingClientRect() });
+      return;
+    }
+    scheduleHoverClose();
   }
 
   // ── Verse ref clicks → open slide-out Bible reader ────────────────────────
@@ -588,7 +620,12 @@ export default function TopicGuidePane({
         )}
 
         {/* Scrollable article */}
-        <div ref={contentRef} className="min-w-0 flex-1 overflow-y-auto px-7 py-6">
+        <div
+          ref={contentRef}
+          className="min-w-0 flex-1 overflow-y-auto px-7 py-6"
+          onMouseOver={defaultBibleModule ? handleContentMouseOver : undefined}
+          onMouseLeave={defaultBibleModule ? scheduleHoverClose : undefined}
+        >
         {!selected && !query.trim() && (
           <div className="mt-12 text-center text-pageMuted">
             <Search size={32} className="mx-auto mb-3 opacity-20" />
@@ -870,6 +907,17 @@ export default function TopicGuidePane({
           x={footnotePopup.x}
           y={footnotePopup.y}
           onClose={() => setFootnotePopup(null)}
+        />
+      )}
+
+      {hoverCard && defaultBibleModule && (
+        <VerseHoverCard
+          refStr={hoverCard.ref}
+          rect={hoverCard.rect}
+          bibleModule={defaultBibleModule}
+          onNavigate={onOpenInCell}
+          onMouseEnter={cancelHoverClose}
+          onMouseLeave={scheduleHoverClose}
         />
       )}
 
