@@ -411,6 +411,7 @@ export default function AppShell({ auth }) {
             onAskAiCompanionAbout={askAiCompanionAbout}
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
             onOpenBiblePanel={openBiblePanel}
+            bibleModule={defaultBibleModule}
           />
         </div>
         <div className={activeView === 'library' ? 'h-full' : 'hidden'}>
@@ -425,6 +426,8 @@ export default function AppShell({ auth }) {
           <NotesView
             isLoggedIn={Boolean(auth.user)}
             onOpenInCell={(ref) => openInPassages(null, ref)}
+            onOpenInBible={(ref) => openBiblePanel(ref, null)}
+            bibleModule={defaultBibleModule}
           />
         </div>
         <div className={activeView === 'books' ? 'h-full' : 'hidden'}>

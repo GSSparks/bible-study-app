@@ -6,6 +6,7 @@ import SelectableNoteRegion from './SelectableNoteRegion.jsx';
 import VerseCommentaryEditor from './VerseCommentaryEditor.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
 import { parseVerseTokens, collectStrongsKeys, cleanMorph } from '../utils/parseInterlinear.js';
+import VerseHoverCard from './VerseHoverCard.jsx';
 
 function groupVerses(verses) {
   const segments = [];
@@ -104,6 +105,7 @@ export default function ReaderPane({
   interlinearMode: controlledInterlinearMode,
   onInterlinearToggle,
   onNavigate,
+  onOpenInTab,
   onStrongsClick,
   onVerseRefClick,
   onAnnotate,
@@ -115,6 +117,8 @@ export default function ReaderPane({
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [hoverCard, setHoverCard] = useState(null); // { refStr, rect }
+  const hoverCloseTimer = useRef(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
   const [selectedRange, setSelectedRange] = useState(null);
   const [phraseSelection, setPhraseSelection] = useState(null); // { text, strongsSequence, x, y }
@@ -525,6 +529,38 @@ export default function ReaderPane({
     window.getSelection()?.removeAllRanges();
   }
 
+  function scheduleHoverClose() {
+    clearTimeout(hoverCloseTimer.current);
+    hoverCloseTimer.current = setTimeout(() => setHoverCard(null), 150);
+  }
+
+  function cancelHoverClose() {
+    clearTimeout(hoverCloseTimer.current);
+  }
+
+  function handleContentMouseOver(e) {
+    const xref = e.target.closest('.xref-marker');
+    if (xref) {
+      cancelHoverClose();
+      const refs = (xref.dataset.refs || xref.dataset.ref || '').split(',');
+      const refStr = refs[0]?.trim();
+      if (refStr && hoverCard?.refStr !== refStr) {
+        setHoverCard({ refStr, rect: xref.getBoundingClientRect() });
+      }
+      return;
+    }
+    const span = e.target.closest('.verse-ref');
+    if (span) {
+      cancelHoverClose();
+      const refStr = span.dataset.ref;
+      if (refStr && hoverCard?.refStr !== refStr) {
+        setHoverCard({ refStr, rect: span.getBoundingClientRect() });
+      }
+      return;
+    }
+    if (hoverCard) scheduleHoverClose();
+  }
+
   return (
     <div className={`${noScroll ? '' : 'h-full overflow-y-auto '}bg-page px-6 py-6 text-pageText`}>
       {!focusMode && (
@@ -587,6 +623,8 @@ export default function ReaderPane({
             }`}
             onClick={handleContentClick}
             onMouseUp={handleContentMouseUp}
+            onMouseOver={handleContentMouseOver}
+            onMouseLeave={scheduleHoverClose}
           >
             {segments.map((seg, i) => (
               <div key={seg.key}>
@@ -863,6 +901,17 @@ export default function ReaderPane({
           x={footnotePopup.x}
           y={footnotePopup.y}
           onClose={() => setFootnotePopup(null)}
+        />
+      )}
+
+      {hoverCard && module && (
+        <VerseHoverCard
+          refStr={hoverCard.refStr}
+          rect={hoverCard.rect}
+          bibleModule={module}
+          onNavigate={onOpenInTab ?? onNavigate}
+          onMouseEnter={cancelHoverClose}
+          onMouseLeave={scheduleHoverClose}
         />
       )}
     </div>
