@@ -51,7 +51,7 @@ function ProgressRing({ percent, size = 64 }) {
   );
 }
 
-export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuilder, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel, backLabel = 'Studies' }) {
+export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuilder, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel, bibleModule, backLabel = 'Studies' }) {
   const [study, setStudy] = useState(null);
   const [lessons, setLessons] = useState([]);
   const [progress, setProgress] = useState(null);
@@ -296,6 +296,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                     onAskAiCompanionAbout={onAskAiCompanionAbout}
                     noteTextareaRef={noteTextareaRef}
                     onOpenBiblePanel={onOpenBiblePanel}
+                    bibleModule={bibleModule}
                   />
                 </div>
               )}
@@ -492,6 +493,7 @@ function StudySidebar({ study, lessons, progress, resources, activeLesson, nextL
           onAskAiCompanionAbout={onAskAiCompanionAbout}
           onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
           onOpenBiblePanel={onOpenBiblePanel}
+          bibleModule={bibleModule}
         />
       )}
       {openDocumentId && (
@@ -507,7 +509,7 @@ function StudySidebar({ study, lessons, progress, resources, activeLesson, nextL
   );
 }
 
-function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onAddLesson, onGenerate, onLessonsChanged, onOpenInPassages, onAskAiCompanionAbout, onOpenBiblePanel }) {
+function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onAddLesson, onGenerate, onLessonsChanged, onOpenInPassages, onAskAiCompanionAbout, onOpenBiblePanel, bibleModule }) {
   const noteTextareaRef = useRef(null);
 
   if (lessons.length === 0) {
@@ -565,6 +567,7 @@ function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onA
             onAskAiCompanionAbout={onAskAiCompanionAbout}
             noteTextareaRef={noteTextareaRef}
             onOpenBiblePanel={onOpenBiblePanel}
+            bibleModule={bibleModule}
           />
         )}
       </div>
@@ -700,7 +703,7 @@ function DiscussionTab({ lesson, isParticipant, currentUserId }) {
   );
 }
 
-function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, onAskAiCompanionAbout, noteTextareaRef, onOpenBiblePanel }) {
+function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, onAskAiCompanionAbout, noteTextareaRef, onOpenBiblePanel, bibleModule }) {
   const [passageOpen, setPassageOpen] = useState(false);
   const [passage, setPassage] = useState(null);
   const [passageError, setPassageError] = useState(null);
@@ -708,6 +711,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
   const [noteText, setNoteText] = useState('');
   const [noteLoading, setNoteLoading] = useState(true);
   const [savingNote, setSavingNote] = useState(false);
+  const [editingNote, setEditingNote] = useState(false);
   const [editingBody, setEditingBody] = useState(false);
   const [pendingBody, setPendingBody] = useState('');
   const [savingBody, setSavingBody] = useState(false);
@@ -764,6 +768,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
         const created = await api.createNote({ reference: lesson.reference, body: noteText });
         setNote(created);
       }
+      setEditingNote(false);
     } catch (e) {
       // Surfaced inline below rather than a top-level error, since
       // this is a small, recoverable part of the page.
@@ -951,7 +956,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
               title={isOwner ? 'Double-click to edit' : undefined}
             >
               {lesson.body ? (
-                <RichContent colorMode="light" onVerseClick={onOpenBiblePanel}>{lesson.body}</RichContent>
+                <RichContent colorMode="light" onVerseClick={onOpenBiblePanel} onNavigate={(ref) => onOpenInPassages?.(null, ref)} bibleModule={bibleModule}>{lesson.body}</RichContent>
               ) : (
                 <p className="text-sm italic text-pageMuted">Double-click to add study notes for this lesson…</p>
               )}
@@ -959,6 +964,49 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
           )}
         </div>
       )}
+
+      {/* Your Notes */}
+      <div className="border-t border-pageBorder pt-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-widest text-pageMuted">Your Notes</h4>
+          {!editingNote && (
+            <button
+              onClick={() => setEditingNote(true)}
+              className="text-xs text-pageMuted hover:text-pageAccent"
+            >
+              {noteText.trim() ? 'edit' : '+ add note'}
+            </button>
+          )}
+        </div>
+        {noteLoading ? (
+          <p className="text-sm text-pageMuted">Loading…</p>
+        ) : editingNote ? (
+          <>
+            <textarea
+              ref={noteTextareaRef}
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              rows={6}
+              placeholder="Write your personal notes for this lesson…"
+              className="w-full rounded border border-pageBorder bg-white/50 px-3 py-2.5 text-sm leading-relaxed text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button onClick={() => setEditingNote(false)} className="text-xs text-pageMuted hover:text-pageText">cancel</button>
+              <button
+                onClick={saveNote}
+                disabled={savingNote}
+                className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
+              >
+                {savingNote ? 'saving…' : 'save'}
+              </button>
+            </div>
+          </>
+        ) : noteText.trim() ? (
+          <RichContent colorMode="light" onVerseClick={onOpenBiblePanel} onNavigate={(ref) => onOpenInPassages?.(null, ref)} bibleModule={bibleModule}>{noteText}</RichContent>
+        ) : (
+          <p className="text-sm italic text-pageMuted">Click '+ add note' to write personal notes for this lesson.</p>
+        )}
+      </div>
 
       {/* Your Response */}
       {lesson.reflectionPrompt && (
@@ -1250,6 +1298,7 @@ function ResourcesTabContent({ study, resources, activeLesson, isOwner, onResour
           onAskAiCompanionAbout={onAskAiCompanionAbout}
           onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
           onOpenBiblePanel={onOpenBiblePanel}
+          bibleModule={bibleModule}
         />
       )}
       {openDocumentId && (
@@ -1599,7 +1648,7 @@ function GenerateStudyModal({ studyId, nextOrder, onClose, onCreated }) {
   );
 }
 
-function ResourceModal({ resource, activeLesson, onClose, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel }) {
+function ResourceModal({ resource, activeLesson, onClose, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel, bibleModule }) {
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose(); }
     document.addEventListener('keydown', onKey);
@@ -1613,7 +1662,7 @@ function ResourceModal({ resource, activeLesson, onClose, onAskAiCompanionAbout,
     if (resource.type === 'note') {
       return (
         <div className="p-5">
-          <RichContent colorMode="light" onVerseClick={(ref) => { onOpenBiblePanel?.(ref); onClose(); }}>
+          <RichContent colorMode="light" onVerseClick={(ref) => { onOpenBiblePanel?.(ref); onClose(); }} bibleModule={bibleModule}>
             {resource.body}
           </RichContent>
         </div>

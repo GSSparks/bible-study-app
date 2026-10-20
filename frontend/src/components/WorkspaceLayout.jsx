@@ -265,6 +265,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                       interlinearMode={interlinearMode}
                       onInterlinearToggle={() => setInterlinearMode((m) => !m)}
                       onNavigate={handleBibleNavigate}
+                      onOpenInTab={(ref) => openVerseTab(item.module, ref)}
                       onStrongsClick={onStrongsClick}
                       onVerseRefClick={onVerseRefClick}
                       onAnnotate={onAnnotate}
@@ -397,6 +398,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                 reference={focusedReference}
                 module={defaultBibleModule}
                 onVerseRefClick={onVerseRefClick}
+                onNavigate={(ref) => openVerseTab(defaultBibleModule, ref)}
               />
             </div>
             {!isMobile && verseDrawer?.targetRowId === row.id && (

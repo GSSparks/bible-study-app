@@ -7,7 +7,7 @@ const BOOKS =
   'Song\\s+of\\s+Solomon|Song\\s+of\\s+Songs|Song|Isaiah|Isa|Jeremiah|Jer|Lamentations|Lam|' +
   'Ezekiel|Ezek|Daniel|Dan|Hosea|Hos|Joel|Amos|Obadiah|Obad|Jonah|Micah|Mic|Nahum|Nah|' +
   'Habakkuk|Hab|Zephaniah|Zeph|Haggai|Hag|Zechariah|Zech|Malachi|Mal|' +
-  'Matthew|Matt|Mat|Mark|Mk|Luke|Lk|Acts|Romans|Rom|Galatians|Gal|' +
+  'Matthew|Matt|Mat|Mt|Mark|Mk|mk|Luke|Lk|John|Jn|Acts|Romans|Rom|Galatians|Gal|' +
   'Ephesians|Eph|Philippians|Phil|Colossians|Col|Titus|Philemon|Phlm|Hebrews|Heb|' +
   'James|Jas|Jude|Revelation|Rev';
 

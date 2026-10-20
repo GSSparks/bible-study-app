@@ -382,6 +382,7 @@ export default function AppShell({ auth }) {
             initialQuery={pendingCodexQuery}
             defaultBibleModule={defaultBibleModule}
             onOpenInBible={(ref) => openBiblePanel(ref, null)}
+            onOpenInCell={(ref) => openInPassages(null, ref)}
           />
         </div>
         {activeView === 'settings' && (
@@ -411,6 +412,7 @@ export default function AppShell({ auth }) {
             onAskAiCompanionAbout={askAiCompanionAbout}
             onAskAiCompanionPhraseStudy={askAiCompanionPhraseStudy}
             onOpenBiblePanel={openBiblePanel}
+            bibleModule={defaultBibleModule}
           />
         </div>
         <div className={activeView === 'library' ? 'h-full' : 'hidden'}>
@@ -425,10 +427,19 @@ export default function AppShell({ auth }) {
           <NotesView
             isLoggedIn={Boolean(auth.user)}
             onOpenInCell={(ref) => openInPassages(null, ref)}
+            onOpenInBible={(ref) => openBiblePanel(ref, null)}
+            bibleModule={defaultBibleModule}
           />
         </div>
         <div className={activeView === 'books' ? 'h-full' : 'hidden'}>
-          <BooksView bookReader={bookReader} onBookChange={updateBookReader} isLoggedIn={Boolean(auth.user)} />
+          <BooksView
+            bookReader={bookReader}
+            onBookChange={updateBookReader}
+            isLoggedIn={Boolean(auth.user)}
+            defaultBibleModule={defaultBibleModule}
+            onOpenInBible={(ref) => openBiblePanel(ref, null)}
+            onOpenInCell={(ref) => openInPassages(null, ref)}
+          />
         </div>
         <div className={activeView === 'map' ? 'h-full' : 'hidden'}>
           <BiblicaMapsView />
@@ -463,6 +474,9 @@ export default function AppShell({ auth }) {
         onBookChange={updateBookReader}
         onOpenInBooks={(module) => { openBook(module); setBookPanelOpen(false); }}
         isLoggedIn={Boolean(auth.user)}
+        defaultBibleModule={defaultBibleModule}
+        onOpenInBible={(ref) => openBiblePanel(ref, null)}
+        onOpenInCell={(ref) => openInPassages(null, ref)}
       />
 
       <NotePanel

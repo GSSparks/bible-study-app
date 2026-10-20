@@ -83,14 +83,13 @@ export default function CellView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.loading, auth.setupRequired]);
 
-  // Handle pendingBibleOpen: navigate and open a new tab in the first bible pane
+  // Handle pendingBibleOpen: reuse an existing tab when possible, open new one otherwise
   useEffect(() => {
     if (!pendingBibleOpen) return;
-    navigateFocus(pendingBibleOpen.reference);
-    const firstBibleCol = layout.columns.find((c) => c.rows.some((r) => r.type === 'bible'));
-    const firstBibleRow = firstBibleCol?.rows.find((r) => r.type === 'bible');
-    if (firstBibleCol && firstBibleRow && pendingBibleOpen.module) {
-      layout.addTab(firstBibleCol.id, firstBibleRow.id, pendingBibleOpen.module, pendingBibleOpen.module);
+    if (pendingBibleOpen.module) {
+      openVerseTab(pendingBibleOpen.module, pendingBibleOpen.reference);
+    } else {
+      navigateFocus(pendingBibleOpen.reference);
     }
     onBibleOpenConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps

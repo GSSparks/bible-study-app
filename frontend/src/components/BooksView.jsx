@@ -3,7 +3,7 @@ import { BookOpen, ChevronLeft } from 'lucide-react';
 import { api } from '../api/client.js';
 import BookPane from './BookPane.jsx';
 
-export default function BooksView({ bookReader, onBookChange, isLoggedIn = false }) {
+export default function BooksView({ bookReader, onBookChange, isLoggedIn = false, defaultBibleModule, onOpenInBible, onOpenInCell }) {
   const [books, setBooks] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
 
@@ -87,6 +87,9 @@ export default function BooksView({ bookReader, onBookChange, isLoggedIn = false
             initialScrollY={bookReader?.scrollY ?? 0}
             onScrollChange={handleScrollChange}
             isLoggedIn={isLoggedIn}
+            defaultBibleModule={defaultBibleModule}
+            onOpenInBible={onOpenInBible}
+            onOpenInCell={onOpenInCell}
           />
         )}
       </div>

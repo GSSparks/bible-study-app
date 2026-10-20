@@ -1,20 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import { osisToHuman } from '../utils/osisToHuman.js';
+import VerseHoverCard from './VerseHoverCard.jsx';
 
-function stripHtml(html) {
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-export default function CrossRefPane({ reference, module, onVerseRefClick }) {
+export default function CrossRefPane({ reference, module, onVerseRefClick, onNavigate }) {
   const [tskInstalled, setTskInstalled] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [tooltip, setTooltip] = useState(null); // { text, x, y }
-  const cacheRef = useRef(new Map()); // osis → snippet text
-  const hoverTimerRef = useRef(null);
+  const [hoverCard, setHoverCard] = useState(null); // { refStr, rect }
+  const closeTimer = useRef(null);
 
   useEffect(() => {
     api.listInstalledModules('COMMENTARY')
@@ -56,33 +51,18 @@ export default function CrossRefPane({ reference, module, onVerseRefClick }) {
     return () => { cancelled = true; };
   }, [tskInstalled, reference]);
 
-  function handleMouseEnter(e, ref) {
-    if (!module) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = rect.left;
-    const y = rect.bottom + 6;
-
-    // Small delay so quick mouse-passes don't fire fetches
-    hoverTimerRef.current = setTimeout(async () => {
-      let text = cacheRef.current.get(ref);
-      if (!text) {
-        try {
-          const res = await api.getPassage(module, ref);
-          const verses = res.verses || [];
-          text = verses.map((v) => `${v.verseNr} ${stripHtml(v.content)}`).join(' ');
-          if (text.length > 220) text = text.slice(0, 220).replace(/\s\S*$/, '') + '…';
-          cacheRef.current.set(ref, text || '');
-        } catch {
-          text = '';
-        }
-      }
-      if (text) setTooltip({ text, x, y });
-    }, 180);
+  function scheduleClose() {
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setHoverCard(null), 150);
   }
 
-  function handleMouseLeave() {
-    clearTimeout(hoverTimerRef.current);
-    setTooltip(null);
+  function cancelClose() {
+    clearTimeout(closeTimer.current);
+  }
+
+  function handleMouseEnter(e, ref) {
+    cancelClose();
+    setHoverCard({ refStr: ref, rect: e.currentTarget.getBoundingClientRect() });
   }
 
   if (tskInstalled === null) {
@@ -123,7 +103,7 @@ export default function CrossRefPane({ reference, module, onVerseRefClick }) {
                 key={ref}
                 onClick={() => onVerseRefClick?.(ref)}
                 onMouseEnter={(e) => handleMouseEnter(e, ref)}
-                onMouseLeave={handleMouseLeave}
+                onMouseLeave={scheduleClose}
                 className="rounded border border-pageBorder px-2 py-0.5 text-xs text-verdigris hover:border-brass hover:text-brass"
               >
                 {osisToHuman(ref)}
@@ -133,14 +113,15 @@ export default function CrossRefPane({ reference, module, onVerseRefClick }) {
         </div>
       ))}
 
-      {tooltip && createPortal(
-        <div
-          className="pointer-events-none fixed z-50 max-w-xs rounded-md border border-rule bg-panel px-3 py-2 shadow-xl"
-          style={{ left: Math.min(tooltip.x, window.innerWidth - 320), top: tooltip.y }}
-        >
-          <p className="font-display text-xs leading-relaxed text-parchment/90">{tooltip.text}</p>
-        </div>,
-        document.body
+      {hoverCard && module && (
+        <VerseHoverCard
+          refStr={hoverCard.refStr}
+          rect={hoverCard.rect}
+          bibleModule={module}
+          onNavigate={onNavigate}
+          onMouseEnter={cancelClose}
+          onMouseLeave={scheduleClose}
+        />
       )}
     </div>
   );

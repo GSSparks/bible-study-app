@@ -18,7 +18,7 @@ function resolveBook(bookStr) {
 function parseRef(ref) {
   if (!ref) return null;
   const s = ref.replace(/\./g, ' ').trim();
-  const m = s.match(/^(.+?)\s+(\d+)(?::(\d+))?/);
+  const m = s.match(/^(.+?)\s+(\d+)(?:[: ](\d+))?/);
   if (!m) return null;
   return {
     bookStr: m[1].trim(),
