@@ -4,8 +4,10 @@ import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import { extractToc, applyHighlightsToContainer, applyNoteMarkersToContainer, BOOK_HIGHLIGHT_COLORS } from '../utils/bookHtml.js';
 import SelectionNotePopup from './SelectionNotePopup.jsx';
+import VerseHoverCard from './VerseHoverCard.jsx';
+import { osisToHuman } from '../utils/osisToHuman.js';
 
-export default function BookPane({ module, initialScrollY = 0, onScrollChange, isLoggedIn = false }) {
+export default function BookPane({ module, initialScrollY = 0, onScrollChange, isLoggedIn = false, defaultBibleModule, onOpenInBible, onOpenInCell }) {
   const [html, setHtml] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,12 +16,14 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
   const [highlights, setHighlights] = useState([]);
   const [notes, setNotes] = useState([]);
   const [hoveredNote, setHoveredNote] = useState(null); // { note, x, y }
+  const [hoverCard, setHoverCard] = useState(null); // { ref, rect }
   const [selection, setSelection] = useState(null); // { text, x, y }
   const [showNotePopup, setShowNotePopup] = useState(false);
 
   const scrollRef = useRef(null);
   const contentRef = useRef(null);
   const scrollDebounceRef = useRef(null);
+  const verseCloseTimer = useRef(null);
   const notesRef = useRef([]);
   notesRef.current = notes;
 
@@ -114,13 +118,58 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
     window.getSelection()?.removeAllRanges();
   }
 
+  function scheduleVerseClose() {
+    verseCloseTimer.current = setTimeout(() => setHoverCard(null), 150);
+  }
+
+  function cancelVerseClose() {
+    clearTimeout(verseCloseTimer.current);
+  }
+
   function handleContentMouseOver(e) {
     const marker = e.target.closest?.('.book-note-marker');
-    if (!marker) { setHoveredNote(null); return; }
-    const note = notesRef.current.find((n) => n.id === marker.dataset.noteId);
-    if (!note) return;
-    const rect = marker.getBoundingClientRect();
-    setHoveredNote({ note, x: rect.left, y: rect.bottom + 4 });
+    if (marker) {
+      const note = notesRef.current.find((n) => n.id === marker.dataset.noteId);
+      if (note) {
+        const rect = marker.getBoundingClientRect();
+        setHoveredNote({ note, x: rect.left, y: rect.bottom + 4 });
+      }
+      return;
+    }
+    if (defaultBibleModule) {
+      const verseEl = e.target.closest('.verse-ref');
+      if (verseEl?.dataset.ref) {
+        cancelVerseClose();
+        setHoverCard({ ref: verseEl.dataset.ref, rect: verseEl.getBoundingClientRect() });
+        return;
+      }
+      const xrefEl = e.target.closest('.xref-marker');
+      if (xrefEl?.dataset.refs) {
+        cancelVerseClose();
+        const firstRef = xrefEl.dataset.refs.split(/\s+/)[0];
+        const humanRef = osisToHuman(firstRef);
+        if (humanRef) setHoverCard({ ref: humanRef, rect: xrefEl.getBoundingClientRect() });
+        return;
+      }
+    }
+    setHoveredNote(null);
+    scheduleVerseClose();
+  }
+
+  function handleContentClick(e) {
+    const verseEl = e.target.closest('.verse-ref');
+    if (verseEl?.dataset.ref) {
+      e.stopPropagation();
+      onOpenInBible?.(verseEl.dataset.ref);
+      return;
+    }
+    const xrefEl = e.target.closest('.xref-marker');
+    if (xrefEl?.dataset.refs) {
+      e.stopPropagation();
+      const firstRef = xrefEl.dataset.refs.split(/\s+/)[0];
+      const humanRef = osisToHuman(firstRef);
+      if (humanRef) onOpenInBible?.(humanRef);
+    }
   }
 
   function jumpToSection(id) {
@@ -260,11 +309,24 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
             ].join(' ')}
             dangerouslySetInnerHTML={{ __html: html }}
             onMouseUp={handleMouseUp}
+            onClick={handleContentClick}
             onMouseOver={handleContentMouseOver}
-            onMouseLeave={() => setHoveredNote(null)}
+            onMouseLeave={() => { setHoveredNote(null); scheduleVerseClose(); }}
           />
         )}
       </div>
+
+      {/* Verse hover card */}
+      {hoverCard && defaultBibleModule && (
+        <VerseHoverCard
+          refStr={hoverCard.ref}
+          rect={hoverCard.rect}
+          bibleModule={defaultBibleModule}
+          onNavigate={onOpenInCell}
+          onMouseEnter={cancelVerseClose}
+          onMouseLeave={scheduleVerseClose}
+        />
+      )}
 
       {/* Note hover tooltip */}
       {hoveredNote &&
