@@ -40,10 +40,10 @@ export default function VerseHoverCard({ refStr, rect, bibleModule, onNavigate, 
       ) : (
         <>
           <p className="break-words text-sm leading-relaxed text-parchment/90">
-            {verses.slice(0, 5).map((v) => v.content.replace(/<[^>]+>/g, '')).join(' ')}
-            {verses.length > 5 && <span className="text-muted"> …</span>}
+            {verses.slice(0, 2).map((v) => v.content.replace(/<[^>]+>/g, '')).join(' ')}
+            {verses.length > 2 && <span className="text-muted"> …</span>}
           </p>
-          {verses.length > 5 && (
+          {verses.length > 2 && (
             <p className="mt-1 text-xs text-muted">{verses.length} verses</p>
           )}
         </>

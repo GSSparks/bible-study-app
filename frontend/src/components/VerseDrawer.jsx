@@ -93,7 +93,7 @@ export default function VerseDrawer({ osisRef, module, onClose, onOpenInTab }) {
         {error && <p className="text-sm text-red-400">{error}</p>}
 
         {entries?.map(({ ref, verses }, i) => {
-          const VERSE_CAP = 5;
+          const VERSE_CAP = 2;
           const truncated = verses.length > VERSE_CAP;
           const displayed = truncated ? verses.slice(0, VERSE_CAP) : verses;
           return (
