@@ -680,7 +680,7 @@ export default function ReaderPane({
                     })}
                   </div>
                 ) : (
-                  <p>
+                  <p className="break-words">
                     {seg.verses.map((v) => {
                       const verseKey = `${v.chapter}-${v.verseNr}`;
                       const isFocused = focusMode && verseKey === focusedVerseKey;

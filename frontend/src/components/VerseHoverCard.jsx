@@ -38,9 +38,15 @@ export default function VerseHoverCard({ refStr, rect, bibleModule, onNavigate, 
       ) : verses.length === 0 ? (
         <p className="text-xs text-muted">Verse not found.</p>
       ) : (
-        <p className="text-sm leading-relaxed text-parchment/90">
-          {verses.map((v) => v.content.replace(/<[^>]+>/g, '')).join(' ')}
-        </p>
+        <>
+          <p className="break-words text-sm leading-relaxed text-parchment/90">
+            {verses.slice(0, 2).map((v) => v.content.replace(/<[^>]+>/g, '')).join(' ')}
+            {verses.length > 2 && <span className="text-muted"> …</span>}
+          </p>
+          {verses.length > 2 && (
+            <p className="mt-1 text-xs text-muted">{verses.length} verses</p>
+          )}
+        </>
       )}
       {onNavigate && (
         <div className="mt-2.5 border-t border-rule/50 pt-2">
