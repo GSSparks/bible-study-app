@@ -44,7 +44,12 @@ function parseTable(lines) {
 }
 
 function markdownToHtml(md) {
-  const blocks = md.split(/\n{2,}/);
+  // Ensure a blank line after every heading that is immediately followed by
+  // content (only one newline between them). Without this, the heading and its
+  // body land in the same block and the body is silently discarded because the
+  // block parser only inspects lines[0] for type detection.
+  const normalized = md.replace(/(^|\n)(#{1,4}[^\n]+)\n([^\n#])/g, '$1$2\n\n$3');
+  const blocks = normalized.split(/\n{2,}/);
   return blocks
     .map((block) => {
       const lines = block.split('\n').filter((l) => l !== undefined);
