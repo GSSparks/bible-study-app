@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import MDEditor from '@uiw/react-md-editor';
-import { Bot, ChevronLeft, ExternalLink, Plus, Search, StickyNote, Trash2, X } from 'lucide-react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Bot, ChevronLeft, Download, ExternalLink, Plus, Search, StickyNote, Trash2, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
@@ -135,7 +137,25 @@ export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bib
       setError(e.message);
     }
   }
+  async function exportNotes() {
+    const md = notes.map((n) => {
+      const title = cleanTitle(n.title) || n.reference || 'Untitled';
+      const body = stripLeadingHeading(n.body) || '';
+      const meta = [];
+      if (n.reference) meta.push(n.reference);
+      if (n.fromAssistant) meta.push('AI generated');
+      const metaLine = meta.length ? `\n> ${meta.join(' · ')}\n` : '';
+      return `## ${title}\n${metaLine}\n${body}\n`;
+    }).join('\n---\n\n');
 
+    const blob = new Blob([`# Study Notes\n\n${md}`], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'scriptorium-notes.md';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
   if (!isLoggedIn) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
@@ -160,12 +180,20 @@ export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bib
             <StickyNote size={16} className="text-brass" />
             <h1 className="font-display flex-1 text-base font-semibold text-parchment">Notes</h1>
             <button
-              onClick={startNew}
-              className="flex items-center gap-1 rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
-            >
-              <Plus size={11} />
-              New
-            </button>
+            onClick={exportNotes}
+            className="flex items-center gap-1 rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
+            title="Export all notes as Markdown"
+          >
+            <Download size={11} />
+            All
+          </button>
+          <button
+            onClick={startNew}
+            className="flex items-center gap-1 rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
+          >
+            <Plus size={11} />
+            New
+          </button>
           </div>
           <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">Personal Study Notes</p>
         </div>
@@ -303,6 +331,22 @@ export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bib
 
 function NoteViewer({ note, onEdit, onDelete, onOpenInCell, onNavigate, onNavigateToCell, bibleModule }) {
   const displayBody = stripLeadingHeading(note.body);
+  function exportNote() {
+    const title = cleanTitle(note.title) || note.reference || 'Untitled';
+    const meta = [];
+    if (note.reference) meta.push(note.reference);
+    if (note.fromAssistant) meta.push('AI generated');
+    const metaLine = meta.length ? `> ${meta.join(' · ')}\n\n` : '';
+    const md = `# ${title}\n\n${metaLine}${displayBody || ''}\n`;
+
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-page">
@@ -332,6 +376,14 @@ function NoteViewer({ note, onEdit, onDelete, onOpenInCell, onNavigate, onNaviga
                 <ExternalLink size={11} /> Open in Cell
               </button>
             )}
+// Export button
+            <button
+              onClick={exportNote}
+              className="flex items-center gap-1.5 rounded border border-pageBorder px-2.5 py-1.5 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
+              title="Export this note as Markdown"
+            >
+            <Download size={11} /> Export
+              </button>
             <button
               onClick={onEdit}
               className="rounded border border-pageBorder px-2.5 py-1.5 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
