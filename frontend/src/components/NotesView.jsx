@@ -376,7 +376,6 @@ function NoteViewer({ note, onEdit, onDelete, onOpenInCell, onNavigate, onNaviga
                 <ExternalLink size={11} /> Open in Cell
               </button>
             )}
-// Export button
             <button
               onClick={exportNote}
               className="flex items-center gap-1.5 rounded border border-pageBorder px-2.5 py-1.5 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
