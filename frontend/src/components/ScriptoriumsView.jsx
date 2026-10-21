@@ -20,7 +20,7 @@ function parseDocumentId(url) {
   return m ? m[1] : null;
 }
 
-export default function ScriptoriumsView({ currentUserId, currentUserRole, urlScriptoriumId, urlStudyId, urlIsBuilder, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel }) {
+export default function ScriptoriumsView({ currentUserId, currentUserRole, urlScriptoriumId, urlStudyId, urlIsBuilder, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel, bibleModule }) {
   const routerNavigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -51,6 +51,7 @@ export default function ScriptoriumsView({ currentUserId, currentUserRole, urlSc
         onAskAiCompanionAbout={onAskAiCompanionAbout}
         onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
         onOpenBiblePanel={onOpenBiblePanel}
+        bibleModule={bibleModule}
       />
     );
   }
@@ -86,6 +87,7 @@ export default function ScriptoriumsView({ currentUserId, currentUserRole, urlSc
             onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
             onOpenBiblePanel={onOpenBiblePanel}
             onSidebarRefresh={bump}
+            bibleModule={bibleModule}
           />
         ) : (
           <div className="flex h-full items-center justify-center">
@@ -669,7 +671,7 @@ function AboutSection({ scriptorium, isOwner, onSaved }) {
   );
 }
 
-function ResourcesSection({ scriptoriumId, isMember, currentUserId, isOwner }) {
+function ResourcesSection({ scriptoriumId, isMember, currentUserId, isOwner, bibleModule, onOpenBiblePanel }) {
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -918,7 +920,7 @@ function ResourcesSection({ scriptoriumId, isMember, currentUserId, isOwner }) {
       )}
 
       {viewingNote && (
-        <ScriptoriumNoteModal resource={viewingNote} onClose={() => setViewingNote(null)} />
+        <ScriptoriumNoteModal resource={viewingNote} onClose={() => setViewingNote(null)} bibleModule={bibleModule} onVerseClick={onOpenBiblePanel} />
       )}
       {viewingDocId && (
         <DocumentModal
@@ -931,7 +933,7 @@ function ResourcesSection({ scriptoriumId, isMember, currentUserId, isOwner }) {
   );
 }
 
-function ScriptoriumNoteModal({ resource, onClose }) {
+function ScriptoriumNoteModal({ resource, onClose, bibleModule, onVerseClick }) {
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose(); }
     document.addEventListener('keydown', onKey);
@@ -952,7 +954,7 @@ function ScriptoriumNoteModal({ resource, onClose }) {
           <button onClick={onClose} className="text-xs text-pageMuted hover:text-pageText">close</button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          <RichContent colorMode="light">{resource.body}</RichContent>
+          <RichContent colorMode="light" bibleModule={bibleModule} onVerseClick={onVerseClick}>{resource.body}</RichContent>
         </div>
       </div>
     </div>,
@@ -1094,7 +1096,7 @@ function InviteModal({ scriptoriumId, existingMemberIds, onClose }) {
   );
 }
 
-function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel, onSidebarRefresh }) {
+function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel, onSidebarRefresh, bibleModule }) {
   const routerNavigate = useNavigate();
   const [scriptorium, setScriptorium] = useState(null);
   const [members, setMembers] = useState([]);
@@ -1296,6 +1298,8 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
             isMember={isMember}
             currentUserId={currentUserId}
             isOwner={isOwner}
+            bibleModule={bibleModule}
+            onOpenBiblePanel={onOpenBiblePanel}
           />
         )}
 

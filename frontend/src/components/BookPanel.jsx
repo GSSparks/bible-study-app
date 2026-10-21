@@ -3,7 +3,7 @@ import { ArrowUpRight, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import BookPane from './BookPane.jsx';
 
-export default function BookPanel({ open, onClose, bookReader, onBookChange, onOpenInBooks, isLoggedIn }) {
+export default function BookPanel({ open, onClose, bookReader, onBookChange, onOpenInBooks, isLoggedIn, defaultBibleModule, onOpenInBible, onOpenInCell }) {
   const [books, setBooks] = useState([]);
   const [listOpen, setListOpen] = useState(false);
 
@@ -95,6 +95,9 @@ export default function BookPanel({ open, onClose, bookReader, onBookChange, onO
               initialScrollY={bookReader?.scrollY ?? 0}
               onScrollChange={(y) => onBookChange?.({ ...bookReader, scrollY: y })}
               isLoggedIn={isLoggedIn}
+              defaultBibleModule={defaultBibleModule}
+              onOpenInBible={onOpenInBible}
+              onOpenInCell={onOpenInCell}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-pageMuted">

@@ -6,6 +6,7 @@ import { Bot, ChevronLeft, Download, ExternalLink, Plus, Search, StickyNote, Tra
 import { api } from '../api/client.js';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
+import RichContent from './RichContent.jsx';
 
 function stripLeadingHeading(body) {
   return body?.replace(/^#{1,6}\s+.+\n?/, '').trim() ?? '';
@@ -32,7 +33,7 @@ const FILTER_TABS = [
   { key: 'personal', label: 'Personal' },
 ];
 
-export default function NotesView({ isLoggedIn, onOpenInCell }) {
+export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bibleModule }) {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -295,6 +296,9 @@ export default function NotesView({ isLoggedIn, onOpenInCell }) {
             onEdit={() => startEdit(selectedNote)}
             onDelete={() => remove(selectedNote.id)}
             onOpenInCell={isBibleRef(selectedNote.reference) ? () => onOpenInCell?.(selectedNote.reference) : null}
+            onNavigate={onOpenInBible}
+            onNavigateToCell={onOpenInCell}
+            bibleModule={bibleModule}
           />
         ) : (
           <div className="flex h-full items-center justify-center bg-page">
@@ -325,7 +329,7 @@ export default function NotesView({ isLoggedIn, onOpenInCell }) {
   );
 }
 
-function NoteViewer({ note, onEdit, onDelete, onOpenInCell }) {
+function NoteViewer({ note, onEdit, onDelete, onOpenInCell, onNavigate, onNavigateToCell, bibleModule }) {
   const displayBody = stripLeadingHeading(note.body);
   function exportNote() {
     const title = cleanTitle(note.title) || note.reference || 'Untitled';
@@ -396,10 +400,16 @@ function NoteViewer({ note, onEdit, onDelete, onOpenInCell }) {
           </div>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6" data-color-mode="light">
-        <div className="markdown-body markdown-body-page max-w-2xl text-sm leading-relaxed text-pageText">
-          <Markdown remarkPlugins={[remarkGfm]}>{displayBody || '*No content yet.*'}</Markdown>
-        </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
+        <RichContent
+          colorMode="light"
+          className="markdown-body markdown-body-page max-w-2xl text-sm leading-relaxed text-pageText"
+          onVerseClick={onNavigate}
+          onNavigate={onNavigateToCell}
+          bibleModule={bibleModule}
+        >
+          {displayBody || '*No content yet.*'}
+        </RichContent>
       </div>
     </div>
   );
