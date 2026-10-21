@@ -107,6 +107,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
     setVerseDrawer,
     openVerseTab,
     openExternalRef,
+    syncFocusedReference,
     commentaryRefreshNonce,
     dictionaryRefreshNonce,
     onPersonalCommentarySaved,
@@ -178,7 +179,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                     }`}
                   >
                     <button
-                      onClick={() => setActiveTab(col.id, row.id, tab.id)}
+                      onClick={() => { setActiveTab(col.id, row.id, tab.id); syncFocusedReference(tab.reference || focusedReference); }}
                       className={`px-2 py-1 ${isActive ? '' : 'hover:text-parchment'}`}
                       title={[tab.title || tab.module, ...(tab.parallels || []).map((p) => p.title || p.module)].filter(Boolean).join(' | ') || undefined}
                     >

@@ -184,6 +184,14 @@ export default function CellView({
     });
   }
 
+  // Sync focusedReference when switching Bible tabs without touching any tab's
+  // stored reference or adding to nav history (tab switches aren't navigation events).
+  function syncFocusedReference(reference) {
+    if (reference === focusedReference) return;
+    setFocusedReference(reference);
+    try { localStorage.setItem('cell-last-reference', reference); } catch {}
+  }
+
   function goBack() {
     if (navHistory.index <= 0) return;
     const newIndex = navHistory.index - 1;
@@ -414,6 +422,7 @@ export default function CellView({
     setVerseDrawer,
     openVerseTab,
     openExternalRef,
+    syncFocusedReference,
     commentaryRefreshNonce,
     dictionaryRefreshNonce,
     onPersonalCommentarySaved: () => setCommentaryRefreshNonce((n) => n + 1),

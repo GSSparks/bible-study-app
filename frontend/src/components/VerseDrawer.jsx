@@ -92,32 +92,40 @@ export default function VerseDrawer({ osisRef, module, onClose, onOpenInTab }) {
         {loading && <p className="text-sm text-pageMuted">Loading…</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}
 
-        {entries?.map(({ ref, verses }, i) => (
-          <div key={ref} className={i > 0 ? 'mt-3 border-t border-pageBorder pt-3' : ''}>
-            {entries.length > 1 && (
-              <p className="mb-1 font-mono text-xs text-pageMuted">{ref}</p>
-            )}
-            <p
-              className="verse-content mb-2 font-display text-sm leading-relaxed text-pageText"
-              onClick={handleContentClick}
-            >
-              {verses.map((v) => (
-                <span key={`${v.chapter}-${v.verseNr}`}>
-                  <sup className="mr-0.5 text-[10px] text-pageMuted">{v.verseNr}</sup>
-                  <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
-                </span>
-              ))}
-            </p>
-            {onOpenInTab && (
-              <button
-                onClick={() => onOpenInTab(module, ref)}
-                className="text-xs text-verdigris hover:text-brass"
+        {entries?.map(({ ref, verses }, i) => {
+          const VERSE_CAP = 5;
+          const truncated = verses.length > VERSE_CAP;
+          const displayed = truncated ? verses.slice(0, VERSE_CAP) : verses;
+          return (
+            <div key={ref} className={i > 0 ? 'mt-3 border-t border-pageBorder pt-3' : ''}>
+              {entries.length > 1 && (
+                <p className="mb-1 font-mono text-xs text-pageMuted">{ref}</p>
+              )}
+              <p
+                className="verse-content mb-2 break-words font-display text-sm leading-relaxed text-pageText"
+                onClick={handleContentClick}
               >
-                Open in tab →
-              </button>
-            )}
-          </div>
-        ))}
+                {displayed.map((v) => (
+                  <span key={`${v.chapter}-${v.verseNr}`}>
+                    <sup className="mr-0.5 text-[10px] text-pageMuted">{v.verseNr}</sup>
+                    <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
+                  </span>
+                ))}
+                {truncated && <span className="text-pageMuted">…</span>}
+              </p>
+              {onOpenInTab && (
+                <button
+                  onClick={() => onOpenInTab(module, ref)}
+                  className="text-xs text-verdigris hover:text-brass"
+                >
+                  {truncated
+                    ? `See all ${verses.length} verses in tab →`
+                    : 'Open in tab →'}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
