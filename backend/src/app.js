@@ -50,14 +50,45 @@ export function createApp() {
   // plain HTTP and refusing to set the cookie.
   app.set('trust proxy', 1);
 
-  app.use(helmet({ contentSecurityPolicy: false })); // CSP tuned separately if you add one
-  app.use(cors());
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+      },
+    },
+  }));
+
+  // Dynamic CORS — reads allowed origin from the site_url AppSetting so
+  // the admin can configure it from the UI without restarting the server.
+  // Falls back to permissive in development.
+  app.use(cors({
+    origin: async (origin, callback) => {
+      if (process.env.NODE_ENV !== 'production') return callback(null, true);
+      if (!origin) return callback(null, false);
+      try {
+        const { getSiteUrl } = await import('./services/brandingService.js');
+        const siteUrl = await getSiteUrl();
+        callback(null, siteUrl ? origin === siteUrl : false);
+      } catch {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+  }));
+
   app.use(express.json({ limit: '2mb' }));
 
   const sessionOptions = {
     secret: config.sessionSecret,
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
     cookie: {
       httpOnly: true,
       secure: 'auto',

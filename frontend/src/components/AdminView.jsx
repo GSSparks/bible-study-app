@@ -573,6 +573,7 @@ function MetricsTab() {
 
 function BrandingTab() {
   const [name, setName] = useState('');
+  const [siteUrl, setSiteUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -580,8 +581,8 @@ function BrandingTab() {
 
   useEffect(() => {
     api
-      .getBranding()
-      .then((b) => setName(b.name))
+      .getBrandingSettings()
+      .then((b) => { setName(b.name); setSiteUrl(b.siteUrl || ''); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -592,8 +593,9 @@ function BrandingTab() {
     setError(null);
     setSaved(false);
     try {
-      const updated = await api.setBranding(name);
-      setName(updated.name);
+      const updated = await api.saveBrandingSettings({ name, siteUrl });
+      if (updated.name !== undefined) setName(updated.name);
+      if (updated.siteUrl !== undefined) setSiteUrl(updated.siteUrl || '');
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     } catch (e) {
@@ -620,6 +622,25 @@ function BrandingTab() {
             className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
           />
           <p className="mt-1 text-xs text-muted">Shown in the sidebar for every visitor, including anonymous ones.</p>
+        </div>
+
+        <div>
+          <label htmlFor="site-url" className="mb-1 block text-xs uppercase tracking-wide text-muted">
+            Site URL
+          </label>
+          <input
+            id="site-url"
+            type="url"
+            value={siteUrl}
+            onChange={(e) => setSiteUrl(e.target.value)}
+            placeholder="https://myscriptorium.net"
+            maxLength={255}
+            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
+          />
+          <p className="mt-1 text-xs text-muted">
+            The public URL of this instance. Used to restrict cross-origin requests — leave blank to allow all origins (not
+            recommended for production).
+          </p>
         </div>
 
         {error && <p className="text-sm text-red-400">{error}</p>}

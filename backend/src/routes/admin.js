@@ -149,7 +149,10 @@ adminRouter.delete('/media', async (req, res, next) => {
     }
 
     const relPath = url.replace(/^\/uploads\//, '');
-    const fullPath = path.join(UPLOADS_PATH, relPath);
+    const fullPath = path.resolve(UPLOADS_PATH, relPath);
+    if (!fullPath.startsWith(path.resolve(UPLOADS_PATH) + path.sep)) {
+      return res.status(400).json({ error: 'Invalid media path.' });
+    }
     await fs.unlink(fullPath).catch(() => {});
 
     if (type === 'avatar') {
