@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { Camera, ChevronDown, ChevronLeft, Download, Video, Sparkles, FileText, BookOpen, ExternalLink, Trash2 } from 'lucide-react';
 import { api } from '../api/client.js';
@@ -630,9 +631,13 @@ function MediaGrid({ items }) {
 }
 
 function StudyDiscussionTab({ studyId, isParticipant, isOwner, currentUserId, onOpenInPassages, onOpenBiblePanel, bibleModule }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [highlightedPostId, setHighlightedPostId] = useState(null);
+  const [copiedPostId, setCopiedPostId] = useState(null);
 
   // compose
   const [newBody, setNewBody] = useState('');
@@ -660,6 +665,26 @@ function StudyDiscussionTab({ studyId, isParticipant, isOwner, currentUserId, on
   }
 
   useEffect(load, [studyId]);
+
+  // Scroll to and highlight a post when the URL hash points at one.
+  // Runs after posts load so the DOM element exists.
+  useEffect(() => {
+    if (!posts.length || !location.hash?.startsWith('#post-')) return;
+    const postId = location.hash.slice(6);
+    const el = document.getElementById(`post-${postId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setHighlightedPostId(postId);
+    const t = setTimeout(() => setHighlightedPostId(null), 2000);
+    return () => clearTimeout(t);
+  }, [posts, location.hash]);
+
+  function copyPostLink(postId) {
+    navigate({ hash: `post-${postId}` }, { replace: true });
+    navigator.clipboard?.writeText(window.location.href).catch(() => {});
+    setCopiedPostId(postId);
+    setTimeout(() => setCopiedPostId(null), 1500);
+  }
 
   function handleMediaSelect(e) {
     const selected = Array.from(e.target.files || []);
@@ -814,7 +839,11 @@ function StudyDiscussionTab({ studyId, isParticipant, isOwner, currentUserId, on
           const isEditing = editingPostId === post.id;
           const isReplying = replyingToId === post.id;
           return (
-            <div key={post.id} className="rounded-md border border-pageBorder bg-white/30 p-4">
+            <div
+              key={post.id}
+              id={`post-${post.id}`}
+              className={`scroll-mt-4 rounded-md border p-4 transition-colors duration-700 ${highlightedPostId === post.id ? 'border-brass bg-brass/10' : 'border-pageBorder bg-white/30'}`}
+            >
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Avatar username={post.author.username} size={24} />
@@ -831,6 +860,13 @@ function StudyDiscussionTab({ studyId, isParticipant, isOwner, currentUserId, on
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={() => copyPostLink(post.id)}
+                    title="Copy link to this post"
+                    className="text-xs text-pageMuted hover:text-pageText"
+                  >
+                    {copiedPostId === post.id ? 'copied!' : '🔗'}
+                  </button>
                   {isAuthor && !isEditing && (
                     <button onClick={() => startEdit(post)} className="text-xs text-pageMuted hover:text-pageText">edit</button>
                   )}

@@ -1,6 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client.js';
 import ModulePicker from './ModulePicker.jsx';
+
+function stripMarkdown(text) {
+  if (!text) return '';
+  return text
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/^\s*>\s+/gm, '')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/~~([^~]+)~~/g, '$1')
+    .replace(/\n/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
 
 /**
  * Walks DOM text nodes and wraps matched terms in <mark> elements.
@@ -50,6 +72,7 @@ function injectHighlights(html, query, searchType) {
 }
 
 export default function SearchResultsPane({ pendingSearch, onNavigate, defaultBibleModule }) {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [module, setModule] = useState('');
   const [searchType, setSearchType] = useState('multiWord');
@@ -201,20 +224,35 @@ export default function SearchResultsPane({ pendingSearch, onNavigate, defaultBi
               Study Discussions
             </p>
             {discussions.map((d) => (
-              <button
+              <div
                 key={d.id}
-                onClick={() => d.type === 'finding' && d.reference && onNavigate?.(d.reference)}
-                className="block w-full border-b border-pageBorder/40 px-4 py-2.5 text-left hover:bg-pageAccent/10"
+                className="border-b border-pageBorder/40 px-4 py-2.5"
               >
-                <div className="mb-0.5 flex items-baseline gap-2">
+                <div className="mb-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                   {d.type === 'finding' && d.reference && (
-                    <span className="font-mono text-xs font-semibold text-verdigris">{d.reference}</span>
+                    <button
+                      onClick={() => onNavigate?.(d.reference)}
+                      className="font-mono text-xs font-semibold text-verdigris hover:underline"
+                    >
+                      {d.reference}
+                    </button>
                   )}
                   {d.title && <span className="text-xs font-medium text-pageText">{d.title}</span>}
-                  <span className="ml-auto text-xs text-pageMuted">{d.author.displayName || d.author.username} · {d.study.title}</span>
+                  <span className="text-xs text-pageMuted">{d.author.displayName || d.author.username} · {d.study.title}</span>
+                  {d.study.scriptoriumId && (
+                    <button
+                      onClick={() => {
+                        try { localStorage.setItem(`study-tab-${d.study.id}`, 'discussion'); } catch {}
+                        navigate(`/scriptoriums/${d.study.scriptoriumId}/studies/${d.study.id}#post-${d.id}`);
+                      }}
+                      className="ml-auto text-xs text-brass hover:underline"
+                    >
+                      View in study →
+                    </button>
+                  )}
                 </div>
-                <p className="line-clamp-2 text-sm leading-relaxed text-pageText/80">{d.body}</p>
-              </button>
+                <p className="line-clamp-2 text-sm leading-relaxed text-pageText/80">{stripMarkdown(d.body)}</p>
+              </div>
             ))}
           </div>
         )}

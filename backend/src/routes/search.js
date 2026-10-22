@@ -54,7 +54,7 @@ searchRouter.get('/', async (req, res, next) => {
             },
             include: {
               author: { select: { id: true, username: true, displayName: true } },
-              study: { select: { id: true, title: true } },
+              study: { select: { id: true, title: true, scriptoriumId: true } },
             },
             orderBy: { createdAt: 'desc' },
             take: 20,
