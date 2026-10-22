@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { useHorizontalScroll } from '../hooks/useHorizontalScroll.js';
 import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, Link, MapPin } from 'lucide-react';
 import PassageMapsModal from './PassageMapsModal.jsx';
 
@@ -84,6 +85,7 @@ function ColDropZone({ colId, position, isActive, onDragOver, onDrop }) {
 
 function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging, onDragStart, onDragEnd, isMobile }) {
   const [interlinearMode, setInterlinearMode] = useState(false);
+  const bibleTabScrollRef = useHorizontalScroll();
 
   const {
     focusedReference,
@@ -166,7 +168,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
         return (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {/* Tab strip — each tab is an independent position */}
-            <div className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-rule bg-panel px-1 py-0.5">
+            <div ref={bibleTabScrollRef} className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-rule bg-panel px-1 py-0.5">
               {row.tabs.map((tab) => {
                 const isActive = tab.id === row.activeTabId;
                 const tabLabel = [tab.title || tab.module, ...(tab.parallels || []).map((p) => p.title || p.module)]

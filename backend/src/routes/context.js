@@ -1,9 +1,20 @@
 import { Router } from 'express';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { buildPassageContext, askStudyAssistant } from '../services/contextBuilder.js';
 import { prisma } from '../db/prisma.js';
 import { requireLogin } from '../middleware/auth.js';
 
 export const contextRouter = Router();
+
+const noop = (req, res, next) => next();
+const aiLimiter = process.env.NODE_ENV === 'test' ? noop : rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.user?.id || ipKeyGenerator(req),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please wait a moment before asking again.' },
+});
 
 // The whole Study Assistant costs real API money per use — gated
 // behind login for the entire router rather than per-route, so a
@@ -41,7 +52,7 @@ contextRouter.post('/build', async (req, res, next) => {
 
 // POST /api/context/ask
 // { context, messages: [{ role: 'user', content: '...' }], sessionId?, title?, kind? }
-contextRouter.post('/ask', async (req, res, next) => {
+contextRouter.post('/ask', aiLimiter, async (req, res, next) => {
   try {
     const { context, messages, sessionId, title, kind } = req.body;
     if (!context || !Array.isArray(messages)) {

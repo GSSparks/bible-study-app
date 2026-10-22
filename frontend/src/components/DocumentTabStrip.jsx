@@ -1,11 +1,13 @@
 import DocumentPicker from './DocumentPicker.jsx';
+import { useHorizontalScroll } from '../hooks/useHorizontalScroll.js';
 
 /** Tab strip for the Documents panel in Cell — mirrors TabStrip but uses
  * DocumentPicker (document list) instead of ModulePicker (SWORD modules). */
 export default function DocumentTabStrip({ tabs, activeTabId, onSetActiveTab, onCloseTab, onSwapTab, onAddTab }) {
+  const scrollRef = useHorizontalScroll();
   return (
     <div className="flex items-center border-b border-rule bg-panel px-2 py-1">
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+      <div ref={scrollRef} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
         <span className="mr-1 shrink-0 text-xs uppercase tracking-wide text-muted">Documents</span>
         {tabs.map((tab) => (
           <div

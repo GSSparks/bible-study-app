@@ -1,8 +1,19 @@
 import { Router } from 'express';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { buildPhraseStudyContext, askPhraseStudy } from '../services/contextBuilder.js';
 import { requireLogin } from '../middleware/auth.js';
 
 export const phraseStudyRouter = Router();
+
+const noop = (req, res, next) => next();
+const aiLimiter = process.env.NODE_ENV === 'test' ? noop : rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.user?.id || ipKeyGenerator(req),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please wait a moment before asking again.' },
+});
 
 // Uses the Study Assistant under the hood — real API cost per use,
 // same reasoning as context.js's whole-router gate.
@@ -28,7 +39,7 @@ phraseStudyRouter.post('/', async (req, res, next) => {
 });
 
 // POST /api/phrase-study/ask  { context }
-phraseStudyRouter.post('/ask', async (req, res, next) => {
+phraseStudyRouter.post('/ask', aiLimiter, async (req, res, next) => {
   try {
     const { context } = req.body;
     if (!context) {

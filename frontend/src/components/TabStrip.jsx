@@ -1,5 +1,6 @@
 import ModulePicker from './ModulePicker.jsx';
 import { abbreviateTitle } from '../utils/abbreviateTitle.js';
+import { useHorizontalScroll } from '../hooks/useHorizontalScroll.js';
 
 const KIND_LABEL = { bible: 'Bible', commentary: 'Commentary', dictionary: 'Reference' };
 
@@ -7,9 +8,10 @@ const KIND_LABEL = { bible: 'Bible', commentary: 'Commentary', dictionary: 'Refe
  * so the "+" add-tab control stays visible and the region stays
  * discoverable when empty, rather than disappearing entirely. */
 export default function TabStrip({ kind, tabs, activeTabId, onSetActiveTab, onCloseTab, onSwapTabModule, onAddTab }) {
+  const scrollRef = useHorizontalScroll();
   return (
     <div className="flex items-center border-b border-rule bg-panel px-2 py-1">
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+      <div ref={scrollRef} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
         <span className="mr-1 shrink-0 text-xs uppercase tracking-wide text-muted">{KIND_LABEL[kind]}</span>
         {tabs.map((tab) => (
           <div

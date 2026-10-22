@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Wiki
+
+A file-by-file reference wiki lives at `wiki/index.md`. It contains one summary page per source file covering purpose, key exports/props, dependencies, and notable patterns. **Consult the wiki before exploring unfamiliar files** — reading the relevant summary is faster than reading the source cold. The wiki covers every file in `backend/src/`, `frontend/src/`, `backend/prisma/`, and root config. Keep the wiki in sync when adding or significantly changing files.
+
 ## Project Overview
 
 **Scriptorium** is a self-hosted, multi-user Bible study platform. It wraps the CrossWire SWORD engine (via `node-sword-interface`) for Bible/commentary/dictionary/book text, integrates Claude for an LLM-powered study assistant, and includes social features (study groups called Scriptoriums, a post/comment feed, and multi-week structured studies).

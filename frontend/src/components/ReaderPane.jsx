@@ -588,10 +588,10 @@ export default function ReaderPane({
         </header>
       )}
 
-      {loading && <p className="text-pageMuted">Loading passage…</p>}
+      {loading && verses.length === 0 && <p className="text-pageMuted">Loading passage…</p>}
       {error && <p className="text-red-600">{error}</p>}
 
-      {!loading && !error && verses.length > 0 && (
+      {verses.length > 0 && (
         <div className="flex gap-3">
           {showMarginalia && (
             <div className="flex shrink-0 flex-col items-center gap-2 pt-1">
@@ -721,7 +721,7 @@ export default function ReaderPane({
       )}
 
       {!loading && !error && verses.length === 0 && reference && (
-        <p className="text-pageMuted">No text returned for this reference in {module}.</p>
+          <p className="text-pageMuted">No text returned for this reference in {module}.</p>
       )}
 
       {selectedRange &&
