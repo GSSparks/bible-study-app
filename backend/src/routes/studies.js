@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireLogin } from '../middleware/auth.js';
+import { uploadPostMedia, mimeToType } from '../middleware/upload.js';
 import {
   createStudy,
   getStudy,
@@ -34,6 +35,15 @@ import {
   listAllReflections,
   exportStudy,
   importStudy,
+  createStudyPost,
+  createStudyReply,
+  listStudyPosts,
+  deleteStudyPost,
+  updateStudyPost,
+  listMyStudyFindings,
+  createStudyHighlight,
+  deleteStudyHighlight,
+  listMyStudyHighlights,
 } from '../services/studyService.js';
 
 export const studiesRouter = Router();
@@ -53,6 +63,29 @@ studiesRouter.get('/mine', async (req, res, next) => {
 studiesRouter.get('/scriptorium/:id', async (req, res, next) => {
   try {
     res.json(await listScriptoriumStudies(req.params.id, req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Aggregated research endpoints — registered before /:id so Express
+// doesn't match "research" as a study ID.
+studiesRouter.get('/research/findings', async (req, res, next) => {
+  try {
+    const { reference, prefix } = req.query;
+    if (!reference && !prefix) return res.status(400).json({ error: 'reference or prefix is required' });
+    res.json(await listMyStudyFindings(req.user.id, { reference, prefix }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.get('/research/highlights', async (req, res, next) => {
+  try {
+    const { reference, prefix, module } = req.query;
+    if (!reference && !prefix) return res.status(400).json({ error: 'reference or prefix is required' });
+    if (!module) return res.status(400).json({ error: 'module is required' });
+    res.json(await listMyStudyHighlights(req.user.id, { reference, prefix, module }));
   } catch (err) {
     next(err);
   }
@@ -324,6 +357,71 @@ studiesRouter.delete('/resources/:resourceId', async (req, res, next) => {
 studiesRouter.get('/:id/progress', async (req, res, next) => {
   try {
     res.json(await getProgress(req.params.id, req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
+studiesRouter.get('/:id/posts', async (req, res, next) => {
+  try {
+    res.json(await listStudyPosts(req.params.id, req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.post('/:id/posts', (req, res, next) => {
+  uploadPostMedia(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    try {
+      const { type, reference, module, title, body } = req.body;
+      const mediaUrls = (req.files || []).map((f) => ({ url: `/uploads/posts/${f.filename}`, type: mimeToType(f.mimetype) }));
+      res.status(201).json(await createStudyPost(req.params.id, req.user.id, { type, reference, module, title, body, mediaUrls }));
+    } catch (err) {
+      next(err);
+    }
+  });
+});
+
+studiesRouter.put('/posts/:postId', async (req, res, next) => {
+  try {
+    const { body, title } = req.body;
+    res.json(await updateStudyPost(req.params.postId, req.user.id, { body, title }));
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    next(err);
+  }
+});
+
+studiesRouter.post('/posts/:postId/replies', async (req, res, next) => {
+  try {
+    res.status(201).json(await createStudyReply(req.params.postId, req.user.id, req.body.body));
+  } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.delete('/posts/:postId', async (req, res, next) => {
+  try {
+    await deleteStudyPost(req.params.postId, req.user.id);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.post('/:id/research/highlights', async (req, res, next) => {
+  try {
+    const { reference, module, color } = req.body;
+    res.status(201).json(await createStudyHighlight(req.params.id, req.user.id, { reference, module, color }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.delete('/:id/research/highlights/:highlightId', async (req, res, next) => {
+  try {
+    await deleteStudyHighlight(req.params.highlightId, req.user.id);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

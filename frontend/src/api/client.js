@@ -181,6 +181,26 @@ export const api = {
   addScriptoriumResource: (id, payload) => request(`/scriptoriums/${id}/resources`, { method: 'POST', body: JSON.stringify(payload) }),
   removeScriptoriumResource: (id, resourceId) => request(`/scriptoriums/${id}/resources/${resourceId}`, { method: 'DELETE' }),
 
+  // Study Research
+  listStudyGroupFindings: (prefix) => request(`/studies/research/findings?prefix=${encodeURIComponent(prefix)}`),
+  listStudyGroupHighlights: (prefix, module) => request(`/studies/research/highlights?prefix=${encodeURIComponent(prefix)}&module=${encodeURIComponent(module)}`),
+  listStudyPosts: (studyId) => request(`/studies/${studyId}/posts`),
+  createStudyPost: (studyId, { type, reference, module, title, body, mediaFiles = [] }) => {
+    const fd = new FormData();
+    if (type) fd.append('type', type);
+    fd.append('body', body);
+    if (reference) fd.append('reference', reference);
+    if (module) fd.append('module', module);
+    if (title) fd.append('title', title);
+    mediaFiles.forEach((f) => fd.append('media', f));
+    return request(`/studies/${studyId}/posts`, { method: 'POST', body: fd });
+  },
+  updateStudyPost: (postId, { body, title }) => request(`/studies/posts/${postId}`, { method: 'PUT', body: JSON.stringify({ body, title }) }),
+  createStudyReply: (postId, body) => request(`/studies/posts/${postId}/replies`, { method: 'POST', body: JSON.stringify({ body }) }),
+  deleteStudyPost: (postId) => request(`/studies/posts/${postId}`, { method: 'DELETE' }),
+  createStudyHighlight: (studyId, payload) => request(`/studies/${studyId}/research/highlights`, { method: 'POST', body: JSON.stringify(payload) }),
+  deleteStudyHighlight: (studyId, highlightId) => request(`/studies/${studyId}/research/highlights/${highlightId}`, { method: 'DELETE' }),
+
   // Wall
   getHomeFeed: () => request('/wall/feed'),
   getMyWall: () => request('/wall/me'),

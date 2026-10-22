@@ -389,6 +389,8 @@ export async function listMyInvites(userId) {
   }));
 }
 
+// ─── Respond to Invite ───────────────────────────────────────────────────────
+
 /** 404 (not 403) when the caller isn't the actual invitee — same
  *  masking reasoning as everywhere else. Accepting creates the
  *  membership in the same transaction as marking the invite accepted,

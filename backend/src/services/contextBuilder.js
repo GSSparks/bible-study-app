@@ -202,9 +202,23 @@ export async function buildPassageContext({ sources = [], noteIds = [], userId, 
   // but the queries are written to produce an empty result rather than
   // an unfiltered one if it somehow were, rather than accidentally
   // falling back to "all users' notes".
-  const [referenceNotes, attachedNotes] = await Promise.all([
+  const [referenceNotes, attachedNotes, studyFindings] = await Promise.all([
     references.length && userId ? prisma.note.findMany({ where: { reference: { in: references }, userId } }) : [],
     noteIds.length && userId ? prisma.note.findMany({ where: { id: { in: noteIds }, userId } }) : [],
+    references.length && userId
+      ? prisma.studyPost.findMany({
+          where: {
+            type: 'finding',
+            reference: { in: references },
+            study: { participants: { some: { userId } } },
+          },
+          include: {
+            author: { select: { username: true, displayName: true } },
+            study: { select: { title: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        })
+      : [],
   ]);
 
   const noteMap = new Map();
@@ -227,6 +241,13 @@ export async function buildPassageContext({ sources = [], noteIds = [], userId, 
       tags: n.tags,
     })),
     documents,
+    discussionFindings: studyFindings.map((f) => ({
+      reference: f.reference,
+      title: f.title || null,
+      body: f.body,
+      author: f.author.displayName || f.author.username,
+      study: f.study.title,
+    })),
   };
 }
 
@@ -529,6 +550,16 @@ function contextToPrompt(context) {
         lines.push('[No extracted text available for this document]');
       }
       lines.push('');
+    }
+  }
+  if (context.discussionFindings?.length) {
+    lines.push('=== Study group findings ===');
+    lines.push('(Passage findings shared by members of the user\'s study groups)');
+    for (const f of context.discussionFindings) {
+      const parts = [f.reference, `— ${f.author}`, `(${f.study})`].filter(Boolean);
+      if (f.title) lines.push(`[${f.title}] ${parts.join(' ')}`);
+      else lines.push(parts.join(' '));
+      lines.push(f.body, '');
     }
   }
   return lines.join('\n');

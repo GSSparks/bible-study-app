@@ -921,3 +921,135 @@ export async function importStudy({ scriptoriumId, creatorId, data }) {
     return study;
   });
 }
+// ─── Discussion Posts (unified posts + findings with replies) ─────────────────
+
+const POST_AUTHOR = { select: { id: true, username: true, displayName: true, avatarUrl: true } };
+
+/** Creates a study-level post. type='post' for free-form; type='finding' for
+ *  a passage-anchored note shared from the reading pane. */
+export async function createStudyPost(studyId, authorId, { type = 'post', reference, module, title, body, mediaUrls = [] }) {
+  await assertIsParticipant(studyId, authorId);
+  if (!body?.trim()) throw Object.assign(new Error('body is required.'), { status: 400 });
+  if (type === 'finding' && !reference?.trim()) throw Object.assign(new Error('reference is required for a finding.'), { status: 400 });
+  return prisma.studyPost.create({
+    data: {
+      studyId,
+      authorId,
+      type,
+      reference: reference?.trim() || null,
+      module: module?.trim() || null,
+      title: title?.trim() || null,
+      body: body.trim(),
+      mediaUrls: mediaUrls.length ? mediaUrls : undefined,
+    },
+    include: { author: POST_AUTHOR },
+  });
+}
+
+/** Creates a reply to an existing top-level post or finding. */
+export async function createStudyReply(parentId, authorId, body) {
+  const parent = await prisma.studyPost.findUnique({ where: { id: parentId } });
+  if (!parent || parent.parentId !== null) throw Object.assign(new Error('Post not found.'), { status: 404 });
+  await assertIsParticipant(parent.studyId, authorId);
+  if (!body?.trim()) throw Object.assign(new Error('body is required.'), { status: 400 });
+  return prisma.studyPost.create({
+    data: { studyId: parent.studyId, authorId, type: 'reply', body: body.trim(), parentId },
+    include: { author: POST_AUTHOR },
+  });
+}
+
+/** Returns all top-level posts (posts + findings) with their replies nested,
+ *  ordered chronologically. */
+export async function listStudyPosts(studyId, viewerId) {
+  const study = await prisma.study.findUnique({ where: { id: studyId } });
+  if (!study) throw Object.assign(new Error('Study not found.'), { status: 404 });
+  await assertCanViewStudy(study, viewerId);
+  return prisma.studyPost.findMany({
+    where: { studyId, parentId: null },
+    include: {
+      author: POST_AUTHOR,
+      replies: { include: { author: POST_AUTHOR }, orderBy: { createdAt: 'asc' } },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+export async function deleteStudyPost(postId, userId) {
+  const post = await prisma.studyPost.findUnique({ where: { id: postId } });
+  if (!post) throw Object.assign(new Error('Post not found.'), { status: 404 });
+  const study = await prisma.study.findUnique({ where: { id: post.studyId } });
+  const isAuthor = post.authorId === userId;
+  const isOwner = study?.creatorId === userId;
+  if (!isAuthor && !isOwner) throw Object.assign(new Error('Not authorized.'), { status: 403 });
+  await prisma.studyPost.delete({ where: { id: postId } });
+}
+
+export async function updateStudyPost(postId, userId, { body, title }) {
+  const post = await prisma.studyPost.findUnique({ where: { id: postId } });
+  if (!post) throw Object.assign(new Error('Post not found.'), { status: 404 });
+  if (post.authorId !== userId) throw Object.assign(new Error('Not authorized.'), { status: 403 });
+  if (!body?.trim()) throw Object.assign(new Error('body is required.'), { status: 400 });
+  return prisma.studyPost.update({
+    where: { id: postId },
+    data: { body: body.trim(), title: title?.trim() || null },
+    include: { author: POST_AUTHOR },
+  });
+}
+
+/** Returns finding-type posts from all studies the caller participates in,
+ *  anchored to the given reference/prefix. Used by the reading pane. */
+export async function listMyStudyFindings(userId, { reference, prefix } = {}) {
+  if (!reference && !prefix) throw Object.assign(new Error('reference or prefix is required.'), { status: 400 });
+  const participations = await prisma.studyParticipant.findMany({ where: { userId } });
+  const studyIds = participations.map((p) => p.studyId);
+  if (studyIds.length === 0) return [];
+  const refFilter = prefix ? { reference: { startsWith: prefix } } : { reference };
+  return prisma.studyPost.findMany({
+    where: { studyId: { in: studyIds }, type: 'finding', ...refFilter },
+    include: {
+      author: POST_AUTHOR,
+      study: { select: { id: true, title: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+// ─── Research: Shared Highlights ─────────────────────────────────────────────
+
+export async function createStudyHighlight(studyId, authorId, { reference, module, color = 'yellow' }) {
+  await assertIsParticipant(studyId, authorId);
+  if (!reference?.trim() || !module?.trim()) throw Object.assign(new Error('reference and module are required.'), { status: 400 });
+  return prisma.studyHighlight.upsert({
+    where: { studyId_authorId_reference_module: { studyId, authorId, reference: reference.trim(), module: module.trim() } },
+    create: { studyId, authorId, reference: reference.trim(), module: module.trim(), color },
+    update: { color },
+    include: { author: { select: { id: true, username: true, displayName: true } } },
+  });
+}
+
+export async function deleteStudyHighlight(highlightId, userId) {
+  const highlight = await prisma.studyHighlight.findUnique({ where: { id: highlightId } });
+  if (!highlight) throw Object.assign(new Error('Highlight not found.'), { status: 404 });
+  const study = await prisma.study.findUnique({ where: { id: highlight.studyId } });
+  const isAuthor = highlight.authorId === userId;
+  const isOwner = study?.creatorId === userId;
+  if (!isAuthor && !isOwner) throw Object.assign(new Error('Not authorized.'), { status: 403 });
+  await prisma.studyHighlight.delete({ where: { id: highlightId } });
+}
+
+export async function listMyStudyHighlights(userId, { reference, prefix, module } = {}) {
+  if (!reference && !prefix) throw Object.assign(new Error('reference or prefix is required.'), { status: 400 });
+  if (!module) throw Object.assign(new Error('module is required.'), { status: 400 });
+  const participations = await prisma.studyParticipant.findMany({ where: { userId } });
+  const studyIds = participations.map((p) => p.studyId);
+  if (studyIds.length === 0) return [];
+  const refFilter = prefix ? { reference: { startsWith: prefix } } : { reference };
+  return prisma.studyHighlight.findMany({
+    where: { studyId: { in: studyIds }, ...refFilter, module },
+    include: {
+      author: { select: { id: true, username: true, displayName: true } },
+      study: { select: { id: true, title: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+}

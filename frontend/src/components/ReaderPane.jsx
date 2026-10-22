@@ -7,6 +7,7 @@ import VerseCommentaryEditor from './VerseCommentaryEditor.jsx';
 import FootnotePopup from './FootnotePopup.jsx';
 import { parseVerseTokens, collectStrongsKeys, cleanMorph } from '../utils/parseInterlinear.js';
 import VerseHoverCard from './VerseHoverCard.jsx';
+import ShareFindingModal from './ShareFindingModal.jsx';
 
 function groupVerses(verses) {
   const segments = [];
@@ -88,6 +89,16 @@ const HIGHLIGHT_BG = {
   purple: 'bg-violet-300/25',
 };
 
+// Group shared highlights use a lighter tint so personal highlights read
+// as "mine" and group highlights read as "noticed by the group".
+const GROUP_HIGHLIGHT_BG = {
+  yellow: 'bg-amber-300/15',
+  blue: 'bg-sky-300/15',
+  green: 'bg-emerald-300/10',
+  pink: 'bg-rose-300/10',
+  purple: 'bg-violet-300/10',
+};
+
 const HIGHLIGHT_SWATCH = {
   yellow: 'bg-amber-400',
   blue: 'bg-sky-400',
@@ -113,6 +124,7 @@ export default function ReaderPane({
   onPhraseStudy,
   refreshNonce,
   onPersonalCommentarySaved,
+  isLoggedIn = false,
 }) {
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -134,6 +146,9 @@ export default function ReaderPane({
   }
   const [strongsCache, setStrongsCache] = useState(new Map()); // strongsKey → transcription
   const verseRefs = useRef(new Map());
+  const [groupFindings, setGroupFindings] = useState([]); // ScriptoriumFinding[] for current chapter
+  const [groupHighlightMap, setGroupHighlightMap] = useState(new Map()); // verseRef → ScriptoriumHighlight[]
+  const [shareFindingRef, setShareFindingRef] = useState(null); // { reference, module, x, y }
 
   useEffect(() => {
     if (!module || !reference) return;
@@ -143,21 +158,39 @@ export default function ReaderPane({
     setSelectedRange(null);
     setHighlightMap(new Map());
     setNoteCount(0);
+    setGroupFindings([]);
+    setGroupHighlightMap(new Map());
 
     async function loadAnnotations(loadedVerses) {
       if (!showMarginalia || !loadedVerses.length) return;
       const v0 = loadedVerses[0];
       const chapterRef = `${v0.bibleBookShortTitle} ${v0.chapter}`;
+      const prefix = `${chapterRef}:`;
       try {
-        const [hls, nts] = await Promise.all([
-          api.listHighlights({ prefix: `${chapterRef}:` }),
+        const fetchList = [
+          api.listHighlights({ prefix }),
           api.listNotes({ reference: chapterRef }),
-        ]);
+        ];
+        if (isLoggedIn) {
+          fetchList.push(api.listStudyGroupFindings(prefix));
+          fetchList.push(api.listStudyGroupHighlights(prefix, module));
+        }
+        const [hls, nts, groupFnds, groupHls] = await Promise.all(fetchList);
         if (cancelled) return;
         const hMap = new Map();
         for (const h of hls) hMap.set(h.reference, { id: h.id, color: h.color });
         setHighlightMap(hMap);
         setNoteCount(nts.length);
+        if (isLoggedIn) {
+          setGroupFindings(groupFnds || []);
+          const ghMap = new Map();
+          for (const gh of (groupHls || [])) {
+            const arr = ghMap.get(gh.reference) || [];
+            arr.push(gh);
+            ghMap.set(gh.reference, arr);
+          }
+          setGroupHighlightMap(ghMap);
+        }
       } catch {} // non-fatal
     }
 
@@ -686,6 +719,11 @@ export default function ReaderPane({
                       const isFocused = focusMode && verseKey === focusedVerseKey;
                       const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`;
                       const hlColor = showMarginalia ? highlightMap.get(verseRef)?.color : null;
+                      const groupHls = showMarginalia ? groupHighlightMap.get(verseRef) : null;
+                      const groupHlColor = !hlColor && groupHls?.length ? groupHls[0].color : null;
+                      const groupNames = groupHls?.length
+                        ? groupHls.map((h) => `${h.scriptorium.name} (${h.author.displayName || h.author.username})`).join(', ')
+                        : null;
                       return (
                         <span
                           key={verseKey}
@@ -693,10 +731,12 @@ export default function ReaderPane({
                             if (el) verseRefs.current.set(verseKey, el);
                             else verseRefs.current.delete(verseKey);
                           }}
+                          title={groupNames ? `Shared highlight: ${groupNames}` : undefined}
                           className={[
                             isIndexSelected(v.__index) ? 'rounded bg-pageAccent/20' : '',
                             isFocused ? 'border-l-2 border-pageAccent bg-pageAccent/10 pl-1' : '',
                             hlColor ? (HIGHLIGHT_BG[hlColor] ?? 'bg-amber-300/30') : '',
+                            groupHlColor ? (GROUP_HIGHLIGHT_BG[groupHlColor] ?? 'bg-amber-300/15') : '',
                           ]
                             .filter(Boolean)
                             .join(' ')}
@@ -722,6 +762,25 @@ export default function ReaderPane({
 
       {!loading && !error && verses.length === 0 && reference && (
           <p className="text-pageMuted">No text returned for this reference in {module}.</p>
+      )}
+
+      {groupFindings.length > 0 && (
+        <div className="mt-6 border-t border-pageBorder pt-4">
+          <h3 className="mb-3 font-sans text-xs uppercase tracking-wider text-pageMuted">Study Findings</h3>
+          <div className="space-y-3">
+            {groupFindings.map((f) => (
+              <div key={f.id} className="rounded border border-pageBorder/60 bg-pageAccent/5 p-3">
+                <div className="mb-1 flex items-baseline gap-2">
+                  <span className="font-mono text-xs font-medium text-brass">{f.reference}</span>
+                  <span className="text-xs text-pageMuted">— {f.study.title}</span>
+                  <span className="ml-auto text-xs text-pageMuted/60">{f.author.displayName || f.author.username}</span>
+                </div>
+                {f.title && <p className="mb-1 text-sm font-medium text-pageText">{f.title}</p>}
+                <p className="text-sm leading-relaxed text-pageText/80">{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {selectedRange &&
@@ -768,6 +827,28 @@ export default function ReaderPane({
               >
                 Note
               </button>
+              {isLoggedIn && (
+                <button
+                  onClick={() => {
+                    const ref = getSelectedReference();
+                    if (ref) {
+                      const lo = Math.min(selectedRange.anchor, selectedRange.focus);
+                      const hi = Math.max(selectedRange.anchor, selectedRange.focus);
+                      const tempEl = document.createElement('div');
+                      const verseText = verses
+                        .slice(lo, hi + 1)
+                        .map((v) => { tempEl.innerHTML = v.content; return `${v.verseNr} ${tempEl.textContent.trim()}`; })
+                        .join(' ');
+                      setShareFindingRef({ reference: ref, module, verseText, x: selectedRange.x, y: selectedRange.y + 28 });
+                    }
+                    setSelectedRange(null);
+                  }}
+                  className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
+                  title="Share this finding with a Scriptorium"
+                >
+                  Share →
+                </button>
+              )}
               <button
                 onClick={handleCopySelection}
                 className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
@@ -912,6 +993,25 @@ export default function ReaderPane({
           onNavigate={onOpenInTab ?? onNavigate}
           onMouseEnter={cancelHoverClose}
           onMouseLeave={scheduleHoverClose}
+        />
+      )}
+
+      {shareFindingRef && (
+        <ShareFindingModal
+          reference={shareFindingRef.reference}
+          module={shareFindingRef.module}
+          verseText={shareFindingRef.verseText}
+          x={shareFindingRef.x}
+          y={shareFindingRef.y}
+          onClose={() => setShareFindingRef(null)}
+          onShared={() => {
+            // Re-fetch findings for the current chapter so the new one appears immediately
+            if (verses.length > 0) {
+              const v0 = verses[0];
+              const prefix = `${v0.bibleBookShortTitle} ${v0.chapter}:`;
+              api.listStudyGroupFindings(prefix).then(setGroupFindings).catch(() => {});
+            }
+          }}
         />
       )}
     </div>

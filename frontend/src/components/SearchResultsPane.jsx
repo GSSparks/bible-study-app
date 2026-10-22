@@ -56,6 +56,7 @@ export default function SearchResultsPane({ pendingSearch, onNavigate, defaultBi
   const [results, setResults] = useState([]);
   const [total, setTotal] = useState(null);
   const [capped, setCapped] = useState(false);
+  const [discussions, setDiscussions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const inputRef = useRef(null);
@@ -80,11 +81,13 @@ export default function SearchResultsPane({ pendingSearch, onNavigate, defaultBi
     setError(null);
     setResults([]);
     setTotal(null);
+    setDiscussions([]);
     try {
       const res = await api.search(q.trim(), mod, type);
       setResults(res.bible || []);
       setTotal(res.total ?? (res.bible || []).length);
       setCapped(!!res.capped);
+      setDiscussions(res.discussions || []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -190,6 +193,30 @@ export default function SearchResultsPane({ pendingSearch, onNavigate, defaultBi
           <p className="px-4 py-3 text-center text-xs text-pageMuted">
             Showing first 500 matches — narrow your search for more precise results.
           </p>
+        )}
+
+        {!loading && discussions.length > 0 && (
+          <div className="border-t border-pageBorder/60 pt-1">
+            <p className="px-4 py-2 text-xs font-medium uppercase tracking-wide text-pageMuted">
+              Study Discussions
+            </p>
+            {discussions.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => d.type === 'finding' && d.reference && onNavigate?.(d.reference)}
+                className="block w-full border-b border-pageBorder/40 px-4 py-2.5 text-left hover:bg-pageAccent/10"
+              >
+                <div className="mb-0.5 flex items-baseline gap-2">
+                  {d.type === 'finding' && d.reference && (
+                    <span className="font-mono text-xs font-semibold text-verdigris">{d.reference}</span>
+                  )}
+                  {d.title && <span className="text-xs font-medium text-pageText">{d.title}</span>}
+                  <span className="ml-auto text-xs text-pageMuted">{d.author.displayName || d.author.username} · {d.study.title}</span>
+                </div>
+                <p className="line-clamp-2 text-sm leading-relaxed text-pageText/80">{d.body}</p>
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

@@ -173,3 +173,4 @@ scriptoriumsRouter.delete('/:id/resources/:resourceId', async (req, res, next) =
     next(err);
   }
 });
+

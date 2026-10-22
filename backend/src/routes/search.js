@@ -25,7 +25,7 @@ searchRouter.get('/', async (req, res, next) => {
 
     const reference = parseReferenceInfo(q);
 
-    const [bibleSearch, documentResults, noteResults] = await Promise.all([
+    const [bibleSearch, documentResults, noteResults, discussionResults] = await Promise.all([
       module ? swordService.search(module, q, { searchType }) : Promise.resolve({ total: 0, capped: false, verses: [] }),
       searchDocuments(q),
       req.user
@@ -42,6 +42,24 @@ searchRouter.get('/', async (req, res, next) => {
             take: 25,
           })
         : Promise.resolve([]),
+      req.user
+        ? prisma.studyPost.findMany({
+            where: {
+              parentId: null,
+              OR: [
+                { body: { contains: q, mode: 'insensitive' } },
+                { title: { contains: q, mode: 'insensitive' } },
+              ],
+              study: { participants: { some: { userId: req.user.id } } },
+            },
+            include: {
+              author: { select: { id: true, username: true, displayName: true } },
+              study: { select: { id: true, title: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+          })
+        : Promise.resolve([]),
     ]);
 
     res.json({
@@ -52,6 +70,7 @@ searchRouter.get('/', async (req, res, next) => {
       capped: bibleSearch.capped,
       documents: documentResults,
       notes: noteResults,
+      discussions: discussionResults,
     });
   } catch (err) {
     next(err);
