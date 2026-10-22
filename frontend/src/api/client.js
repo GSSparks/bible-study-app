@@ -149,6 +149,8 @@ export const api = {
   // Branding
   getBranding: () => request('/branding'),
   setBranding: (name) => request('/branding', { method: 'POST', body: JSON.stringify({ name }) }),
+  getBrandingSettings: () => request('/branding/settings'),
+  saveBrandingSettings: (payload) => request('/branding/settings', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Connections (Fellows)
   searchConnections: (q) => request(`/connections/search?q=${encodeURIComponent(q)}`),
