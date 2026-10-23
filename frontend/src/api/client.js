@@ -173,6 +173,7 @@ export const api = {
   leaveScriptorium: (id) => request(`/scriptoriums/${id}/leave`, { method: 'POST' }),
   updateScriptorium: (id, payload) => request(`/scriptoriums/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteScriptorium: (id) => request(`/scriptoriums/${id}`, { method: 'DELETE' }),
+  setScriptoriumMemberRole: (id, membershipId, role) => request(`/scriptoriums/${id}/members/${membershipId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
   removeScriptoriumMember: (id, membershipId) => request(`/scriptoriums/${id}/members/${membershipId}`, { method: 'DELETE' }),
   inviteToScriptorium: (id, username) => request(`/scriptoriums/${id}/invite`, { method: 'POST', body: JSON.stringify({ username }) }),
   acceptScriptoriumInvite: (inviteId) => request(`/scriptoriums/invites/${inviteId}/accept`, { method: 'POST' }),

@@ -54,6 +54,24 @@ async function assertOwnerOfStudy(studyId, userId) {
   return study;
 }
 
+/** Passes for the study creator OR any member of the linked Scriptorium
+ *  with "owner" or "collaborator" role. Used to gate lesson and resource
+ *  editing without requiring the caller to be the study's original creator. */
+async function assertCanEditStudy(studyId, userId) {
+  const study = await prisma.study.findUnique({ where: { id: studyId } });
+  if (!study) { const err = new Error('Study not found.'); err.status = 404; throw err; }
+  if (study.creatorId === userId) return study;
+  if (study.scriptoriumId) {
+    const membership = await prisma.scriptoriumMembership.findUnique({
+      where: { scriptoriumId_userId: { scriptoriumId: study.scriptoriumId, userId } },
+    });
+    if (membership?.role === 'owner' || membership?.role === 'collaborator') return study;
+  }
+  const err = new Error('Study not found.');
+  err.status = 404;
+  throw err;
+}
+
 /** Owner is automatically a participant, same pattern as Scriptorium's
  *  owner-is-automatically-a-member — created in one transaction so the
  *  two can't end up inconsistent with each other. Any member of the
@@ -87,10 +105,18 @@ export async function getStudy(studyId, viewerId) {
     throw err;
   }
   await assertCanViewStudy(study, viewerId);
-  const participant = await prisma.studyParticipant.findUnique({
-    where: { studyId_userId: { studyId, userId: viewerId || '' } },
-  });
-  return { ...study, isParticipant: Boolean(participant), myRole: participant?.role || null };
+  const [participant, scriptoriumMembership] = await Promise.all([
+    prisma.studyParticipant.findUnique({ where: { studyId_userId: { studyId, userId: viewerId || '' } } }),
+    study.scriptoriumId && viewerId
+      ? prisma.scriptoriumMembership.findUnique({ where: { scriptoriumId_userId: { scriptoriumId: study.scriptoriumId, userId: viewerId } } })
+      : null,
+  ]);
+  return {
+    ...study,
+    isParticipant: Boolean(participant),
+    myRole: participant?.role || null,
+    myScriptoriumRole: scriptoriumMembership?.role || null,
+  };
 }
 
 export async function listMyStudies(userId) {
@@ -185,7 +211,7 @@ export async function updateStudy(studyId, userId, { title, description }) {
  *  only — "leader" in the product sense maps directly to "owner" here,
  *  same as every other owner-gated action in this app. */
 export async function createLesson(studyId, callerId, { order, title, module, reference, body }) {
-  await assertOwnerOfStudy(studyId, callerId);
+  await assertCanEditStudy(studyId, callerId);
   validateTitle(title);
   return prisma.studyLesson.create({
     data: {
@@ -208,7 +234,7 @@ const MAX_BULK_LESSONS = 52; // a sanity cap (a year's worth of weeks), not a re
  *  than leaving a partially-created study, matching the "accept the
  *  whole draft" UX this exists for. */
 export async function bulkCreateLessons(studyId, callerId, lessons) {
-  await assertOwnerOfStudy(studyId, callerId);
+  await assertCanEditStudy(studyId, callerId);
   if (!Array.isArray(lessons) || lessons.length === 0) {
     const err = new Error('lessons[] is required and must not be empty.');
     err.status = 400;
@@ -248,7 +274,7 @@ export async function updateLesson(lessonId, callerId, { order, title, module, r
     err.status = 404;
     throw err;
   }
-  await assertOwnerOfStudy(lesson.studyId, callerId);
+  await assertCanEditStudy(lesson.studyId, callerId);
   validateTitle(title);
   return prisma.studyLesson.update({
     where: { id: lessonId },
@@ -270,7 +296,7 @@ export async function deleteLesson(lessonId, callerId) {
     err.status = 404;
     throw err;
   }
-  await assertOwnerOfStudy(lesson.studyId, callerId);
+  await assertCanEditStudy(lesson.studyId, callerId);
   await prisma.studyLesson.delete({ where: { id: lessonId } }); // cascades completions
 }
 
@@ -484,7 +510,7 @@ const MAX_WEEK_COUNT = 26;
  * leader can fill in the reference by hand.
  */
 export async function generateLessonDrafts(studyId, callerId, { topic, weekCount, module, outline }) {
-  await assertOwnerOfStudy(studyId, callerId);
+  await assertCanEditStudy(studyId, callerId);
 
   if (!anthropic) {
     throw new Error('ANTHROPIC_API_KEY is not configured on the server');
@@ -683,7 +709,7 @@ function validateResourceInput({ type, label, moduleCode, url, body }) {
  *  shared library of the leader's own notes as part of the study's
  *  resources, not just links elsewhere. */
 export async function addResource(studyId, callerId, { type, label, moduleCode, moduleType, url, body, order }) {
-  await assertOwnerOfStudy(studyId, callerId);
+  await assertCanEditStudy(studyId, callerId);
   validateResourceInput({ type, label, moduleCode, url, body });
   const isModuleType = type === 'commentary' || type === 'module';
   return prisma.studyResource.create({
@@ -707,7 +733,7 @@ export async function removeResource(resourceId, callerId) {
     err.status = 404;
     throw err;
   }
-  await assertOwnerOfStudy(resource.studyId, callerId);
+  await assertCanEditStudy(resource.studyId, callerId);
   await prisma.studyResource.delete({ where: { id: resourceId } });
 }
 

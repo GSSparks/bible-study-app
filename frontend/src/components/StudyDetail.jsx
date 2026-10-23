@@ -160,6 +160,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
   if (!study) return null;
 
   const isOwner = study.myRole === 'owner';
+  const canEdit = isOwner || study.myScriptoriumRole === 'owner' || study.myScriptoriumRole === 'collaborator';
   const isParticipant = study.isParticipant;
   const activeLesson = lessons.find((l) => l.id === activeLessonId) || null;
   const percent = progress && progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
@@ -227,7 +228,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                 <Download size={12} className="shrink-0" /> export
               </button>
             )}
-            {isOwner && (
+            {canEdit && (
               <button onClick={onOpenBuilder} className="flex w-full items-center gap-1.5 text-muted hover:text-parchment">✎ edit study</button>
             )}
             {isParticipant && !isOwner && (
@@ -291,7 +292,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                   <LessonContent
                     lesson={activeLesson}
                     currentUserId={study.creatorId}
-                    isOwner={isOwner}
+                    isOwner={canEdit}
                     onLessonsChanged={refresh}
                     onOpenInPassages={onOpenInPassages}
                     onAskAiCompanionAbout={onAskAiCompanionAbout}
@@ -307,7 +308,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                     <StudyDiscussionTab
                       studyId={studyId}
                       isParticipant={study.isParticipant}
-                      isOwner={isOwner}
+                      isOwner={canEdit}
                       currentUserId={currentUserId}
                       onOpenInPassages={onOpenInPassages}
                       onOpenBiblePanel={onOpenBiblePanel}
@@ -337,7 +338,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                       study={study}
                       resources={resources}
                       activeLesson={activeLesson}
-                      isOwner={isOwner}
+                      isOwner={canEdit}
                       onResourcesChanged={refresh}
                       onAskAiCompanionAbout={onAskAiCompanionAbout}
                       onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
@@ -353,7 +354,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
             {lessons.length === 0 ? (
               <div className="text-center">
                 <p className="mb-3 text-sm text-pageMuted">This study has no lessons yet.</p>
-                {isOwner && (
+                {canEdit && (
                   <div className="flex gap-2">
                     <button onClick={onOpenBuilder} className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent">✎ edit study</button>
                   </div>
