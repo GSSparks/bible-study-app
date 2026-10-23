@@ -351,6 +351,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                       onAskAiCompanionAbout={onAskAiCompanionAbout}
                       onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
                       onOpenBiblePanel={onOpenBiblePanel}
+                      bibleModule={bibleModule}
                     />
                   </div>
                 </div>
@@ -1656,7 +1657,7 @@ function ResourceCard({ resource, onClick, onRemove, isOwner }) {
   );
 }
 
-function ResourcesTabContent({ study, resources, activeLesson, isOwner, onResourcesChanged, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel }) {
+function ResourcesTabContent({ study, resources, activeLesson, isOwner, onResourcesChanged, onAskAiCompanionAbout, onAskAiCompanionPhraseStudy, onOpenBiblePanel, bibleModule }) {
   const [openResource, setOpenResource] = useState(null);
   const [openDocumentId, setOpenDocumentId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
