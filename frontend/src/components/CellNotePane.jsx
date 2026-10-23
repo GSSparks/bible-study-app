@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MDEditor from '@uiw/react-md-editor';
-import { List, Plus, Save, Trash2, X } from 'lucide-react';
+import { List, Plus, Save, Trash2, X, Download } from 'lucide-react';   
 import { api } from '../api/client.js';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
@@ -124,6 +124,17 @@ export default function CellNotePane({ isLoggedIn = false }) {
     await doSave(selectedId, title, body);
   }
 
+  async function handleExport() {
+    if (!selectedId) return;
+    const filename = `${(title || 'untitled').replace(/[^a-z0-9\-_ ]/gi, '').trim() || 'note'}.md`;
+    const blob = new Blob([body], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }   
   async function createNote() {
     if (!isLoggedIn) return;
     try {
@@ -197,6 +208,14 @@ export default function CellNotePane({ isLoggedIn = false }) {
             <span className="text-sm text-muted">Study Notes</span>
           )}
         </div>
+        <button
+          onClick={handleExport}
+          disabled={!selectedId || !body}
+          title="Export as .md"
+          className="flex h-7 w-7 items-center justify-center rounded text-muted hover:text-brass disabled:opacity-40"
+          >
+          <Download size={14} />
+      </button>   
 
         <button
           onClick={handleManualSave}
