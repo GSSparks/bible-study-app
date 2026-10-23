@@ -4,7 +4,10 @@ import { createPortal } from 'react-dom';
  * text. Both land here so there's one implementation of the actual
  * zoom logic (in ReaderPane) regardless of how it was invoked. */
 export default function ContextZoomMenu({ x, y, onSelectSection, onSelectChapter, onClose }) {
-  const style = { top: y, left: Math.min(x, window.innerWidth - 230) };
+  const style = {
+    top: Math.min(y, window.innerHeight - 90),
+    left: Math.min(x, window.innerWidth - 230),
+  };
 
   return createPortal(
     <>

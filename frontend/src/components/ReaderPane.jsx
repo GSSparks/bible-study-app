@@ -789,7 +789,7 @@ export default function ReaderPane({
             <div className="fixed inset-0 z-30" onClick={() => setSelectedRange(null)} />
             <div
               className="fixed z-40 flex items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
-              style={{ left: selectedRange.x, top: selectedRange.y }}
+              style={{ left: Math.min(selectedRange.x, window.innerWidth - 460), top: Math.min(selectedRange.y, window.innerHeight - 52) }}
             >
               <span className="px-1 font-mono text-xs text-muted">
                 {getSelectedReference()}
@@ -884,7 +884,7 @@ export default function ReaderPane({
             />
             <div
               className="fixed z-40 flex max-w-lg flex-wrap items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
-              style={{ left: phraseSelection.x, top: phraseSelection.y }}
+              style={{ left: Math.min(phraseSelection.x, window.innerWidth - 520), top: Math.min(phraseSelection.y, window.innerHeight - 60) }}
             >
               {/* Highlight swatches — only if we know which verse(s) are spanned */}
               {phraseSelection.verseIndices[0] !== null && (
