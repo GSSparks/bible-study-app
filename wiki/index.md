@@ -211,6 +211,7 @@ This wiki contains one summary file per source file in the repository. Each summ
 
 | File | Wiki |
 |---|---|
+| `frontend/src/components/CellNotePane.jsx` | [frontend-components/CellNotePane.jsx.md](frontend-components/CellNotePane.jsx.md) |
 | `frontend/src/components/NotePanel.jsx` | [frontend-components/NotePanel.jsx.md](frontend-components/NotePanel.jsx.md) |
 | `frontend/src/components/NotesSidebar.jsx` | [frontend-components/NotesSidebar.jsx.md](frontend-components/NotesSidebar.jsx.md) |
 | `frontend/src/components/SelectionNotePopup.jsx` | [frontend-components/SelectionNotePopup.jsx.md](frontend-components/SelectionNotePopup.jsx.md) |

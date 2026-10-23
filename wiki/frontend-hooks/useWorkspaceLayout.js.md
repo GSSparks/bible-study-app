@@ -7,7 +7,7 @@ Manages the full state of the Cell workspace window manager: a two-dimensional g
 **Key exports / contents**
 
 - `PANE_TYPES` — array of `{ value, label, moduleType }` objects defining all valid pane types:
-  `bible`, `commentary`, `dictionary`, `crossrefs`, `passageguide`, `links`, `document`, `search`.
+  `bible`, `commentary`, `dictionary`, `crossrefs`, `passageguide`, `links`, `document`, `search`, `notes`.
 - `useWorkspaceLayout()` — hook returning `{ columns, ...actions }`:
   - `columns` — array of column objects, each containing `{ id, flex, rows }` where each row is a pane `{ id, type, tabs, activeTabId, flex, reference }`.
   - `addColumn(type?)` — appends a new column to the right.

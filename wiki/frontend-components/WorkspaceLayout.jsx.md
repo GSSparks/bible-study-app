@@ -26,7 +26,7 @@ Drag-and-drop tiling window manager used inside `CellView`. Renders an arbitrary
 
 ## State / key logic
 
-**Pane types:** `bible`, `commentary`, `dictionary`, `crossrefs`, `passageguide`, `document`, `search`, `links`
+**Pane types:** `bible`, `commentary`, `dictionary`, `crossrefs`, `passageguide`, `document`, `search`, `links`, `notes` (9 total)
 
 **`PaneShell` sub-component:**
 - Renders pane-type-specific content via a `renderContent()` switch statement.
@@ -47,19 +47,21 @@ Drag-and-drop tiling window manager used inside `CellView`. Renders an arbitrary
 - Tapping a tab type that is not currently visible creates or focuses the appropriate pane.
 - `StrongsDrawer` and `VerseDrawer` render as bottom-sheet overlays on mobile.
 
-**`MOBILE_TAB_TYPES`:** Ordered list of pane types shown as tabs on small screens (e.g. bible, commentary, dictionary, passageguide, search).
+**`MOBILE_TAB_TYPES`:** Ordered list of pane types shown as tabs on small screens: `bible`, `commentary`, `dictionary`, `passageguide`, `search`, `notes`. Less-common types (`crossrefs`, `links`, `document`) are omitted from the mobile strip.
 
 ## Dependencies
 
 - `useWorkspaceLayout` (`../hooks/useWorkspaceLayout.js`) — layout state and reducer (consumed by the parent `CellView`; layout + dispatch passed as props here).
 - `useHorizontalScroll` (`../hooks/useHorizontalScroll.js`) — attached to the Bible pane's per-tab tab strip inside `PaneShell` to allow mouse-wheel horizontal scrolling when many tabs are open.
-- `ReaderPane` — Bible and Commentary pane content.
+- `ReaderPane` — Bible pane content.
+- `CommentaryPane` — Commentary pane content (highlights, note indicators, phrase selection, hover-card verse lookup).
 - `DictionaryPane` — Dictionary pane content.
 - `StudyAssistant` / `AIChatPane` — Passage Guide / AI chat pane content.
 - `CrossRefsPane` — Cross-references pane.
 - `DocumentPane` — PDF reader pane.
 - `SearchPane` — Full-text search pane.
 - `LinksPane` — External links pane.
+- `CellNotePane` — Freestanding Markdown note editor pane (type `notes`).
 - `StrongsDrawer`, `VerseDrawer` — overlay drawers.
 
 ## Notes

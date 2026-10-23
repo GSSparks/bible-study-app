@@ -21,6 +21,7 @@ Manages Scriptoriums — the platform's study groups. Provides the full lifecycl
 | PUT | `/api/scriptoriums/:id` | Updates name, description, visibility, tags, about text, and weeklyVerse; owner-only (enforced in service) |
 | DELETE | `/api/scriptoriums/:id` | Deletes a Scriptorium; owner-only (enforced in service) |
 | DELETE | `/api/scriptoriums/:id/members/:membershipId` | Removes a member; owner-only (enforced in service) |
+| PATCH | `/api/scriptoriums/:id/members/:membershipId` | Updates a member's role; body: `{ role }`; owner-only. Supports `editor` role granting collaborative edit access |
 | POST | `/api/scriptoriums/:id/invite` | Invites a user by username; body: `{ username }` |
 | GET | `/api/scriptoriums/:id/resources` | Lists shared resources for the Scriptorium |
 | POST | `/api/scriptoriums/:id/resources` | Adds a resource; body: `{ type, label, url?, body? }` |

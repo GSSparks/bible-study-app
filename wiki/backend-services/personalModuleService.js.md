@@ -13,6 +13,7 @@ Implements user-created personal modules — private per-user commentary and dic
 - **`getPersonalEntryByKey(moduleCode, key, userId)`** — Fetches a single DICT entry by exact key, after verifying ownership.
 - **`getPersonalCommentaryEntry(reference, userId)`** — Fetches an existing COMMENTARY entry from the user's "My Studies" module for the given reference, or `null`.
 - **`upsertPersonalCommentaryEntry({ reference, title, bodyMd, userId })`** — Creates or updates a COMMENTARY entry for the given reference. Stores both the rendered HTML (`body`) and the original Markdown (`bodyMd`).
+- **`listPersonalCommentaryEntryRefs(prefix, userId)`** — Returns an array of `reference` strings from the user's "My Studies" module where the reference starts with `prefix` (e.g. `"John 3:"`). Used by `CommentaryPane` to batch-load which verses have a personal note without fetching full entry bodies.
 - **`getPersonalPassage(moduleCode, humanReference, userId)`** — Fetches COMMENTARY entries whose reference overlaps the queried reference via OSIS range overlap, returning results shaped like `swordService.getPassage` verse objects (with `bibleBookShortTitle`, `chapter`, `verseNr`, `content`).
 
 ## Dependencies

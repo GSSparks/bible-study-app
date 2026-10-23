@@ -25,7 +25,8 @@ Legacy three-pane reading layout: Bible top-left, Dictionary bottom-left, Commen
 - `useResizableWidth` — manages the commentary column width with a draggable vertical divider.
 - `useResizableHeight` — manages the dictionary pane height within the left column, with a draggable horizontal divider.
 - Each pane (Bible, Commentary, Dictionary) renders a tab strip (`useTabbedWindow` tabs) and its appropriate pane component:
-  - Bible / Commentary → `ReaderPane`
+  - Bible → `ReaderPane`
+  - Commentary → `CommentaryPane` (receives `bibleModule={defaultBibleModule}` for hover-card verse lookups; phrase-study and `onAnnotate` props are omitted)
   - Dictionary → `DictionaryPane`
 - Tabs stay mounted; CSS `visibility` / `display` toggling preserves scroll position across tab switches.
 - `VerseDrawer` is rendered at the bottom of the layout as a slide-up panel for verse options (cross-refs, highlights, notes).
@@ -33,7 +34,8 @@ Legacy three-pane reading layout: Bible top-left, Dictionary bottom-left, Commen
 ## Dependencies
 
 - `useResizableWidth`, `useResizableHeight` (`../hooks/`)
-- `ReaderPane` — renders Bible and Commentary content.
+- `ReaderPane` — renders Bible content.
+- `CommentaryPane` — renders commentary content with highlights, note indicators, and phrase selection.
 - `DictionaryPane` — renders dictionary/reference entries.
 - `VerseDrawer` — verse-action bottom sheet.
 
