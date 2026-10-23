@@ -20,6 +20,7 @@ import { api } from '../api/client.js';
 import { PANE_TYPES } from '../hooks/useWorkspaceLayout.js';
 import { abbreviateTitle } from '../utils/abbreviateTitle.js';
 import ReaderPane from './ReaderPane.jsx';
+import CommentaryPane from './CommentaryPane.jsx';
 import DictionaryPane from './DictionaryPane.jsx';
 import CrossRefPane from './CrossRefPane.jsx';
 import PassageGuidePane from './PassageGuidePane.jsx';
@@ -315,15 +316,13 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
               {row.tabs.length === 0 && <EmptyPaneContent label="No commentaries open — click + above to add one." />}
               {row.tabs.map((tab) => (
                 <div key={tab.id} className={tab.id === row.activeTabId ? 'h-full' : 'hidden'}>
-                  <ReaderPane
+                  <CommentaryPane
                     module={tab.module}
                     reference={focusedReference}
-                    showMarginalia={false}
+                    bibleModule={defaultBibleModule}
                     onNavigate={onNavigate}
                     onStrongsClick={onStrongsClick}
                     onVerseRefClick={onVerseRefClick}
-                    onAskAboutPassage={onAskAboutPassage}
-                    onPhraseStudy={onPhraseStudy}
                     refreshNonce={commentaryRefreshNonce}
                   />
                 </div>

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The core Bible-text reading pane used throughout the application. It fetches verses from the SWORD/MD module backend, renders them as flowing prose (or in interlinear mode stacked word-by-word), and handles the full annotation surface: verse-level highlighting (personal and group/Scriptorium), floating verse-selection toolbar, free-text phrase selection toolbar, Strong's word click detection, cross-reference hover cards, footnote popups, and a note editor. It is embedded inside `MainLayout` for every Cell Bible/commentary tab, and is the single source of truth for verse rendering fidelity across the app.
+The core Bible-text reading pane used throughout the application. It fetches verses from the SWORD/MD module backend, renders them as flowing prose (or in interlinear mode stacked word-by-word), and handles the full annotation surface: verse-level highlighting (personal and group/Scriptorium), floating verse-selection toolbar, free-text phrase selection toolbar, Strong's word click detection, cross-reference hover cards, footnote popups, and a note editor. It is embedded inside `MainLayout` for every Cell Bible tab. Commentary tabs use the dedicated `CommentaryPane` component instead.
 
 ## Props
 
