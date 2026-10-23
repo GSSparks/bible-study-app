@@ -146,6 +146,7 @@ export default function ReaderPane({
   const [error, setError] = useState(null);
   const [hoverCard, setHoverCard] = useState(null); // { refStr, rect }
   const hoverCloseTimer = useRef(null);
+  const preserveSelectionRef = useRef(false);
   const [footnotePopup, setFootnotePopup] = useState(null);
   const [selectedRange, setSelectedRange] = useState(null);
   const [phraseSelection, setPhraseSelection] = useState(null); // { text, strongsSequence, x, y }
@@ -170,7 +171,8 @@ export default function ReaderPane({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    setSelectedRange(null);
+    if (!preserveSelectionRef.current) setSelectedRange(null);
+    preserveSelectionRef.current = false;
     setHighlightMap(new Map());
     setNoteCount(0);
     setGroupFindings([]);
@@ -312,17 +314,14 @@ export default function ReaderPane({
     e.stopPropagation();
     setPhraseSelection(null);
     if (e.shiftKey && selectedRange) {
-      setSelectedRange((prev) => ({ ...prev, focus: v.__index, x: e.clientX, y: e.clientY + 16 }));
+      setSelectedRange((prev) => ({ ...prev, focus: v.__index, x: e.clientX, y: e.clientY + 16, popupOpen: false }));
       return;
     }
     if (focusMode) {
+      preserveSelectionRef.current = true;
       onNavigate?.(`${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`);
-      return;
     }
-    const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`;
-    if (highlightMap.has(verseRef)) {
-      setSelectedRange({ anchor: v.__index, focus: v.__index, x: e.clientX, y: e.clientY + 16 });
-    }
+    setSelectedRange({ anchor: v.__index, focus: v.__index, x: e.clientX, y: e.clientY + 16, popupOpen: true });
   }
 
   function isIndexSelected(index) {
@@ -655,7 +654,7 @@ export default function ReaderPane({
                 onClick={(e) => {
                   if (verses.length === 0) return;
                   setPhraseSelection(null);
-                  setSelectedRange({ anchor: 0, focus: verses.length - 1, x: e.clientX, y: e.clientY + 16 });
+                  setSelectedRange({ anchor: 0, focus: verses.length - 1, x: e.clientX, y: e.clientY + 16, popupOpen: true });
                 }}
                 aria-label="Annotate this passage"
               />
@@ -764,7 +763,7 @@ export default function ReaderPane({
                         >
                           <sup
                             className="mr-1 cursor-pointer text-xs text-pageAccent hover:text-brass"
-                            title={focusMode ? 'Click to focus this verse' : 'Click to manage highlight (highlight a verse first by selecting text)'}
+                            title={focusMode ? 'Click to focus this verse' : 'Click to select, shift-click to extend selection'}
                             onClick={(e) => handleVerseNumberClick(e, v)}
                           >
                             {v.verseNr}
@@ -804,10 +803,10 @@ export default function ReaderPane({
         </div>
       )}
 
-      {selectedRange &&
+      {selectedRange?.popupOpen &&
         createPortal(
           <>
-            <div className="fixed inset-0 z-30" onClick={() => setSelectedRange(null)} />
+            <div className="fixed inset-0 z-30" onClick={() => setSelectedRange((prev) => ({ ...prev, popupOpen: false }))} />
             <div
               className="fixed z-40 flex items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
               style={{ left: Math.min(selectedRange.x, window.innerWidth - 460), top: Math.min(selectedRange.y, window.innerHeight - 52) }}
@@ -886,7 +885,7 @@ export default function ReaderPane({
                 </button>
               )}
               <button
-                onClick={() => setSelectedRange(null)}
+                onClick={() => setSelectedRange((prev) => ({ ...prev, popupOpen: false }))}
                 className="rounded px-1.5 py-1 text-xs text-muted hover:text-parchment"
               >
                 ✕
@@ -904,8 +903,8 @@ export default function ReaderPane({
               onClick={() => { setPhraseSelection(null); window.getSelection()?.removeAllRanges(); }}
             />
             <div
-              className="fixed z-40 flex max-w-lg flex-wrap items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
-              style={{ left: Math.min(phraseSelection.x, window.innerWidth - 520), top: Math.min(phraseSelection.y, window.innerHeight - 60) }}
+              className="fixed z-40 flex items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
+              style={{ left: Math.min(phraseSelection.x, window.innerWidth - 560), top: Math.min(phraseSelection.y, window.innerHeight - 44) }}
             >
               {/* Highlight swatches — only if we know which verse(s) are spanned */}
               {phraseSelection.verseIndices[0] !== null && (
@@ -930,23 +929,36 @@ export default function ReaderPane({
                 </div>
               )}
 
-              {/* Note — opens commentary editor pre-filled with the selected quote */}
+              {/* Note and Copy side by side */}
               {phraseSelection.verseRef && (
-                <button
-                  onClick={() => {
-                    setVerseNoteRef({
-                      reference: phraseSelection.verseRef,
-                      x: phraseSelection.x,
-                      y: phraseSelection.y + 32,
-                      initialQuote: phraseSelection.text,
-                    });
-                    setPhraseSelection(null);
-                    window.getSelection()?.removeAllRanges();
-                  }}
-                  className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-verdigris hover:text-parchment"
-                >
-                  Note
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      setVerseNoteRef({
+                        reference: phraseSelection.verseRef,
+                        x: phraseSelection.x,
+                        y: phraseSelection.y + 32,
+                        initialQuote: phraseSelection.text,
+                      });
+                      setPhraseSelection(null);
+                      window.getSelection()?.removeAllRanges();
+                    }}
+                    className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-verdigris hover:text-parchment"
+                  >
+                    Note
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(`"${phraseSelection.text}" (${phraseSelection.verseRef}, ${module})`).catch(() => {});
+                      setPhraseSelection(null);
+                      window.getSelection()?.removeAllRanges();
+                    }}
+                    className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
+                    title="Copy selected text with reference"
+                  >
+                    Copy
+                  </button>
+                </>
               )}
 
               {/* Phrase AI study — only when that feature is wired up */}
@@ -971,7 +983,6 @@ export default function ReaderPane({
                   )}
                 </>
               )}
-
               <button
                 onClick={() => { setPhraseSelection(null); window.getSelection()?.removeAllRanges(); }}
                 className="rounded px-1.5 py-1 text-xs text-muted hover:text-parchment"
