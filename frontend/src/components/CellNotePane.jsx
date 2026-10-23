@@ -26,7 +26,7 @@ export default function CellNotePane({ isLoggedIn = false }) {
         let cancelled = false;
         setLoadingList(true);
         api
-        .listNotes({ freestanding: true })
+        .listNotes({freestanding: true})
         .then((res) => {
             if (cancelled) return;
             setNotes(res);
@@ -42,21 +42,29 @@ export default function CellNotePane({ isLoggedIn = false }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoggedIn]);
 
-    const titleRef = useRef(title);
-    const bodyRef = useRef(body);
-    // update them in handleTitleChange / handleBodyChange:
-    titleRef.current = v;
-    bodyRef.current = val;
+    function handleTitleChange(e) {
+        const v = e.target.value;
+        setTitle(v);
+        titleRef.current = v;
+        if (selectedId) scheduleSave(selectedId, v, body);
+    }
+
+    function handleBodyChange(v) {
+        const val = v || '';
+        setBody(val);
+        bodyRef.current = val;
+        if (selectedId) scheduleSave(selectedId, title, val);
+    }
 
     useEffect(() => {
         return () => {
-            clearTimeout(debounceTimer.current);
-            if (dirtyRef.current && selectedIdRef.current) {
-                api.updateNote(selectedIdRef.current, { title: titleRef.current || null, body: bodyRef.current }).catch(() =>
-                {});
-            }
-        };
-    }, []);  // empty deps — runs cleanup only on unmount
+        clearTimeout(debounceTimer.current);
+        if (dirtyRef.current && selectedIdRef.current) {
+            api.updateNote(selectedIdRef.current, { title: titleRef.current || null, body: bodyRef.current }).catch(() =>
+        {});
+      }
+    };
+  }, []);  // empty deps — runs cleanup only on unmount
 
     const doSave = useCallback(async (noteId, saveTitle, saveBody) => {
         if (!noteId || !saveBody) return;
