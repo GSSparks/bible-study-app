@@ -364,10 +364,10 @@ export default function ReaderPane({
       .slice(lo, hi + 1)
       .map((v) => {
         tempEl.innerHTML = v.content;
-        return `${v.verseNr} ${tempEl.textContent.trim()}`;
+        return tempEl.textContent.trim();
       })
       .join(' ');
-    navigator.clipboard?.writeText(`${ref}\n${text}`).catch(() => {});
+    navigator.clipboard?.writeText(`"${text}" (${ref}, ${module})`).catch(() => {});
     setSelectedRange(null);
   }
 
