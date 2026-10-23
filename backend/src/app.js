@@ -57,15 +57,22 @@ export function createApp() {
     // which breaks everything when there is no TLS terminator.
     strictTransportSecurity: false,
     contentSecurityPolicy: {
+      // Opt out of Helmet's merged defaults — they include upgrade-insecure-requests,
+      // which tells the browser to load all sub-resources over HTTPS and breaks
+      // plain HTTP installs (local / LAN). We define a complete directive set here.
+      useDefaults: false,
       directives: {
         defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
         connectSrc: ["'self'"],
         fontSrc: ["'self'", 'https://fonts.gstatic.com'],
         frameSrc: ["'none'"],
+        frameAncestors: ["'self'"],
         objectSrc: ["'none'"],
+        formAction: ["'self'"],
       },
     },
   }));
