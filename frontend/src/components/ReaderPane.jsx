@@ -317,8 +317,12 @@ export default function ReaderPane({
     }
     if (focusMode) {
       onNavigate?.(`${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`);
+      return;
     }
-    setSelectedRange({ anchor: v.__index, focus: v.__index, x: e.clientX, y: e.clientY + 16 });
+    const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`;
+    if (highlightMap.has(verseRef)) {
+      setSelectedRange({ anchor: v.__index, focus: v.__index, x: e.clientX, y: e.clientY + 16 });
+    }
   }
 
   function isIndexSelected(index) {
@@ -760,7 +764,7 @@ export default function ReaderPane({
                         >
                           <sup
                             className="mr-1 cursor-pointer text-xs text-pageAccent hover:text-brass"
-                            title={focusMode ? 'Click to focus this verse, shift-click to select a range' : 'Click to select, shift-click to select a range'}
+                            title={focusMode ? 'Click to focus this verse' : 'Click to manage highlight (highlight a verse first by selecting text)'}
                             onClick={(e) => handleVerseNumberClick(e, v)}
                           >
                             {v.verseNr}
