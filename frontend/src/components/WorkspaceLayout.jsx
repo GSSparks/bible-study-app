@@ -1,21 +1,21 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useHorizontalScroll } from '../hooks/useHorizontalScroll.js';
-import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, Link, MapPin } from 'lucide-react';
+import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, Link, MapPin, StickyNote } from 'lucide-react';
 import PassageMapsModal from './PassageMapsModal.jsx';
 
 const PANE_ICONS = {
   bible: BookOpen, commentary: ScrollText, dictionary: BookA,
   crossrefs: GitBranch, passageguide: Compass, document: FileText,
-  search: Search, links: Link,
+  search: Search, links: Link, notes: StickyNote,
 };
 const PANE_LABELS = {
   bible: 'Bible', commentary: 'Commentary', dictionary: 'Dictionary',
   crossrefs: 'Cross-refs', passageguide: 'Guide', document: 'Docs',
-  search: 'Search', links: 'Links',
+  search: 'Search', links: 'Links', notes: 'Notes',
 };
+const MOBILE_TAB_TYPES = ['bible', 'commentary', 'dictionary', 'crossrefs', 'passageguide', 'document', 'search', 'links', 'notes'];
 // Fixed order for the mobile tab strip — always shows all pane types so the
 // strip doubles as the open/close control (replacing the desktop window toggles).
-const MOBILE_TAB_TYPES = ['bible', 'commentary', 'dictionary', 'crossrefs', 'passageguide', 'document', 'search', 'links'];
 import { api } from '../api/client.js';
 import { PANE_TYPES } from '../hooks/useWorkspaceLayout.js';
 import { abbreviateTitle } from '../utils/abbreviateTitle.js';
@@ -32,6 +32,7 @@ import VerseDrawer from './VerseDrawer.jsx';
 import RefNav from './RefNav.jsx';
 import ModulePicker from './ModulePicker.jsx';
 import LinksPane from './LinksPane.jsx';
+import CellNotePane from './CellNotePane.jsx';
 
 // ─── Resize handles (shown when not dragging) ─────────────────────────────────
 
@@ -495,6 +496,12 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
           </div>
         );
 
+      case 'notes':
+        return (
+          <div className="min-h-0 flex-1 overflow-hidden">
+          <CellNotePane isLoggedIn={Boolean(auth?.user)} />
+          </div>
+        );
       default:
         return <EmptyPaneContent label={`Unknown pane type: ${row.type}`} />;
     }
