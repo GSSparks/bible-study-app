@@ -1,4 +1,5 @@
 import ReaderPane from './ReaderPane.jsx';
+import CommentaryPane from './CommentaryPane.jsx';
 import DictionaryPane from './DictionaryPane.jsx';
 import TabStrip from './TabStrip.jsx';
 import VerseDrawer from './VerseDrawer.jsx';
@@ -165,14 +166,13 @@ export default function MainLayout({
           ) : (
             commentary.tabs.map((tab) => (
               <div key={tab.id} className={tab.id === commentary.activeTabId ? 'h-full' : 'hidden'}>
-                <ReaderPane
+                <CommentaryPane
                   module={tab.module}
                   reference={focusedReference}
+                  bibleModule={defaultBibleModule}
                   onStrongsClick={onStrongsClick}
                   onVerseRefClick={onVerseRefClick}
-                  onAnnotate={onAnnotate}
-                  onAskAboutPassage={onAskAboutPassage}
-                  onPhraseStudy={onPhraseStudy}
+                  onNavigate={onNavigateFocus}
                 />
               </div>
             ))

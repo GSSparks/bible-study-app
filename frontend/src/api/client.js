@@ -8,7 +8,9 @@ async function request(path, options = {}) {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Request failed: ${res.status}`);
+    const err = new Error(body.error || `Request failed: ${res.status}`);
+    err.status = res.status;
+    throw err;
   }
   if (res.status === 204) return null;
   return res.json();
@@ -115,6 +117,8 @@ export const api = {
   buildPhraseStudyContext: (payload) => request('/phrase-study', { method: 'POST', body: JSON.stringify(payload) }),
   askPhraseStudy: (payload) => request('/phrase-study/ask', { method: 'POST', body: JSON.stringify(payload) }),
   savePersonalModule: (payload) => request('/personal-modules/save', { method: 'POST', body: JSON.stringify(payload) }),
+  listPersonalCommentaryRefs: (prefix) =>
+    request(`/personal-modules/commentary-refs?${new URLSearchParams({ prefix })}`),
   getCommentaryEntry: (reference) => request(`/personal-modules/commentary-entry?reference=${encodeURIComponent(reference)}`),
   saveCommentaryNote: ({ reference, title, bodyMd }) =>
     request('/personal-modules/commentary-entry', { method: 'PUT', body: JSON.stringify({ reference, title, bodyMd }) }),

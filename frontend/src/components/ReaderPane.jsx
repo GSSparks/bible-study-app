@@ -81,6 +81,21 @@ function extractCleanSelectionText(range) {
   return container.textContent.trim().replace(/\s+/g, ' ');
 }
 
+// Canonical chapter counts for all 66 Protestant canon books, keyed by
+// the short title SWORD returns (standard OSIS abbreviations). Used to
+// prevent the ‹/› nav buttons from navigating to a chapter that doesn't exist.
+const BOOK_CHAPTER_COUNT = {
+  Gen:50, Exod:40, Lev:27, Num:36, Deut:34, Josh:24, Judg:21, Ruth:4,
+  '1Sam':31, '2Sam':24, '1Kgs':22, '2Kgs':25, '1Chr':29, '2Chr':36,
+  Ezra:10, Neh:13, Esth:10, Job:42, Ps:150, Prov:31, Eccl:12, Song:8,
+  Isa:66, Jer:52, Lam:5, Ezek:48, Dan:12, Hos:14, Joel:3, Amos:9,
+  Obad:1, Jonah:4, Mic:7, Nah:3, Hab:3, Zeph:3, Hag:2, Zech:14, Mal:4,
+  Matt:28, Mark:16, Luke:24, John:21, Acts:28, Rom:16, '1Cor':16, '2Cor':13,
+  Gal:6, Eph:6, Phil:4, Col:4, '1Thess':5, '2Thess':3, '1Tim':6, '2Tim':4,
+  Titus:3, Phlm:1, Heb:13, Jas:5, '1Pet':5, '2Pet':3, '1John':5, '2John':1,
+  '3John':1, Jude:1, Rev:22,
+};
+
 const HIGHLIGHT_BG = {
   yellow: 'bg-amber-300/30',
   blue: 'bg-sky-300/30',
@@ -288,6 +303,8 @@ export default function ReaderPane({
     if (!first) return;
     const nextChapter = Number(first.chapter) + delta;
     if (nextChapter < 1) return;
+    const maxChapter = BOOK_CHAPTER_COUNT[first.bibleBookShortTitle];
+    if (maxChapter && nextChapter > maxChapter) return;
     onNavigate?.(focusMode ? `${first.bibleBookShortTitle} ${nextChapter}:1` : `${first.bibleBookShortTitle} ${nextChapter}`);
   }
 

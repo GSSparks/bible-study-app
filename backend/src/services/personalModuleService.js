@@ -157,6 +157,22 @@ function osisOverlaps(aItem, bItem) {
   return aStartAbs <= bEndAbs && bStartAbs <= aEndAbs;
 }
 
+/** Returns the list of verse references that have a personal commentary
+ *  entry in "My Studies" whose reference starts with `prefix` (e.g.
+ *  "John 3:"). Used to populate note-indicator dots in CommentaryPane. */
+export async function listPersonalCommentaryEntryRefs(prefix, userId) {
+  if (!userId) return [];
+  const mod = await prisma.personalModule.findFirst({
+    where: { type: 'COMMENTARY', name: 'My Studies', userId },
+  });
+  if (!mod) return [];
+  const entries = await prisma.personalEntry.findMany({
+    where: { moduleId: mod.id, reference: { startsWith: prefix } },
+    select: { reference: true },
+  });
+  return entries.map((e) => e.reference);
+}
+
 /** Fetches an existing commentary entry for the given human reference
  *  from the user's default "My Studies" personal module, or null if none
  *  exists. Used by the verse note editor to pre-fill existing content. */

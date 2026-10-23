@@ -151,6 +151,7 @@ This wiki contains one summary file per source file in the repository. Each summ
 | `frontend/src/components/BooksView.jsx` | [frontend-components/BooksView.jsx.md](frontend-components/BooksView.jsx.md) |
 | `frontend/src/components/BookPane.jsx` | [frontend-components/BookPane.jsx.md](frontend-components/BookPane.jsx.md) |
 | `frontend/src/components/BookPanel.jsx` | [frontend-components/BookPanel.jsx.md](frontend-components/BookPanel.jsx.md) |
+| `frontend/src/components/CommentaryPane.jsx` | [frontend-components/CommentaryPane.jsx.md](frontend-components/CommentaryPane.jsx.md) |
 | `frontend/src/components/DictionaryPane.jsx` | [frontend-components/DictionaryPane.jsx.md](frontend-components/DictionaryPane.jsx.md) |
 | `frontend/src/components/NotesView.jsx` | [frontend-components/NotesView.jsx.md](frontend-components/NotesView.jsx.md) |
 | `frontend/src/components/LibraryView.jsx` | [frontend-components/LibraryView.jsx.md](frontend-components/LibraryView.jsx.md) |
