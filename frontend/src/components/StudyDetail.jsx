@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { Camera, ChevronDown, ChevronLeft, Download, Video, Sparkles, FileText, BookOpen, ExternalLink, Trash2 } from 'lucide-react';
 import { api } from '../api/client.js';
@@ -159,6 +160,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
   if (!study) return null;
 
   const isOwner = study.myRole === 'owner';
+  const canEdit = isOwner || study.myScriptoriumRole === 'owner' || study.myScriptoriumRole === 'collaborator';
   const isParticipant = study.isParticipant;
   const activeLesson = lessons.find((l) => l.id === activeLessonId) || null;
   const percent = progress && progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
@@ -226,7 +228,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                 <Download size={12} className="shrink-0" /> export
               </button>
             )}
-            {isOwner && (
+            {canEdit && (
               <button onClick={onOpenBuilder} className="flex w-full items-center gap-1.5 text-muted hover:text-parchment">✎ edit study</button>
             )}
             {isParticipant && !isOwner && (
@@ -275,6 +277,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                   { key: 'resources', label: 'Resources' },
                   ...(isOwner ? [{ key: 'reflections', label: 'Reflections' }] : []),
                   { key: 'members', label: `Members (${participants.length})` },
+                  { key: 'activity', label: 'Activity' },
                 ].map(({ key, label }) => (
                   <button key={key} onClick={() => changeTab(key)}
                     className={`pb-2.5 ${tab === key ? 'border-b-2 border-pageAccent text-pageText' : 'text-pageMuted hover:text-pageText'}`}>
@@ -290,7 +293,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                   <LessonContent
                     lesson={activeLesson}
                     currentUserId={study.creatorId}
-                    isOwner={isOwner}
+                    isOwner={canEdit}
                     onLessonsChanged={refresh}
                     onOpenInPassages={onOpenInPassages}
                     onAskAiCompanionAbout={onAskAiCompanionAbout}
@@ -303,7 +306,15 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
               {tab === 'discussion' && (
                 <div className="px-7 py-8">
                   <div className="max-w-2xl">
-                    <DiscussionTab lesson={activeLesson} isParticipant={study.isParticipant} currentUserId={currentUserId} />
+                    <StudyDiscussionTab
+                      studyId={studyId}
+                      isParticipant={study.isParticipant}
+                      isOwner={canEdit}
+                      currentUserId={currentUserId}
+                      onOpenInPassages={onOpenInPassages}
+                      onOpenBiblePanel={onOpenBiblePanel}
+                      bibleModule={bibleModule}
+                    />
                   </div>
                 </div>
               )}
@@ -321,6 +332,13 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                   </div>
                 </div>
               )}
+              {tab === 'activity' && (
+                <div className="px-7 py-8">
+                  <div className="max-w-2xl">
+                    <ActivityTab studyId={studyId} />
+                  </div>
+                </div>
+              )}
               {tab === 'resources' && (
                 <div className="px-7 py-8">
                   <div className="max-w-2xl">
@@ -328,7 +346,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                       study={study}
                       resources={resources}
                       activeLesson={activeLesson}
-                      isOwner={isOwner}
+                      isOwner={canEdit}
                       onResourcesChanged={refresh}
                       onAskAiCompanionAbout={onAskAiCompanionAbout}
                       onAskAiCompanionPhraseStudy={onAskAiCompanionPhraseStudy}
@@ -344,7 +362,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
             {lessons.length === 0 ? (
               <div className="text-center">
                 <p className="mb-3 text-sm text-pageMuted">This study has no lessons yet.</p>
-                {isOwner && (
+                {canEdit && (
                   <div className="flex gap-2">
                     <button onClick={onOpenBuilder} className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent">✎ edit study</button>
                   </div>
@@ -576,34 +594,134 @@ function ContentTab({ study, lessons, activeLesson, onSelectLesson, isOwner, onA
   );
 }
 
-function DiscussionTab({ lesson, isParticipant, currentUserId }) {
-  const [comments, setComments] = useState([]);
+function MediaGrid({ items }) {
+  const [lightbox, setLightbox] = useState(null);
+  if (!items?.length) return null;
+  return (
+    <>
+      <div className={`mb-3 grid gap-1.5 overflow-hidden rounded-lg ${items.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        {items.map((m, i) =>
+          m.type === 'video' ? (
+            <video key={i} src={m.url} controls className="w-full rounded" style={{ maxHeight: items.length === 1 ? 360 : 200 }} />
+          ) : (
+            <img
+              key={i}
+              src={m.url}
+              alt=""
+              onClick={() => setLightbox(m.url)}
+              className="w-full cursor-zoom-in rounded object-cover"
+              style={{ maxHeight: items.length === 1 ? 360 : 200 }}
+            />
+          )
+        )}
+      </div>
+      {lightbox && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            onClick={() => setLightbox(null)}
+          >
+            ✕
+          </button>
+          <img
+            src={lightbox}
+            alt=""
+            className="max-h-screen max-w-full object-contain p-8"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
+function StudyDiscussionTab({ studyId, isParticipant, isOwner, currentUserId, onOpenInPassages, onOpenBiblePanel, bibleModule }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [commentText, setCommentText] = useState('');
-  const [posting, setPosting] = useState(false);
+  const [highlightedPostId, setHighlightedPostId] = useState(null);
+  const [copiedPostId, setCopiedPostId] = useState(null);
 
-  function refresh() {
-    if (!lesson) return;
+  // compose
+  const [newBody, setNewBody] = useState('');
+  const [mediaFiles, setMediaFiles] = useState([]);
+  const [mediaPreviews, setMediaPreviews] = useState([]);
+  const [posting, setPosting] = useState(false);
+  const mediaInputRef = useRef(null);
+
+  // reply
+  const [replyingToId, setReplyingToId] = useState(null);
+  const [replyBody, setReplyBody] = useState('');
+  const [replying, setReplying] = useState(false);
+
+  // edit
+  const [editingPostId, setEditingPostId] = useState(null);
+  const [editBody, setEditBody] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  function load() {
     setLoading(true);
-    api
-      .listStudyComments(lesson.id)
-      .then(setComments)
+    api.listStudyPosts(studyId)
+      .then(setPosts)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }
 
-  useEffect(refresh, [lesson?.id]);
+  useEffect(load, [studyId]);
+
+  // Scroll to and highlight a post when the URL hash points at one.
+  // Runs after posts load so the DOM element exists.
+  useEffect(() => {
+    if (!posts.length || !location.hash?.startsWith('#post-')) return;
+    const postId = location.hash.slice(6);
+    const el = document.getElementById(`post-${postId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setHighlightedPostId(postId);
+    const t = setTimeout(() => setHighlightedPostId(null), 2000);
+    return () => clearTimeout(t);
+  }, [posts, location.hash]);
+
+  function copyPostLink(postId) {
+    navigate({ hash: `post-${postId}` }, { replace: true });
+    navigator.clipboard?.writeText(window.location.href).catch(() => {});
+    setCopiedPostId(postId);
+    setTimeout(() => setCopiedPostId(null), 1500);
+  }
+
+  function handleMediaSelect(e) {
+    const selected = Array.from(e.target.files || []);
+    if (!selected.length) return;
+    const combined = [...mediaFiles, ...selected].slice(0, 4);
+    setMediaFiles(combined);
+    setMediaPreviews(combined.map((f) => ({ url: URL.createObjectURL(f), type: f.type.startsWith('video') ? 'video' : 'image' })));
+    e.target.value = '';
+  }
+
+  function removeMedia(index) {
+    URL.revokeObjectURL(mediaPreviews[index].url);
+    setMediaFiles((p) => p.filter((_, i) => i !== index));
+    setMediaPreviews((p) => p.filter((_, i) => i !== index));
+  }
 
   async function handlePost(e) {
     e.preventDefault();
-    if (!commentText.trim()) return;
+    if (!newBody.trim() && mediaFiles.length === 0) return;
     setPosting(true);
     setError(null);
     try {
-      await api.createStudyComment(lesson.id, commentText);
-      setCommentText('');
-      refresh();
+      await api.createStudyPost(studyId, { type: 'post', body: newBody, mediaFiles });
+      setNewBody('');
+      mediaPreviews.forEach((p) => URL.revokeObjectURL(p.url));
+      setMediaFiles([]);
+      setMediaPreviews([]);
+      load();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -611,50 +729,105 @@ function DiscussionTab({ lesson, isParticipant, currentUserId }) {
     }
   }
 
-  async function handleLikeToggle(comment) {
+  async function handleReply(e, postId) {
+    e.preventDefault();
+    if (!replyBody.trim()) return;
+    setReplying(true);
     setError(null);
     try {
-      if (comment.likedByMe) {
-        await api.unlikeStudyComment(comment.id);
-      } else {
-        await api.likeStudyComment(comment.id);
-      }
-      refresh();
+      await api.createStudyReply(postId, replyBody.trim());
+      setReplyBody('');
+      setReplyingToId(null);
+      load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setReplying(false);
+    }
+  }
+
+  async function handleDelete(postId) {
+    setError(null);
+    try {
+      await api.deleteStudyPost(postId);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
     } catch (e) {
       setError(e.message);
     }
   }
 
-  async function handleDelete(commentId) {
-    setError(null);
-    try {
-      await api.deleteStudyComment(commentId);
-      refresh();
-    } catch (e) {
-      setError(e.message);
-    }
+  function startEdit(post) {
+    setEditingPostId(post.id);
+    setEditBody(post.body);
+    setReplyingToId(null);
   }
 
-  if (!lesson) {
-    return <p className="text-sm text-pageMuted">Select a lesson to see its discussion.</p>;
+  function cancelEdit() {
+    setEditingPostId(null);
+    setEditBody('');
+  }
+
+  async function handleSaveEdit(postId) {
+    if (!editBody.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await api.updateStudyPost(postId, { body: editBody });
+      setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, body: updated.body } : p));
+      cancelEdit();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div>
       {isParticipant ? (
-        <form onSubmit={handlePost} className="mb-4 rounded-md border border-pageBorder bg-white/30 p-3">
-          <textarea
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            rows={2}
-            maxLength={1000}
-            placeholder="Add to the discussion…"
-            className="w-full rounded border border-pageBorder bg-white/50 px-3 py-2 text-sm text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
-          />
-          <div className="mt-2 flex justify-end">
+        <form onSubmit={handlePost} className="mb-6 rounded-md border border-pageBorder bg-white/30 p-3">
+          <div data-color-mode="light">
+            <RichEditor value={newBody} onChange={setNewBody} height={160} colorMode="light" />
+          </div>
+
+          {mediaPreviews.length > 0 && (
+            <div className={`mt-2 grid gap-1.5 ${mediaPreviews.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {mediaPreviews.map((p, i) => (
+                <div key={i} className="relative overflow-hidden rounded-md">
+                  {p.type === 'video' ? (
+                    <video src={p.url} className="max-h-40 w-full rounded" />
+                  ) : (
+                    <img src={p.url} alt="" className="max-h-40 w-full rounded object-cover" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeMedia(i)}
+                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-2 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <input ref={mediaInputRef} type="file" accept="image/*,video/mp4,video/webm" multiple className="hidden" onChange={handleMediaSelect} />
+              <button
+                type="button"
+                onClick={() => mediaInputRef.current?.click()}
+                disabled={mediaFiles.length >= 4}
+                className="text-xs text-pageMuted hover:text-pageText disabled:opacity-40"
+                title="Attach photo or video (max 4)"
+              >
+                + photo/video {mediaFiles.length > 0 && `(${mediaFiles.length}/4)`}
+              </button>
+              <span className="text-xs text-pageMuted/60">Select a verse in the Bible pane and click <strong className="font-medium text-pageText/80">Share →</strong> to share a finding</span>
+            </div>
             <button
               type="submit"
-              disabled={posting || !commentText.trim()}
+              disabled={posting || (!newBody.trim() && mediaFiles.length === 0)}
               className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
             >
               {posting ? 'posting…' : 'post'}
@@ -662,42 +835,137 @@ function DiscussionTab({ lesson, isParticipant, currentUserId }) {
           </div>
         </form>
       ) : (
-        // Matches the backend's own rule: viewing discussion only
-        // requires being able to view the lesson, but posting/liking
-        // requires actually joining the study — this line makes that
-        // distinction visible rather than just silently disabling
-        // controls with no explanation.
-        <p className="mb-4 text-xs text-pageMuted">Join this study to take part in the discussion.</p>
+        <p className="mb-5 text-xs text-pageMuted">Join this study to take part in the discussion.</p>
       )}
 
       {error && <p className="mb-3 text-sm text-red-500">{error}</p>}
       {loading && <p className="text-sm text-pageMuted">Loading…</p>}
 
-      <div className="space-y-3">
-        {comments.map((c) => (
-          <div key={c.id} className="rounded-md border border-pageBorder bg-white/30 p-3">
-            <div className="mb-1 flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Avatar username={c.author.username} size={24} />
-                <span className="text-sm text-pageText">{c.author.username}</span>
+      <div className="space-y-4">
+        {posts.map((post) => {
+          const isAuthor = post.author.id === currentUserId;
+          const canDelete = isAuthor || isOwner;
+          const isEditing = editingPostId === post.id;
+          const isReplying = replyingToId === post.id;
+          return (
+            <div
+              key={post.id}
+              id={`post-${post.id}`}
+              className={`scroll-mt-4 rounded-md border p-4 transition-colors duration-700 ${highlightedPostId === post.id ? 'border-brass bg-brass/10' : 'border-pageBorder bg-white/30'}`}
+            >
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Avatar username={post.author.username} size={24} />
+                  <span className="text-sm font-medium text-pageText">{post.author.displayName || post.author.username}</span>
+                  {post.type === 'finding' && post.reference && (
+                    <span className="flex items-center gap-1">
+                      <span className="font-mono text-xs font-medium text-pageAccent">{post.reference}</span>
+                      {onOpenInPassages && (
+                        <button onClick={() => onOpenInPassages(post.module || undefined, post.reference)} className="text-xs text-pageMuted hover:text-pageAccent">
+                          open →
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={() => copyPostLink(post.id)}
+                    title="Copy link to this post"
+                    className="text-xs text-pageMuted hover:text-pageText"
+                  >
+                    {copiedPostId === post.id ? 'copied!' : '🔗'}
+                  </button>
+                  {isAuthor && !isEditing && (
+                    <button onClick={() => startEdit(post)} className="text-xs text-pageMuted hover:text-pageText">edit</button>
+                  )}
+                  {canDelete && (
+                    <button onClick={() => handleDelete(post.id)} className="text-xs text-pageMuted hover:text-red-500">delete</button>
+                  )}
+                </div>
               </div>
-              {c.author.id === currentUserId && (
-                <button onClick={() => handleDelete(c.id)} className="text-xs text-pageMuted hover:text-red-500">
-                  delete
-                </button>
+
+              {post.title && <p className="mb-1 text-sm font-medium text-pageText">{post.title}</p>}
+
+              {isEditing ? (
+                <div className="mb-3">
+                  <div data-color-mode="light">
+                    <RichEditor value={editBody} onChange={setEditBody} height={160} colorMode="light" />
+                  </div>
+                  <div className="mt-2 flex justify-end gap-2">
+                    <button type="button" onClick={cancelEdit} className="text-xs text-pageMuted hover:text-pageText">cancel</button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveEdit(post.id)}
+                      disabled={saving || !editBody.trim()}
+                      className="rounded bg-pageAccent/80 px-3 py-1 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
+                    >
+                      {saving ? 'saving…' : 'save'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-3">
+                  <RichContent
+                    colorMode="light"
+                    className="text-sm leading-relaxed text-pageText/90"
+                    onVerseClick={onOpenBiblePanel}
+                    onNavigate={(ref) => onOpenInPassages?.(null, ref)}
+                    bibleModule={bibleModule}
+                  >{post.body}</RichContent>
+                </div>
+              )}
+
+              <MediaGrid items={post.mediaUrls} />
+
+              {post.replies.length > 0 && (
+                <div className="mb-3 space-y-2 border-l-2 border-pageBorder pl-3">
+                  {post.replies.map((reply) => {
+                    const canDeleteReply = reply.author.id === currentUserId || isOwner;
+                    return (
+                      <div key={reply.id} className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="mr-1.5 text-xs font-medium text-pageText">{reply.author.displayName || reply.author.username}</span>
+                          <span className="whitespace-pre-wrap text-xs text-pageText/80">{reply.body}</span>
+                        </div>
+                        {canDeleteReply && (
+                          <button onClick={() => handleDelete(reply.id)} className="shrink-0 text-xs text-pageMuted hover:text-red-500">✕</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {isParticipant && (
+                isReplying ? (
+                  <form onSubmit={(e) => handleReply(e, post.id)} className="flex items-start gap-2">
+                    <input
+                      autoFocus
+                      value={replyBody}
+                      onChange={(e) => setReplyBody(e.target.value)}
+                      placeholder="Write a reply…"
+                      className="min-w-0 flex-1 rounded border border-pageBorder bg-white/50 px-2 py-1 text-xs text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
+                    />
+                    <button type="submit" disabled={replying || !replyBody.trim()} className="rounded bg-pageAccent/80 px-2.5 py-1 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50">
+                      {replying ? '…' : 'reply'}
+                    </button>
+                    <button type="button" onClick={() => { setReplyingToId(null); setReplyBody(''); }} className="text-xs text-pageMuted hover:text-pageText">
+                      cancel
+                    </button>
+                  </form>
+                ) : (
+                  <button onClick={() => { setReplyingToId(post.id); setReplyBody(''); }} className="text-xs text-pageMuted hover:text-pageText">
+                    reply
+                  </button>
+                )
               )}
             </div>
-            <p className="mb-2 whitespace-pre-wrap text-sm text-pageText/90">{c.body}</p>
-            <button
-              onClick={() => handleLikeToggle(c)}
-              disabled={!isParticipant}
-              className={`text-xs ${c.likedByMe ? 'text-pageAccent' : 'text-pageMuted'} hover:text-pageAccent disabled:cursor-not-allowed disabled:opacity-50`}
-            >
-              {c.likedByMe ? '♥' : '♡'} {c.likeCount > 0 ? c.likeCount : ''}
-            </button>
-          </div>
-        ))}
-        {!loading && comments.length === 0 && <p className="text-sm text-pageMuted">No comments yet — be the first to share a thought.</p>}
+          );
+        })}
+        {!loading && posts.length === 0 && (
+          <p className="text-sm text-pageMuted">No posts yet — start the discussion!</p>
+        )}
       </div>
     </div>
   );
@@ -720,10 +988,12 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const videoInputRef = useRef(null);
   const [reflectionText, setReflectionText] = useState(lesson.myReflection?.body || '');
+  const [reflectionShared, setReflectionShared] = useState(Boolean(lesson.myReflection?.shared));
   const [reflectionSubmitted, setReflectionSubmitted] = useState(Boolean(lesson.myReflection));
   const [editingReflection, setEditingReflection] = useState(false);
   const [savingReflection, setSavingReflection] = useState(false);
   const [reflectionError, setReflectionError] = useState(null);
+  const [groupReflections, setGroupReflections] = useState([]);
 
   useEffect(() => {
     setPassage(null);
@@ -731,14 +1001,19 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
     setEditingBody(false);
     setVideoUrl(lesson.videoUrl || null);
     setReflectionText(lesson.myReflection?.body || '');
+    setReflectionShared(Boolean(lesson.myReflection?.shared));
     setReflectionSubmitted(Boolean(lesson.myReflection));
     setEditingReflection(false);
     setReflectionError(null);
+    setGroupReflections([]);
     if (lesson.module && lesson.reference) {
       api
         .getPassage(lesson.module, lesson.reference)
         .then((res) => setPassage(res.verses || []))
         .catch((e) => setPassageError(e.message));
+    }
+    if (lesson.reflectionPrompt) {
+      api.getStudySharedReflections(lesson.id).then(setGroupReflections).catch(() => {});
     }
   }, [lesson.id]);
 
@@ -808,11 +1083,14 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
     setSavingReflection(true);
     setReflectionError(null);
     try {
-      await api.saveStudyLessonReflection(lesson.id, reflectionText);
+      await api.saveStudyLessonReflection(lesson.id, reflectionText, reflectionShared);
       setReflectionSubmitted(true);
       setEditingReflection(false);
       if (andComplete) {
         await api.markStudyLessonComplete(lesson.id);
+      }
+      if (reflectionShared) {
+        api.getStudySharedReflections(lesson.id).then(setGroupReflections).catch(() => {});
       }
       onLessonsChanged();
     } catch (e) {
@@ -1036,36 +1314,62 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
                   className="w-full rounded border border-pageBorder bg-white/50 px-3 py-2.5 text-sm leading-relaxed text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
                 />
                 {reflectionError && <p className="mt-1 text-xs text-red-500">{reflectionError}</p>}
-                <div className="mt-3 flex flex-wrap justify-end gap-2">
-                  {editingReflection && (
-                    <button
-                      onClick={() => { setEditingReflection(false); setReflectionError(null); }}
-                      className="text-xs text-pageMuted hover:text-pageText"
-                    >
-                      cancel
-                    </button>
-                  )}
-                  {editingReflection ? (
-                    <button
-                      onClick={() => handleSubmitReflection(false)}
-                      disabled={savingReflection || !reflectionText.trim()}
-                      className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
-                    >
-                      {savingReflection ? 'saving…' : 'Update response'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleSubmitReflection(true)}
-                      disabled={savingReflection || !reflectionText.trim()}
-                      className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
-                    >
-                      {savingReflection ? 'saving…' : 'Submit & mark complete'}
-                    </button>
-                  )}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-pageMuted select-none">
+                    <input
+                      type="checkbox"
+                      checked={reflectionShared}
+                      onChange={(e) => setReflectionShared(e.target.checked)}
+                      className="accent-pageAccent"
+                    />
+                    Share with group
+                  </label>
+                  <div className="flex gap-2">
+                    {editingReflection && (
+                      <button
+                        onClick={() => { setEditingReflection(false); setReflectionError(null); }}
+                        className="text-xs text-pageMuted hover:text-pageText"
+                      >
+                        cancel
+                      </button>
+                    )}
+                    {editingReflection ? (
+                      <button
+                        onClick={() => handleSubmitReflection(false)}
+                        disabled={savingReflection || !reflectionText.trim()}
+                        className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
+                      >
+                        {savingReflection ? 'saving…' : 'Update response'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleSubmitReflection(true)}
+                        disabled={savingReflection || !reflectionText.trim()}
+                        className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
+                      >
+                        {savingReflection ? 'saving…' : 'Submit & mark complete'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </>
             )}
           </div>
+
+          {groupReflections.length > 0 && (
+            <div className="mt-4 space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-pageMuted">From Your Group</p>
+              {groupReflections.map((r) => (
+                <div key={r.id} className="rounded-lg border border-pageBorder/50 bg-white/30 px-4 py-3">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <Avatar username={r.user.username} avatarUrl={r.user.avatarUrl} size={18} />
+                    <span className="text-xs font-medium text-pageText">{r.user.displayName || r.user.username}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-pageText/80">{r.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1073,25 +1377,75 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
   );
 }
 
+
 function MembersTab({ studyId, isOwner }) {
-  // Mirrors ScriptoriumDetail's members tab pattern — parallel
-  // structure (StudyParticipant vs. ScriptoriumMembership), same
-  // owner/participant distinction.
   const [members, setMembers] = useState([]);
+  const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     setLoading(true);
-    api
-      .listStudyParticipants(studyId)
-      .then(setMembers)
+    const requests = [api.listStudyParticipants(studyId)];
+    if (isOwner) requests.push(api.getStudyParticipantProgress(studyId));
+    Promise.all(requests)
+      .then(([m, p]) => { setMembers(m); if (p) setProgress(p); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [studyId]);
+  }, [studyId, isOwner]);
 
   if (loading) return <p className="text-sm text-pageMuted">Loading…</p>;
   if (error) return <p className="text-sm text-red-500">{error}</p>;
+
+  if (isOwner && progress) {
+    return (
+      <div className="space-y-4">
+        <p className="text-xs text-pageMuted">{progress.participants.length} participant{progress.participants.length !== 1 ? 's' : ''} · {progress.lessons.length} lesson{progress.lessons.length !== 1 ? 's' : ''}</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="pb-2 pr-4 text-left text-xs font-normal text-pageMuted">Participant</th>
+                {progress.lessons.map((l) => (
+                  <th key={l.id} className="pb-2 px-1 text-center text-xs font-normal text-pageMuted" title={l.title}>
+                    {l.order}
+                  </th>
+                ))}
+                <th className="pb-2 pl-4 text-right text-xs font-normal text-pageMuted">Done</th>
+              </tr>
+            </thead>
+            <tbody>
+              {progress.participants.map((p) => {
+                const done = p.completedLessonIds.length;
+                const total = progress.lessons.length;
+                return (
+                  <tr key={p.id} className="border-t border-pageBorder/40">
+                    <td className="py-2 pr-4">
+                      <div className="flex items-center gap-2">
+                        <Avatar username={p.username} avatarUrl={p.avatarUrl} size={20} />
+                        <span className="text-pageText">{p.displayName || p.username}</span>
+                        {p.role === 'owner' && <span className="text-[10px] text-pageAccent">owner</span>}
+                      </div>
+                    </td>
+                    {progress.lessons.map((l) => (
+                      <td key={l.id} className="px-1 text-center">
+                        {p.completedLessonIds.includes(l.id)
+                          ? <span className="text-xs text-pageAccent">✓</span>
+                          : <span className="text-xs text-pageBorder">·</span>}
+                      </td>
+                    ))}
+                    <td className="py-2 pl-4 text-right text-xs text-pageMuted">
+                      {done}/{total}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-md border border-pageBorder">
@@ -1190,6 +1544,66 @@ function ReflectionsTab({ studyId }) {
   );
 }
 
+function ActivityTab({ studyId }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    api.getStudyActivity(studyId)
+      .then(setEvents)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [studyId]);
+
+  if (loading) return <p className="text-sm text-pageMuted">Loading…</p>;
+  if (error) return <p className="text-sm text-red-500">{error}</p>;
+  if (events.length === 0) return <p className="py-8 text-center text-sm text-pageMuted">No activity yet.</p>;
+
+  function EventRow({ event }) {
+    const user = event.user || event.author;
+    const dateStr = new Date(event.ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+    let icon = '·';
+    let text = null;
+
+    if (event.type === 'joined') {
+      icon = '👋';
+      text = <><strong>{user?.displayName || user?.username}</strong> joined the study</>;
+    } else if (event.type === 'lesson_added') {
+      icon = '📖';
+      text = <>Lesson added: <strong>{event.lesson?.title}</strong></>;
+    } else if (event.type === 'completed') {
+      icon = '✓';
+      text = <><strong>{user?.displayName || user?.username}</strong> completed <em>{event.lesson?.title}</em></>;
+    } else if (event.type === 'reflection_shared') {
+      icon = '💬';
+      text = <><strong>{user?.displayName || user?.username}</strong> shared a reflection on <em>{event.lesson?.title}</em></>;
+    } else if (event.type === 'discussion_post') {
+      icon = '📝';
+      text = <><strong>{user?.displayName || user?.username}</strong> posted: <em className="text-pageMuted">{event.preview}</em></>;
+    } else if (event.type === 'resource_added') {
+      icon = '🔗';
+      text = <>Resource added: <strong>{event.resource?.label}</strong></>;
+    }
+
+    return (
+      <div className="flex items-start gap-3 border-b border-pageBorder/40 py-2.5 last:border-0">
+        <span className="mt-0.5 w-5 shrink-0 text-center text-sm">{icon}</span>
+        <div className="min-w-0 flex-1 text-sm text-pageText/80">{text}</div>
+        <span className="shrink-0 text-xs text-pageMuted">{dateStr}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pb-6">
+      {events.map((e, i) => <EventRow key={i} event={e} />)}
+    </div>
+  );
+}
+
 function ResourceCard({ resource, onClick, onRemove, isOwner }) {
   const docId = parseDocumentId(resource.url);
   let hostname = '';
@@ -1246,6 +1660,15 @@ function ResourcesTabContent({ study, resources, activeLesson, isOwner, onResour
   const [openResource, setOpenResource] = useState(null);
   const [openDocumentId, setOpenDocumentId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSuggestModal, setShowSuggestModal] = useState(false);
+  const [pending, setPending] = useState([]);
+  const [approvingId, setApprovingId] = useState(null);
+
+  useEffect(() => {
+    if (isOwner) {
+      api.getStudyPendingResources(study.id).then(setPending).catch(() => {});
+    }
+  }, [study.id, isOwner]);
 
   function handleClick(r) {
     const docId = parseDocumentId(r.url);
@@ -1259,13 +1682,69 @@ function ResourcesTabContent({ study, resources, activeLesson, isOwner, onResour
     catch (e) { alert(e.message); }
   }
 
+  async function handleApprove(resourceId) {
+    setApprovingId(resourceId);
+    try {
+      await api.approveStudyResource(resourceId);
+      setPending((prev) => prev.filter((r) => r.id !== resourceId));
+      onResourcesChanged();
+    } catch (e) { alert(e.message); }
+    finally { setApprovingId(null); }
+  }
+
+  async function handleReject(resourceId) {
+    try {
+      await api.removeStudyResource(resourceId);
+      setPending((prev) => prev.filter((r) => r.id !== resourceId));
+    } catch (e) { alert(e.message); }
+  }
+
   return (
     <div className="pb-6">
-      {isOwner && (
-        <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end gap-3">
+        {isOwner && (
           <button onClick={() => setShowAddModal(true)} className="text-xs text-brass hover:underline">+ add resource</button>
+        )}
+        {!isOwner && (
+          <button onClick={() => setShowSuggestModal(true)} className="text-xs text-muted hover:text-brass">suggest a resource</button>
+        )}
+      </div>
+
+      {isOwner && pending.length > 0 && (
+        <div className="mb-6 rounded-lg border border-pageBorder bg-pageAccent/5 p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-pageMuted">
+            Pending suggestions ({pending.length})
+          </p>
+          <div className="space-y-2">
+            {pending.map((r) => (
+              <div key={r.id} className="flex items-center justify-between gap-3 rounded border border-pageBorder bg-page px-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <span className="truncate text-pageText">{r.label}</span>
+                  {r.suggestor && (
+                    <span className="ml-2 text-xs text-pageMuted">from {r.suggestor.displayName || r.suggestor.username}</span>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    disabled={approvingId === r.id}
+                    onClick={() => handleApprove(r.id)}
+                    className="rounded border border-pageAccent/40 px-2 py-0.5 text-xs text-pageAccent hover:bg-pageAccent/10 disabled:opacity-50"
+                  >
+                    {approvingId === r.id ? '…' : 'approve'}
+                  </button>
+                  <button
+                    onClick={() => handleReject(r.id)}
+                    className="text-xs text-pageMuted hover:text-red-500"
+                  >
+                    reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
       {resources.length === 0 ? (
         <div className="py-16 text-center">
           <p className="text-sm text-pageMuted">No resources added yet.</p>
@@ -1288,6 +1767,14 @@ function ResourcesTabContent({ study, resources, activeLesson, isOwner, onResour
           studyId={study.id}
           onClose={() => setShowAddModal(false)}
           onAdded={() => { setShowAddModal(false); onResourcesChanged(); }}
+        />
+      )}
+      {showSuggestModal && (
+        <AddResourceModal
+          studyId={study.id}
+          isSuggestion
+          onClose={() => setShowSuggestModal(false)}
+          onAdded={() => { setShowSuggestModal(false); }}
         />
       )}
       {openResource && (
@@ -1705,7 +2192,7 @@ function ResourceModal({ resource, activeLesson, onClose, onAskAiCompanionAbout,
   );
 }
 
-function AddResourceModal({ studyId, onClose, onAdded }) {
+function AddResourceModal({ studyId, onClose, onAdded, isSuggestion = false }) {
   // 'module' | 'link' | 'note' | 'library-note' | 'document'
   const [source, setSource] = useState('module');
   const [label, setLabel] = useState('');
@@ -1772,7 +2259,11 @@ function AddResourceModal({ studyId, onClose, onAdded }) {
       } else {
         payload = { type: 'note', label, body };
       }
-      await api.addStudyResource(studyId, payload);
+      if (isSuggestion) {
+        await api.suggestStudyResource(studyId, payload);
+      } else {
+        await api.addStudyResource(studyId, payload);
+      }
       onAdded();
     } catch (e) {
       setError(e.message);
@@ -2059,4 +2550,4 @@ function EditStudyModal({ study, bannerUrl, uploadingBanner, generatingBanner, b
   );
 }
 
-export { DiscussionTab, GenerateStudyModal, ContentTab, StudySidebar, ProgressRing, LessonContent, AddResourceModal };
+export { GenerateStudyModal, ContentTab, StudySidebar, ProgressRing, LessonContent, AddResourceModal };

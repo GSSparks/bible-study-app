@@ -11,6 +11,7 @@ import {
   deleteScriptorium,
   updateScriptorium,
   removeMember,
+  setMemberRole,
   inviteToScriptorium,
   listMyInvites,
   respondToInvite,
@@ -129,6 +130,15 @@ scriptoriumsRouter.delete('/:id', async (req, res, next) => {
   }
 });
 
+scriptoriumsRouter.patch('/:id/members/:membershipId', async (req, res, next) => {
+  try {
+    const { role } = req.body;
+    res.json(await setMemberRole(req.params.id, req.user.id, req.params.membershipId, role));
+  } catch (err) {
+    next(err);
+  }
+});
+
 scriptoriumsRouter.delete('/:id/members/:membershipId', async (req, res, next) => {
   try {
     await removeMember(req.params.id, req.user.id, req.params.membershipId);
@@ -173,3 +183,4 @@ scriptoriumsRouter.delete('/:id/resources/:resourceId', async (req, res, next) =
     next(err);
   }
 });
+

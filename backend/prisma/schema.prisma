@@ -131,13 +131,16 @@ model User {
   scriptoriumMemberships     ScriptoriumMembership[]
   scriptoriumInvitesSent     ScriptoriumInvite[]      @relation("ScriptoriumInvitesSent")
   scriptoriumInvitesReceived ScriptoriumInvite[]      @relation("ScriptoriumInvitesReceived")
-  scriptoriumResources       ScriptoriumResource[]
+  scriptoriumResources ScriptoriumResource[]
+  studyPosts      StudyPost[]
+  studyHighlights StudyHighlight[]
   posts    Post[]
   comments Comment[]
   studiesCreated         Study[]                  @relation("StudiesCreated")
   studyParticipations    StudyParticipant[]
   studyLessonCompletions  StudyLessonCompletion[]
   studyLessonReflections  StudyLessonReflection[]
+  studyResourceSuggestions StudyResource[] @relation("StudyResourceSuggestions")
   studyComments      StudyComment[]
   studyCommentLikes  StudyCommentLike[]
   readingPlanProgress ReadingPlanProgress[]
@@ -275,9 +278,11 @@ model Study {
   creator       User         @relation("StudiesCreated", fields: [creatorId], references: [id], onDelete: Cascade)
   createdAt     DateTime     @default(now())
 
-  lessons      StudyLesson[]
+  lessons   StudyLesson[]
   participants StudyParticipant[]
-  resources    StudyResource[]
+  resources StudyResource[]
+  posts      StudyPost[]
+  highlights StudyHighlight[]
 
   @@index([scriptoriumId])
   @@index([creatorId])
@@ -339,6 +344,7 @@ model StudyLessonReflection {
   userId    String
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   body      String
+  shared    Boolean     @default(false)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
@@ -385,19 +391,23 @@ model StudyCommentLike {
 // compare-translations endpoint directly, not a per-study resource a
 // leader curates.
 model StudyResource {
-  id         String   @id @default(cuid())
-  studyId    String
-  study      Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  type       String   // "commentary" | "module" | "link" | "note"
-  label      String   // display text, e.g. "Clarke's Commentary" or "Bible Project: John"
-  moduleCode String?  // required for type="commentary"|"module"
-  moduleType String?  // "BIBLE" | "COMMENTARY" | "DICT" — for type="module"
-  url        String?  // required for type="link"
-  body       String?  // required for type="note"
-  order      Int      @default(0)
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  studyId     String
+  study       Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  type        String   // "commentary" | "module" | "link" | "note"
+  label       String   // display text, e.g. "Clarke's Commentary" or "Bible Project: John"
+  moduleCode  String?  // required for type="commentary"|"module"
+  moduleType  String?  // "BIBLE" | "COMMENTARY" | "DICT" — for type="module"
+  url         String?  // required for type="link"
+  body        String?  // required for type="note"
+  order       Int      @default(0)
+  status      String   @default("approved") // "approved" | "pending"
+  suggestorId String?
+  suggestor   User?    @relation("StudyResourceSuggestions", fields: [suggestorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
 
   @@index([studyId])
+  @@index([suggestorId])
 }
 
 model ScriptoriumResource {
@@ -457,4 +467,49 @@ model MerriamCache {
   data      Json              // parsed MW entry object
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Unified study-level discussion post. type='post' is a free-form message;
+// type='finding' is a passage-anchored note shared from the reading pane.
+// parentId enables one level of replies on either type.
+model StudyPost {
+  id        String   @id @default(cuid())
+  studyId   String
+  study     Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  type      String   @default("post")  // "post" | "finding"
+  reference String?
+  module    String?
+  title     String?
+  body      String
+  mediaUrls Json?
+  parentId  String?
+  parent    StudyPost?  @relation("PostReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   StudyPost[] @relation("PostReplies")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studyId])
+  @@index([studyId, reference])
+  @@index([authorId])
+  @@index([parentId])
+}
+
+// Shared verse highlight visible to all participants of a Study in the
+// reading pane, visually distinct from each user's personal highlights.
+model StudyHighlight {
+  id        String   @id @default(cuid())
+  studyId   String
+  study     Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reference String
+  module    String
+  color     String   @default("yellow")
+  createdAt DateTime @default(now())
+
+  @@unique([studyId, authorId, reference, module])
+  @@index([studyId])
+  @@index([studyId, reference])
 }

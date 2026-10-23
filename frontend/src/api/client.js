@@ -173,6 +173,7 @@ export const api = {
   leaveScriptorium: (id) => request(`/scriptoriums/${id}/leave`, { method: 'POST' }),
   updateScriptorium: (id, payload) => request(`/scriptoriums/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteScriptorium: (id) => request(`/scriptoriums/${id}`, { method: 'DELETE' }),
+  setScriptoriumMemberRole: (id, membershipId, role) => request(`/scriptoriums/${id}/members/${membershipId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
   removeScriptoriumMember: (id, membershipId) => request(`/scriptoriums/${id}/members/${membershipId}`, { method: 'DELETE' }),
   inviteToScriptorium: (id, username) => request(`/scriptoriums/${id}/invite`, { method: 'POST', body: JSON.stringify({ username }) }),
   acceptScriptoriumInvite: (inviteId) => request(`/scriptoriums/invites/${inviteId}/accept`, { method: 'POST' }),
@@ -180,6 +181,26 @@ export const api = {
   listScriptoriumResources: (id) => request(`/scriptoriums/${id}/resources`),
   addScriptoriumResource: (id, payload) => request(`/scriptoriums/${id}/resources`, { method: 'POST', body: JSON.stringify(payload) }),
   removeScriptoriumResource: (id, resourceId) => request(`/scriptoriums/${id}/resources/${resourceId}`, { method: 'DELETE' }),
+
+  // Study Research
+  listStudyGroupFindings: (prefix) => request(`/studies/research/findings?prefix=${encodeURIComponent(prefix)}`),
+  listStudyGroupHighlights: (prefix, module) => request(`/studies/research/highlights?prefix=${encodeURIComponent(prefix)}&module=${encodeURIComponent(module)}`),
+  listStudyPosts: (studyId) => request(`/studies/${studyId}/posts`),
+  createStudyPost: (studyId, { type, reference, module, title, body, mediaFiles = [] }) => {
+    const fd = new FormData();
+    if (type) fd.append('type', type);
+    fd.append('body', body);
+    if (reference) fd.append('reference', reference);
+    if (module) fd.append('module', module);
+    if (title) fd.append('title', title);
+    mediaFiles.forEach((f) => fd.append('media', f));
+    return request(`/studies/${studyId}/posts`, { method: 'POST', body: fd });
+  },
+  updateStudyPost: (postId, { body, title }) => request(`/studies/posts/${postId}`, { method: 'PUT', body: JSON.stringify({ body, title }) }),
+  createStudyReply: (postId, body) => request(`/studies/posts/${postId}/replies`, { method: 'POST', body: JSON.stringify({ body }) }),
+  deleteStudyPost: (postId) => request(`/studies/posts/${postId}`, { method: 'DELETE' }),
+  createStudyHighlight: (studyId, payload) => request(`/studies/${studyId}/research/highlights`, { method: 'POST', body: JSON.stringify(payload) }),
+  deleteStudyHighlight: (studyId, highlightId) => request(`/studies/${studyId}/research/highlights/${highlightId}`, { method: 'DELETE' }),
 
   // Wall
   getHomeFeed: () => request('/wall/feed'),
@@ -233,6 +254,7 @@ export const api = {
   listScriptoriumStudies: (scriptoriumId) => request(`/studies/scriptorium/${scriptoriumId}`),
   getStudy: (id) => request(`/studies/${id}`),
   listStudyParticipants: (id) => request(`/studies/${id}/participants`),
+  getStudyParticipantProgress: (id) => request(`/studies/${id}/participants/progress`),
   createStudy: (payload) => request('/studies', { method: 'POST', body: JSON.stringify(payload) }),
   updateStudy: (id, payload) => request(`/studies/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteStudy: (id) => request(`/studies/${id}`, { method: 'DELETE' }),
@@ -252,7 +274,8 @@ export const api = {
   markStudyLessonComplete: (lessonId) => request(`/studies/lessons/${lessonId}/complete`, { method: 'POST' }),
   unmarkStudyLessonComplete: (lessonId) => request(`/studies/lessons/${lessonId}/complete`, { method: 'DELETE' }),
   getStudyProgress: (studyId) => request(`/studies/${studyId}/progress`),
-  saveStudyLessonReflection: (lessonId, body) => request(`/studies/lessons/${lessonId}/reflection`, { method: 'PUT', body: JSON.stringify({ body }) }),
+  saveStudyLessonReflection: (lessonId, body, shared) => request(`/studies/lessons/${lessonId}/reflection`, { method: 'PUT', body: JSON.stringify({ body, shared }) }),
+  getStudySharedReflections: (lessonId) => request(`/studies/lessons/${lessonId}/shared-reflections`),
 
   listStudyComments: (lessonId) => request(`/studies/lessons/${lessonId}/comments`),
   createStudyComment: (lessonId, body) => request(`/studies/lessons/${lessonId}/comments`, { method: 'POST', body: JSON.stringify({ body }) }),
@@ -280,8 +303,12 @@ export const api = {
   listStudyReflections: (studyId) => request(`/studies/${studyId}/reflections`),
   listStudyResources: (studyId) => request(`/studies/${studyId}/resources`),
   addStudyResource: (studyId, payload) => request(`/studies/${studyId}/resources`, { method: 'POST', body: JSON.stringify(payload) }),
+  suggestStudyResource: (studyId, payload) => request(`/studies/${studyId}/resources/suggest`, { method: 'POST', body: JSON.stringify(payload) }),
   removeStudyResource: (resourceId) => request(`/studies/resources/${resourceId}`, { method: 'DELETE' }),
+  approveStudyResource: (resourceId) => request(`/studies/resources/${resourceId}/approve`, { method: 'PATCH' }),
+  getStudyPendingResources: (studyId) => request(`/studies/${studyId}/resources/pending`),
   getStudyResourceContent: (lessonId, resourceId) => request(`/studies/lessons/${lessonId}/resources/${resourceId}`),
+  getStudyActivity: (studyId) => request(`/studies/${studyId}/activity`),
 
   exportStudy: async (id) => {
     const res = await fetch(`/api/studies/${id}/export`);

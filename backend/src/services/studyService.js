@@ -54,6 +54,24 @@ async function assertOwnerOfStudy(studyId, userId) {
   return study;
 }
 
+/** Passes for the study creator OR any member of the linked Scriptorium
+ *  with "owner" or "collaborator" role. Used to gate lesson and resource
+ *  editing without requiring the caller to be the study's original creator. */
+async function assertCanEditStudy(studyId, userId) {
+  const study = await prisma.study.findUnique({ where: { id: studyId } });
+  if (!study) { const err = new Error('Study not found.'); err.status = 404; throw err; }
+  if (study.creatorId === userId) return study;
+  if (study.scriptoriumId) {
+    const membership = await prisma.scriptoriumMembership.findUnique({
+      where: { scriptoriumId_userId: { scriptoriumId: study.scriptoriumId, userId } },
+    });
+    if (membership?.role === 'owner' || membership?.role === 'collaborator') return study;
+  }
+  const err = new Error('Study not found.');
+  err.status = 404;
+  throw err;
+}
+
 /** Owner is automatically a participant, same pattern as Scriptorium's
  *  owner-is-automatically-a-member — created in one transaction so the
  *  two can't end up inconsistent with each other. Any member of the
@@ -87,10 +105,18 @@ export async function getStudy(studyId, viewerId) {
     throw err;
   }
   await assertCanViewStudy(study, viewerId);
-  const participant = await prisma.studyParticipant.findUnique({
-    where: { studyId_userId: { studyId, userId: viewerId || '' } },
-  });
-  return { ...study, isParticipant: Boolean(participant), myRole: participant?.role || null };
+  const [participant, scriptoriumMembership] = await Promise.all([
+    prisma.studyParticipant.findUnique({ where: { studyId_userId: { studyId, userId: viewerId || '' } } }),
+    study.scriptoriumId && viewerId
+      ? prisma.scriptoriumMembership.findUnique({ where: { scriptoriumId_userId: { scriptoriumId: study.scriptoriumId, userId: viewerId } } })
+      : null,
+  ]);
+  return {
+    ...study,
+    isParticipant: Boolean(participant),
+    myRole: participant?.role || null,
+    myScriptoriumRole: scriptoriumMembership?.role || null,
+  };
 }
 
 export async function listMyStudies(userId) {
@@ -185,7 +211,7 @@ export async function updateStudy(studyId, userId, { title, description }) {
  *  only — "leader" in the product sense maps directly to "owner" here,
  *  same as every other owner-gated action in this app. */
 export async function createLesson(studyId, callerId, { order, title, module, reference, body }) {
-  await assertOwnerOfStudy(studyId, callerId);
+  await assertCanEditStudy(studyId, callerId);
   validateTitle(title);
   return prisma.studyLesson.create({
     data: {
@@ -208,7 +234,7 @@ const MAX_BULK_LESSONS = 52; // a sanity cap (a year's worth of weeks), not a re
  *  than leaving a partially-created study, matching the "accept the
  *  whole draft" UX this exists for. */
 export async function bulkCreateLessons(studyId, callerId, lessons) {
-  await assertOwnerOfStudy(studyId, callerId);
+  await assertCanEditStudy(studyId, callerId);
   if (!Array.isArray(lessons) || lessons.length === 0) {
     const err = new Error('lessons[] is required and must not be empty.');
     err.status = 400;
@@ -248,7 +274,7 @@ export async function updateLesson(lessonId, callerId, { order, title, module, r
     err.status = 404;
     throw err;
   }
-  await assertOwnerOfStudy(lesson.studyId, callerId);
+  await assertCanEditStudy(lesson.studyId, callerId);
   validateTitle(title);
   return prisma.studyLesson.update({
     where: { id: lessonId },
@@ -270,7 +296,7 @@ export async function deleteLesson(lessonId, callerId) {
     err.status = 404;
     throw err;
   }
-  await assertOwnerOfStudy(lesson.studyId, callerId);
+  await assertCanEditStudy(lesson.studyId, callerId);
   await prisma.studyLesson.delete({ where: { id: lessonId } }); // cascades completions
 }
 
@@ -484,7 +510,7 @@ const MAX_WEEK_COUNT = 26;
  * leader can fill in the reference by hand.
  */
 export async function generateLessonDrafts(studyId, callerId, { topic, weekCount, module, outline }) {
-  await assertOwnerOfStudy(studyId, callerId);
+  await assertCanEditStudy(studyId, callerId);
 
   if (!anthropic) {
     throw new Error('ANTHROPIC_API_KEY is not configured on the server');
@@ -683,7 +709,7 @@ function validateResourceInput({ type, label, moduleCode, url, body }) {
  *  shared library of the leader's own notes as part of the study's
  *  resources, not just links elsewhere. */
 export async function addResource(studyId, callerId, { type, label, moduleCode, moduleType, url, body, order }) {
-  await assertOwnerOfStudy(studyId, callerId);
+  await assertCanEditStudy(studyId, callerId);
   validateResourceInput({ type, label, moduleCode, url, body });
   const isModuleType = type === 'commentary' || type === 'module';
   return prisma.studyResource.create({
@@ -707,7 +733,7 @@ export async function removeResource(resourceId, callerId) {
     err.status = 404;
     throw err;
   }
-  await assertOwnerOfStudy(resource.studyId, callerId);
+  await assertCanEditStudy(resource.studyId, callerId);
   await prisma.studyResource.delete({ where: { id: resourceId } });
 }
 
@@ -716,7 +742,46 @@ export async function removeResource(resourceId, callerId) {
  *  so it doesn't require participation the way posting or liking do. */
 export async function listResources(studyId, viewerId) {
   await getStudy(studyId, viewerId); // visibility check, throws 404 if not visible
-  return prisma.studyResource.findMany({ where: { studyId }, orderBy: { order: 'asc' } });
+  return prisma.studyResource.findMany({ where: { studyId, status: 'approved' }, orderBy: { order: 'asc' } });
+}
+
+/** Any participant can suggest a resource — it lands in a pending queue
+ *  for editors to approve before it appears in the shared resource list. */
+export async function suggestResource(studyId, callerId, { type, label, moduleCode, moduleType, url, body, order }) {
+  await assertIsParticipant(studyId, callerId);
+  validateResourceInput({ type, label, moduleCode, url, body });
+  const isModuleType = type === 'commentary' || type === 'module';
+  return prisma.studyResource.create({
+    data: {
+      studyId,
+      type,
+      label: label.trim(),
+      moduleCode: isModuleType ? moduleCode : null,
+      moduleType: type === 'module' ? (moduleType || null) : null,
+      url: type === 'link' ? url.trim() : null,
+      body: type === 'note' ? body.trim() : null,
+      order: order ?? 0,
+      status: 'pending',
+      suggestorId: callerId,
+    },
+    include: { suggestor: { select: { id: true, username: true, displayName: true } } },
+  });
+}
+
+export async function listPendingResources(studyId, callerId) {
+  await assertCanEditStudy(studyId, callerId);
+  return prisma.studyResource.findMany({
+    where: { studyId, status: 'pending' },
+    include: { suggestor: { select: { id: true, username: true, displayName: true } } },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+export async function approveResource(resourceId, callerId) {
+  const resource = await prisma.studyResource.findUnique({ where: { id: resourceId } });
+  if (!resource) { const err = new Error('Resource not found.'); err.status = 404; throw err; }
+  await assertCanEditStudy(resource.studyId, callerId);
+  return prisma.studyResource.update({ where: { id: resourceId }, data: { status: 'approved' } });
 }
 
 export async function listAllReflections(studyId, callerId) {
@@ -747,7 +812,7 @@ export async function getReflection(lessonId, userId) {
   });
 }
 
-export async function saveReflection(lessonId, userId, body) {
+export async function saveReflection(lessonId, userId, body, shared = false) {
   const lesson = await prisma.studyLesson.findUnique({ where: { id: lessonId } });
   if (!lesson) {
     const err = new Error('Lesson not found.');
@@ -770,8 +835,21 @@ export async function saveReflection(lessonId, userId, body) {
   }
   return prisma.studyLessonReflection.upsert({
     where: { lessonId_userId: { lessonId, userId } },
-    create: { lessonId, userId, body: body.trim() },
-    update: { body: body.trim() },
+    create: { lessonId, userId, body: body.trim(), shared: Boolean(shared) },
+    update: { body: body.trim(), shared: Boolean(shared) },
+  });
+}
+
+/** Shared reflections are visible to all study participants —
+ *  the sharer has opted in, so this doesn't need owner gating. */
+export async function listSharedReflections(lessonId, viewerId) {
+  const lesson = await prisma.studyLesson.findUnique({ where: { id: lessonId } });
+  if (!lesson) { const err = new Error('Lesson not found.'); err.status = 404; throw err; }
+  await getStudy(lesson.studyId, viewerId); // visibility + participant check handled by getStudy
+  return prisma.studyLessonReflection.findMany({
+    where: { lessonId, shared: true, userId: { not: viewerId } },
+    include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+    orderBy: { createdAt: 'asc' },
   });
 }
 
@@ -920,4 +998,230 @@ export async function importStudy({ scriptoriumId, creatorId, data }) {
 
     return study;
   });
+}
+// ─── Discussion Posts (unified posts + findings with replies) ─────────────────
+
+const POST_AUTHOR = { select: { id: true, username: true, displayName: true, avatarUrl: true } };
+
+/** Creates a study-level post. type='post' for free-form; type='finding' for
+ *  a passage-anchored note shared from the reading pane. */
+export async function createStudyPost(studyId, authorId, { type = 'post', reference, module, title, body, mediaUrls = [] }) {
+  await assertIsParticipant(studyId, authorId);
+  if (!body?.trim()) throw Object.assign(new Error('body is required.'), { status: 400 });
+  if (type === 'finding' && !reference?.trim()) throw Object.assign(new Error('reference is required for a finding.'), { status: 400 });
+  return prisma.studyPost.create({
+    data: {
+      studyId,
+      authorId,
+      type,
+      reference: reference?.trim() || null,
+      module: module?.trim() || null,
+      title: title?.trim() || null,
+      body: body.trim(),
+      mediaUrls: mediaUrls.length ? mediaUrls : undefined,
+    },
+    include: { author: POST_AUTHOR },
+  });
+}
+
+/** Creates a reply to an existing top-level post or finding. */
+export async function createStudyReply(parentId, authorId, body) {
+  const parent = await prisma.studyPost.findUnique({ where: { id: parentId } });
+  if (!parent || parent.parentId !== null) throw Object.assign(new Error('Post not found.'), { status: 404 });
+  await assertIsParticipant(parent.studyId, authorId);
+  if (!body?.trim()) throw Object.assign(new Error('body is required.'), { status: 400 });
+  return prisma.studyPost.create({
+    data: { studyId: parent.studyId, authorId, type: 'reply', body: body.trim(), parentId },
+    include: { author: POST_AUTHOR },
+  });
+}
+
+/** Returns all top-level posts (posts + findings) with their replies nested,
+ *  ordered chronologically. */
+export async function listStudyPosts(studyId, viewerId) {
+  const study = await prisma.study.findUnique({ where: { id: studyId } });
+  if (!study) throw Object.assign(new Error('Study not found.'), { status: 404 });
+  await assertCanViewStudy(study, viewerId);
+  return prisma.studyPost.findMany({
+    where: { studyId, parentId: null },
+    include: {
+      author: POST_AUTHOR,
+      replies: { include: { author: POST_AUTHOR }, orderBy: { createdAt: 'asc' } },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+export async function deleteStudyPost(postId, userId) {
+  const post = await prisma.studyPost.findUnique({ where: { id: postId } });
+  if (!post) throw Object.assign(new Error('Post not found.'), { status: 404 });
+  const study = await prisma.study.findUnique({ where: { id: post.studyId } });
+  const isAuthor = post.authorId === userId;
+  const isOwner = study?.creatorId === userId;
+  if (!isAuthor && !isOwner) throw Object.assign(new Error('Not authorized.'), { status: 403 });
+  await prisma.studyPost.delete({ where: { id: postId } });
+}
+
+export async function updateStudyPost(postId, userId, { body, title }) {
+  const post = await prisma.studyPost.findUnique({ where: { id: postId } });
+  if (!post) throw Object.assign(new Error('Post not found.'), { status: 404 });
+  if (post.authorId !== userId) throw Object.assign(new Error('Not authorized.'), { status: 403 });
+  if (!body?.trim()) throw Object.assign(new Error('body is required.'), { status: 400 });
+  return prisma.studyPost.update({
+    where: { id: postId },
+    data: { body: body.trim(), title: title?.trim() || null },
+    include: { author: POST_AUTHOR },
+  });
+}
+
+/** Returns finding-type posts from all studies the caller participates in,
+ *  anchored to the given reference/prefix. Used by the reading pane. */
+export async function listMyStudyFindings(userId, { reference, prefix } = {}) {
+  if (!reference && !prefix) throw Object.assign(new Error('reference or prefix is required.'), { status: 400 });
+  const participations = await prisma.studyParticipant.findMany({ where: { userId } });
+  const studyIds = participations.map((p) => p.studyId);
+  if (studyIds.length === 0) return [];
+  const refFilter = prefix ? { reference: { startsWith: prefix } } : { reference };
+  return prisma.studyPost.findMany({
+    where: { studyId: { in: studyIds }, type: 'finding', ...refFilter },
+    include: {
+      author: POST_AUTHOR,
+      study: { select: { id: true, title: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+// ─── Research: Shared Highlights ─────────────────────────────────────────────
+
+export async function createStudyHighlight(studyId, authorId, { reference, module, color = 'yellow' }) {
+  await assertIsParticipant(studyId, authorId);
+  if (!reference?.trim() || !module?.trim()) throw Object.assign(new Error('reference and module are required.'), { status: 400 });
+  return prisma.studyHighlight.upsert({
+    where: { studyId_authorId_reference_module: { studyId, authorId, reference: reference.trim(), module: module.trim() } },
+    create: { studyId, authorId, reference: reference.trim(), module: module.trim(), color },
+    update: { color },
+    include: { author: { select: { id: true, username: true, displayName: true } } },
+  });
+}
+
+export async function deleteStudyHighlight(highlightId, userId) {
+  const highlight = await prisma.studyHighlight.findUnique({ where: { id: highlightId } });
+  if (!highlight) throw Object.assign(new Error('Highlight not found.'), { status: 404 });
+  const study = await prisma.study.findUnique({ where: { id: highlight.studyId } });
+  const isAuthor = highlight.authorId === userId;
+  const isOwner = study?.creatorId === userId;
+  if (!isAuthor && !isOwner) throw Object.assign(new Error('Not authorized.'), { status: 403 });
+  await prisma.studyHighlight.delete({ where: { id: highlightId } });
+}
+
+export async function listMyStudyHighlights(userId, { reference, prefix, module } = {}) {
+  if (!reference && !prefix) throw Object.assign(new Error('reference or prefix is required.'), { status: 400 });
+  if (!module) throw Object.assign(new Error('module is required.'), { status: 400 });
+  const participations = await prisma.studyParticipant.findMany({ where: { userId } });
+  const studyIds = participations.map((p) => p.studyId);
+  if (studyIds.length === 0) return [];
+  const refFilter = prefix ? { reference: { startsWith: prefix } } : { reference };
+  return prisma.studyHighlight.findMany({
+    where: { studyId: { in: studyIds }, ...refFilter, module },
+    include: {
+      author: { select: { id: true, username: true, displayName: true } },
+      study: { select: { id: true, title: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+// ─── Progress Dashboard ───────────────────────────────────────────────────────
+
+/** Returns each participant paired with their lesson completions — used
+ *  by the editor-only progress dashboard in the Members tab. */
+export async function getAllParticipantProgress(studyId, callerId) {
+  await assertCanEditStudy(studyId, callerId);
+  const [participants, lessons, completions] = await Promise.all([
+    prisma.studyParticipant.findMany({
+      where: { studyId },
+      include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+      orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
+    }),
+    prisma.studyLesson.findMany({ where: { studyId }, select: { id: true, title: true, order: true }, orderBy: { order: 'asc' } }),
+    prisma.studyLessonCompletion.findMany({
+      where: { lesson: { studyId } },
+      select: { userId: true, lessonId: true, completedAt: true },
+    }),
+  ]);
+  const completionsByUser = {};
+  for (const c of completions) {
+    if (!completionsByUser[c.userId]) completionsByUser[c.userId] = new Set();
+    completionsByUser[c.userId].add(c.lessonId);
+  }
+  return {
+    lessons,
+    participants: participants.map((p) => ({
+      ...p.user,
+      role: p.role,
+      joinedAt: p.joinedAt,
+      completedLessonIds: [...(completionsByUser[p.user.id] || [])],
+    })),
+  };
+}
+
+// ─── Activity Feed ────────────────────────────────────────────────────────────
+
+const ACTIVITY_USER = { select: { id: true, username: true, displayName: true, avatarUrl: true } };
+
+/** Computes a unified activity timeline for a study from existing records.
+ *  Requires at least participant access to the study. */
+export async function getActivityFeed(studyId, viewerId) {
+  await getStudy(studyId, viewerId); // visibility check
+  const [participants, lessons, completions, reflections, posts, resources] = await Promise.all([
+    prisma.studyParticipant.findMany({
+      where: { studyId },
+      include: { user: ACTIVITY_USER },
+      orderBy: { joinedAt: 'desc' },
+      take: 30,
+    }),
+    prisma.studyLesson.findMany({
+      where: { studyId },
+      select: { id: true, title: true, order: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    }),
+    prisma.studyLessonCompletion.findMany({
+      where: { lesson: { studyId } },
+      include: { user: ACTIVITY_USER, lesson: { select: { id: true, title: true, order: true } } },
+      orderBy: { completedAt: 'desc' },
+      take: 30,
+    }),
+    prisma.studyLessonReflection.findMany({
+      where: { lesson: { studyId }, shared: true },
+      include: { user: ACTIVITY_USER, lesson: { select: { id: true, title: true, order: true } } },
+      orderBy: { updatedAt: 'desc' },
+      take: 30,
+    }),
+    prisma.studyPost.findMany({
+      where: { studyId, parentId: null },
+      include: { author: ACTIVITY_USER },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    }),
+    prisma.studyResource.findMany({
+      where: { studyId, status: 'approved' },
+      select: { id: true, label: true, type: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    }),
+  ]);
+
+  const events = [
+    ...participants.map((p) => ({ type: 'joined', ts: p.joinedAt, user: p.user })),
+    ...lessons.map((l) => ({ type: 'lesson_added', ts: l.createdAt, lesson: { id: l.id, title: l.title, order: l.order } })),
+    ...completions.map((c) => ({ type: 'completed', ts: c.completedAt, user: c.user, lesson: c.lesson })),
+    ...reflections.map((r) => ({ type: 'reflection_shared', ts: r.updatedAt, user: r.user, lesson: r.lesson })),
+    ...posts.map((p) => ({ type: 'discussion_post', ts: p.createdAt, user: p.author, preview: p.title || p.body?.slice(0, 80) })),
+    ...resources.map((r) => ({ type: 'resource_added', ts: r.createdAt, resource: { id: r.id, label: r.label, resourceType: r.type } })),
+  ];
+
+  events.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  return events.slice(0, 50);
 }

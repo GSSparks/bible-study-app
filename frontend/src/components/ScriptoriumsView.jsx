@@ -1164,6 +1164,11 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
     finally { setRemovingId(null); }
   }
 
+  async function handleSetRole(membershipId, newRole) {
+    try { await api.setScriptoriumMemberRole(id, membershipId, newRole); refresh(); }
+    catch (e) { setError(e.message); }
+  }
+
   async function handleBannerChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1311,15 +1316,25 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
                   <Avatar username={m.username} avatarUrl={m.avatarUrl} size={28} />
                   <span className="text-parchment">{m.displayName || m.username}</span>
                   {m.role === 'owner' && <span className="text-xs text-brass">owner</span>}
+                  {m.role === 'collaborator' && <span className="text-xs text-verdigris">collaborator</span>}
                 </div>
                 {isOwner && m.role !== 'owner' && (
-                  <button
-                    disabled={removingId === m.membershipId}
-                    onClick={() => handleRemoveMember(m.membershipId)}
-                    className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
-                  >
-                    {removingId === m.membershipId ? '…' : 'remove'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleSetRole(m.membershipId, m.role === 'collaborator' ? 'member' : 'collaborator')}
+                      className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-verdigris hover:text-verdigris"
+                      title={m.role === 'collaborator' ? 'Remove collaborator role' : 'Make collaborator'}
+                    >
+                      {m.role === 'collaborator' ? 'revoke editor' : 'make editor'}
+                    </button>
+                    <button
+                      disabled={removingId === m.membershipId}
+                      onClick={() => handleRemoveMember(m.membershipId)}
+                      className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                    >
+                      {removingId === m.membershipId ? '…' : 'remove'}
+                    </button>
+                  </div>
                 )}
               </div>
             ))}

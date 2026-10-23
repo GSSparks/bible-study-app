@@ -279,6 +279,31 @@ export async function removeResource(scriptoriumId, userId, resourceId) {
   await prisma.scriptoriumResource.delete({ where: { id: resourceId } });
 }
 
+/** Owner-only role promotion/demotion. Roles: "collaborator" | "member".
+ *  Collaborators can create and edit lessons and resources within any
+ *  study that belongs to this Scriptorium. The owner's own role is
+ *  immutable here — use a future ownership-transfer flow for that. */
+export async function setMemberRole(scriptoriumId, callerId, membershipId, newRole) {
+  if (newRole !== 'collaborator' && newRole !== 'member') {
+    const err = new Error('Role must be "collaborator" or "member".');
+    err.status = 400;
+    throw err;
+  }
+  await assertOwner(scriptoriumId, callerId);
+  const membership = await prisma.scriptoriumMembership.findUnique({ where: { id: membershipId } });
+  if (!membership || membership.scriptoriumId !== scriptoriumId) {
+    const err = new Error('Member not found.');
+    err.status = 404;
+    throw err;
+  }
+  if (membership.role === 'owner') {
+    const err = new Error("The owner's role cannot be changed.");
+    err.status = 400;
+    throw err;
+  }
+  return prisma.scriptoriumMembership.update({ where: { id: membershipId }, data: { role: newRole } });
+}
+
 /** Owner-only member removal (separate from leaveScriptorium, which is
  *  self-service) — can't remove the owner themselves (role check),
  *  and 404s for a non-owner caller same as every other owner-gated
@@ -388,6 +413,8 @@ export async function listMyInvites(userId) {
     createdAt: i.createdAt,
   }));
 }
+
+// ─── Respond to Invite ───────────────────────────────────────────────────────
 
 /** 404 (not 403) when the caller isn't the actual invitee — same
  *  masking reasoning as everywhere else. Accepting creates the

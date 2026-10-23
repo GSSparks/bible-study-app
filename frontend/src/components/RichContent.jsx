@@ -52,6 +52,16 @@ export default function RichContent({ children, className = '', colorMode = 'dar
         <MDEditor.Markdown
           source={children}
           rehypePlugins={wantRefs ? [[rehypeVerseRefs]] : []}
+          components={{
+            a: ({ href, children: linkChildren, ...props }) => {
+              const isExternal = /^https?:\/\//.test(href || '');
+              return (
+                <a href={href} {...props} {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+                  {linkChildren}
+                </a>
+              );
+            },
+          }}
         />
       </div>
       {hovered && bibleModule && (
