@@ -12,6 +12,7 @@ export const PANE_TYPES = [
   { value: 'links', label: 'Resource Links', moduleType: null },
   { value: 'document', label: 'Documents', moduleType: 'document' },
   { value: 'search', label: 'Search Results', moduleType: null },
+  { value: 'notes', label: 'Notes', moduleType: null },
 ];
 
 function makeTab(module = '', title = '') {
