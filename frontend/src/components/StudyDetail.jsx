@@ -277,6 +277,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                   { key: 'resources', label: 'Resources' },
                   ...(isOwner ? [{ key: 'reflections', label: 'Reflections' }] : []),
                   { key: 'members', label: `Members (${participants.length})` },
+                  { key: 'activity', label: 'Activity' },
                 ].map(({ key, label }) => (
                   <button key={key} onClick={() => changeTab(key)}
                     className={`pb-2.5 ${tab === key ? 'border-b-2 border-pageAccent text-pageText' : 'text-pageMuted hover:text-pageText'}`}>
@@ -328,6 +329,13 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                 <div className="px-7 py-8">
                   <div className="max-w-2xl">
                     <ReflectionsTab studyId={studyId} />
+                  </div>
+                </div>
+              )}
+              {tab === 'activity' && (
+                <div className="px-7 py-8">
+                  <div className="max-w-2xl">
+                    <ActivityTab studyId={studyId} />
                   </div>
                 </div>
               )}
@@ -980,10 +988,12 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const videoInputRef = useRef(null);
   const [reflectionText, setReflectionText] = useState(lesson.myReflection?.body || '');
+  const [reflectionShared, setReflectionShared] = useState(Boolean(lesson.myReflection?.shared));
   const [reflectionSubmitted, setReflectionSubmitted] = useState(Boolean(lesson.myReflection));
   const [editingReflection, setEditingReflection] = useState(false);
   const [savingReflection, setSavingReflection] = useState(false);
   const [reflectionError, setReflectionError] = useState(null);
+  const [groupReflections, setGroupReflections] = useState([]);
 
   useEffect(() => {
     setPassage(null);
@@ -991,14 +1001,19 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
     setEditingBody(false);
     setVideoUrl(lesson.videoUrl || null);
     setReflectionText(lesson.myReflection?.body || '');
+    setReflectionShared(Boolean(lesson.myReflection?.shared));
     setReflectionSubmitted(Boolean(lesson.myReflection));
     setEditingReflection(false);
     setReflectionError(null);
+    setGroupReflections([]);
     if (lesson.module && lesson.reference) {
       api
         .getPassage(lesson.module, lesson.reference)
         .then((res) => setPassage(res.verses || []))
         .catch((e) => setPassageError(e.message));
+    }
+    if (lesson.reflectionPrompt) {
+      api.getStudySharedReflections(lesson.id).then(setGroupReflections).catch(() => {});
     }
   }, [lesson.id]);
 
@@ -1068,11 +1083,14 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
     setSavingReflection(true);
     setReflectionError(null);
     try {
-      await api.saveStudyLessonReflection(lesson.id, reflectionText);
+      await api.saveStudyLessonReflection(lesson.id, reflectionText, reflectionShared);
       setReflectionSubmitted(true);
       setEditingReflection(false);
       if (andComplete) {
         await api.markStudyLessonComplete(lesson.id);
+      }
+      if (reflectionShared) {
+        api.getStudySharedReflections(lesson.id).then(setGroupReflections).catch(() => {});
       }
       onLessonsChanged();
     } catch (e) {
@@ -1296,36 +1314,62 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
                   className="w-full rounded border border-pageBorder bg-white/50 px-3 py-2.5 text-sm leading-relaxed text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
                 />
                 {reflectionError && <p className="mt-1 text-xs text-red-500">{reflectionError}</p>}
-                <div className="mt-3 flex flex-wrap justify-end gap-2">
-                  {editingReflection && (
-                    <button
-                      onClick={() => { setEditingReflection(false); setReflectionError(null); }}
-                      className="text-xs text-pageMuted hover:text-pageText"
-                    >
-                      cancel
-                    </button>
-                  )}
-                  {editingReflection ? (
-                    <button
-                      onClick={() => handleSubmitReflection(false)}
-                      disabled={savingReflection || !reflectionText.trim()}
-                      className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
-                    >
-                      {savingReflection ? 'saving…' : 'Update response'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleSubmitReflection(true)}
-                      disabled={savingReflection || !reflectionText.trim()}
-                      className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
-                    >
-                      {savingReflection ? 'saving…' : 'Submit & mark complete'}
-                    </button>
-                  )}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-xs text-pageMuted select-none">
+                    <input
+                      type="checkbox"
+                      checked={reflectionShared}
+                      onChange={(e) => setReflectionShared(e.target.checked)}
+                      className="accent-pageAccent"
+                    />
+                    Share with group
+                  </label>
+                  <div className="flex gap-2">
+                    {editingReflection && (
+                      <button
+                        onClick={() => { setEditingReflection(false); setReflectionError(null); }}
+                        className="text-xs text-pageMuted hover:text-pageText"
+                      >
+                        cancel
+                      </button>
+                    )}
+                    {editingReflection ? (
+                      <button
+                        onClick={() => handleSubmitReflection(false)}
+                        disabled={savingReflection || !reflectionText.trim()}
+                        className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
+                      >
+                        {savingReflection ? 'saving…' : 'Update response'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleSubmitReflection(true)}
+                        disabled={savingReflection || !reflectionText.trim()}
+                        className="rounded bg-pageAccent/90 px-3 py-1.5 text-xs font-medium text-page hover:bg-pageAccent disabled:opacity-50"
+                      >
+                        {savingReflection ? 'saving…' : 'Submit & mark complete'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </>
             )}
           </div>
+
+          {groupReflections.length > 0 && (
+            <div className="mt-4 space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-pageMuted">From Your Group</p>
+              {groupReflections.map((r) => (
+                <div key={r.id} className="rounded-lg border border-pageBorder/50 bg-white/30 px-4 py-3">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <Avatar username={r.user.username} avatarUrl={r.user.avatarUrl} size={18} />
+                    <span className="text-xs font-medium text-pageText">{r.user.displayName || r.user.username}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-pageText/80">{r.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1335,24 +1379,73 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
 
 
 function MembersTab({ studyId, isOwner }) {
-  // Mirrors ScriptoriumDetail's members tab pattern — parallel
-  // structure (StudyParticipant vs. ScriptoriumMembership), same
-  // owner/participant distinction.
   const [members, setMembers] = useState([]);
+  const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     setLoading(true);
-    api
-      .listStudyParticipants(studyId)
-      .then(setMembers)
+    const requests = [api.listStudyParticipants(studyId)];
+    if (isOwner) requests.push(api.getStudyParticipantProgress(studyId));
+    Promise.all(requests)
+      .then(([m, p]) => { setMembers(m); if (p) setProgress(p); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [studyId]);
+  }, [studyId, isOwner]);
 
   if (loading) return <p className="text-sm text-pageMuted">Loading…</p>;
   if (error) return <p className="text-sm text-red-500">{error}</p>;
+
+  if (isOwner && progress) {
+    return (
+      <div className="space-y-4">
+        <p className="text-xs text-pageMuted">{progress.participants.length} participant{progress.participants.length !== 1 ? 's' : ''} · {progress.lessons.length} lesson{progress.lessons.length !== 1 ? 's' : ''}</p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="pb-2 pr-4 text-left text-xs font-normal text-pageMuted">Participant</th>
+                {progress.lessons.map((l) => (
+                  <th key={l.id} className="pb-2 px-1 text-center text-xs font-normal text-pageMuted" title={l.title}>
+                    {l.order}
+                  </th>
+                ))}
+                <th className="pb-2 pl-4 text-right text-xs font-normal text-pageMuted">Done</th>
+              </tr>
+            </thead>
+            <tbody>
+              {progress.participants.map((p) => {
+                const done = p.completedLessonIds.length;
+                const total = progress.lessons.length;
+                return (
+                  <tr key={p.id} className="border-t border-pageBorder/40">
+                    <td className="py-2 pr-4">
+                      <div className="flex items-center gap-2">
+                        <Avatar username={p.username} avatarUrl={p.avatarUrl} size={20} />
+                        <span className="text-pageText">{p.displayName || p.username}</span>
+                        {p.role === 'owner' && <span className="text-[10px] text-pageAccent">owner</span>}
+                      </div>
+                    </td>
+                    {progress.lessons.map((l) => (
+                      <td key={l.id} className="px-1 text-center">
+                        {p.completedLessonIds.includes(l.id)
+                          ? <span className="text-xs text-pageAccent">✓</span>
+                          : <span className="text-xs text-pageBorder">·</span>}
+                      </td>
+                    ))}
+                    <td className="py-2 pl-4 text-right text-xs text-pageMuted">
+                      {done}/{total}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-md border border-pageBorder">
@@ -1451,6 +1544,66 @@ function ReflectionsTab({ studyId }) {
   );
 }
 
+function ActivityTab({ studyId }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    api.getStudyActivity(studyId)
+      .then(setEvents)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [studyId]);
+
+  if (loading) return <p className="text-sm text-pageMuted">Loading…</p>;
+  if (error) return <p className="text-sm text-red-500">{error}</p>;
+  if (events.length === 0) return <p className="py-8 text-center text-sm text-pageMuted">No activity yet.</p>;
+
+  function EventRow({ event }) {
+    const user = event.user || event.author;
+    const dateStr = new Date(event.ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+    let icon = '·';
+    let text = null;
+
+    if (event.type === 'joined') {
+      icon = '👋';
+      text = <><strong>{user?.displayName || user?.username}</strong> joined the study</>;
+    } else if (event.type === 'lesson_added') {
+      icon = '📖';
+      text = <>Lesson added: <strong>{event.lesson?.title}</strong></>;
+    } else if (event.type === 'completed') {
+      icon = '✓';
+      text = <><strong>{user?.displayName || user?.username}</strong> completed <em>{event.lesson?.title}</em></>;
+    } else if (event.type === 'reflection_shared') {
+      icon = '💬';
+      text = <><strong>{user?.displayName || user?.username}</strong> shared a reflection on <em>{event.lesson?.title}</em></>;
+    } else if (event.type === 'discussion_post') {
+      icon = '📝';
+      text = <><strong>{user?.displayName || user?.username}</strong> posted: <em className="text-pageMuted">{event.preview}</em></>;
+    } else if (event.type === 'resource_added') {
+      icon = '🔗';
+      text = <>Resource added: <strong>{event.resource?.label}</strong></>;
+    }
+
+    return (
+      <div className="flex items-start gap-3 border-b border-pageBorder/40 py-2.5 last:border-0">
+        <span className="mt-0.5 w-5 shrink-0 text-center text-sm">{icon}</span>
+        <div className="min-w-0 flex-1 text-sm text-pageText/80">{text}</div>
+        <span className="shrink-0 text-xs text-pageMuted">{dateStr}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pb-6">
+      {events.map((e, i) => <EventRow key={i} event={e} />)}
+    </div>
+  );
+}
+
 function ResourceCard({ resource, onClick, onRemove, isOwner }) {
   const docId = parseDocumentId(resource.url);
   let hostname = '';
@@ -1507,6 +1660,15 @@ function ResourcesTabContent({ study, resources, activeLesson, isOwner, onResour
   const [openResource, setOpenResource] = useState(null);
   const [openDocumentId, setOpenDocumentId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSuggestModal, setShowSuggestModal] = useState(false);
+  const [pending, setPending] = useState([]);
+  const [approvingId, setApprovingId] = useState(null);
+
+  useEffect(() => {
+    if (isOwner) {
+      api.getStudyPendingResources(study.id).then(setPending).catch(() => {});
+    }
+  }, [study.id, isOwner]);
 
   function handleClick(r) {
     const docId = parseDocumentId(r.url);
@@ -1520,13 +1682,69 @@ function ResourcesTabContent({ study, resources, activeLesson, isOwner, onResour
     catch (e) { alert(e.message); }
   }
 
+  async function handleApprove(resourceId) {
+    setApprovingId(resourceId);
+    try {
+      await api.approveStudyResource(resourceId);
+      setPending((prev) => prev.filter((r) => r.id !== resourceId));
+      onResourcesChanged();
+    } catch (e) { alert(e.message); }
+    finally { setApprovingId(null); }
+  }
+
+  async function handleReject(resourceId) {
+    try {
+      await api.removeStudyResource(resourceId);
+      setPending((prev) => prev.filter((r) => r.id !== resourceId));
+    } catch (e) { alert(e.message); }
+  }
+
   return (
     <div className="pb-6">
-      {isOwner && (
-        <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end gap-3">
+        {isOwner && (
           <button onClick={() => setShowAddModal(true)} className="text-xs text-brass hover:underline">+ add resource</button>
+        )}
+        {!isOwner && (
+          <button onClick={() => setShowSuggestModal(true)} className="text-xs text-muted hover:text-brass">suggest a resource</button>
+        )}
+      </div>
+
+      {isOwner && pending.length > 0 && (
+        <div className="mb-6 rounded-lg border border-pageBorder bg-pageAccent/5 p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-pageMuted">
+            Pending suggestions ({pending.length})
+          </p>
+          <div className="space-y-2">
+            {pending.map((r) => (
+              <div key={r.id} className="flex items-center justify-between gap-3 rounded border border-pageBorder bg-page px-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <span className="truncate text-pageText">{r.label}</span>
+                  {r.suggestor && (
+                    <span className="ml-2 text-xs text-pageMuted">from {r.suggestor.displayName || r.suggestor.username}</span>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    disabled={approvingId === r.id}
+                    onClick={() => handleApprove(r.id)}
+                    className="rounded border border-pageAccent/40 px-2 py-0.5 text-xs text-pageAccent hover:bg-pageAccent/10 disabled:opacity-50"
+                  >
+                    {approvingId === r.id ? '…' : 'approve'}
+                  </button>
+                  <button
+                    onClick={() => handleReject(r.id)}
+                    className="text-xs text-pageMuted hover:text-red-500"
+                  >
+                    reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
       {resources.length === 0 ? (
         <div className="py-16 text-center">
           <p className="text-sm text-pageMuted">No resources added yet.</p>
@@ -1549,6 +1767,14 @@ function ResourcesTabContent({ study, resources, activeLesson, isOwner, onResour
           studyId={study.id}
           onClose={() => setShowAddModal(false)}
           onAdded={() => { setShowAddModal(false); onResourcesChanged(); }}
+        />
+      )}
+      {showSuggestModal && (
+        <AddResourceModal
+          studyId={study.id}
+          isSuggestion
+          onClose={() => setShowSuggestModal(false)}
+          onAdded={() => { setShowSuggestModal(false); }}
         />
       )}
       {openResource && (
@@ -1966,7 +2192,7 @@ function ResourceModal({ resource, activeLesson, onClose, onAskAiCompanionAbout,
   );
 }
 
-function AddResourceModal({ studyId, onClose, onAdded }) {
+function AddResourceModal({ studyId, onClose, onAdded, isSuggestion = false }) {
   // 'module' | 'link' | 'note' | 'library-note' | 'document'
   const [source, setSource] = useState('module');
   const [label, setLabel] = useState('');
@@ -2033,7 +2259,11 @@ function AddResourceModal({ studyId, onClose, onAdded }) {
       } else {
         payload = { type: 'note', label, body };
       }
-      await api.addStudyResource(studyId, payload);
+      if (isSuggestion) {
+        await api.suggestStudyResource(studyId, payload);
+      } else {
+        await api.addStudyResource(studyId, payload);
+      }
       onAdded();
     } catch (e) {
       setError(e.message);

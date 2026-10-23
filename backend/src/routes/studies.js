@@ -30,8 +30,12 @@ import {
   removeResource,
   listResources,
   getResourceContent,
+  suggestResource,
+  listPendingResources,
+  approveResource,
   getReflection,
   saveReflection,
+  listSharedReflections,
   listAllReflections,
   exportStudy,
   importStudy,
@@ -44,6 +48,8 @@ import {
   createStudyHighlight,
   deleteStudyHighlight,
   listMyStudyHighlights,
+  getAllParticipantProgress,
+  getActivityFeed,
 } from '../services/studyService.js';
 
 export const studiesRouter = Router();
@@ -131,7 +137,15 @@ studiesRouter.get('/lessons/:lessonId/reflection', async (req, res, next) => {
 
 studiesRouter.put('/lessons/:lessonId/reflection', async (req, res, next) => {
   try {
-    res.json(await saveReflection(req.params.lessonId, req.user.id, req.body.body));
+    res.json(await saveReflection(req.params.lessonId, req.user.id, req.body.body, req.body.shared));
+  } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.get('/lessons/:lessonId/shared-reflections', async (req, res, next) => {
+  try {
+    res.json(await listSharedReflections(req.params.lessonId, req.user.id));
   } catch (err) {
     next(err);
   }
@@ -285,6 +299,14 @@ studiesRouter.get('/:id/participants', async (req, res, next) => {
   }
 });
 
+studiesRouter.get('/:id/participants/progress', async (req, res, next) => {
+  try {
+    res.json(await getAllParticipantProgress(req.params.id, req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
 studiesRouter.get('/:id/lessons', async (req, res, next) => {
   try {
     res.json(await listLessons(req.params.id, req.user.id));
@@ -336,10 +358,35 @@ studiesRouter.get('/:id/resources', async (req, res, next) => {
   }
 });
 
+studiesRouter.get('/:id/resources/pending', async (req, res, next) => {
+  try {
+    res.json(await listPendingResources(req.params.id, req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
 studiesRouter.post('/:id/resources', async (req, res, next) => {
   try {
     const { type, label, moduleCode, moduleType, url, body, order } = req.body;
     res.status(201).json(await addResource(req.params.id, req.user.id, { type, label, moduleCode, moduleType, url, body, order }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.post('/:id/resources/suggest', async (req, res, next) => {
+  try {
+    const { type, label, moduleCode, moduleType, url, body, order } = req.body;
+    res.status(201).json(await suggestResource(req.params.id, req.user.id, { type, label, moduleCode, moduleType, url, body, order }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.patch('/resources/:resourceId/approve', async (req, res, next) => {
+  try {
+    res.json(await approveResource(req.params.resourceId, req.user.id));
   } catch (err) {
     next(err);
   }
@@ -422,6 +469,14 @@ studiesRouter.delete('/:id/research/highlights/:highlightId', async (req, res, n
   try {
     await deleteStudyHighlight(req.params.highlightId, req.user.id);
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+studiesRouter.get('/:id/activity', async (req, res, next) => {
+  try {
+    res.json(await getActivityFeed(req.params.id, req.user.id));
   } catch (err) {
     next(err);
   }

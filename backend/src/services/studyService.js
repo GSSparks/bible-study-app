@@ -742,7 +742,46 @@ export async function removeResource(resourceId, callerId) {
  *  so it doesn't require participation the way posting or liking do. */
 export async function listResources(studyId, viewerId) {
   await getStudy(studyId, viewerId); // visibility check, throws 404 if not visible
-  return prisma.studyResource.findMany({ where: { studyId }, orderBy: { order: 'asc' } });
+  return prisma.studyResource.findMany({ where: { studyId, status: 'approved' }, orderBy: { order: 'asc' } });
+}
+
+/** Any participant can suggest a resource — it lands in a pending queue
+ *  for editors to approve before it appears in the shared resource list. */
+export async function suggestResource(studyId, callerId, { type, label, moduleCode, moduleType, url, body, order }) {
+  await assertIsParticipant(studyId, callerId);
+  validateResourceInput({ type, label, moduleCode, url, body });
+  const isModuleType = type === 'commentary' || type === 'module';
+  return prisma.studyResource.create({
+    data: {
+      studyId,
+      type,
+      label: label.trim(),
+      moduleCode: isModuleType ? moduleCode : null,
+      moduleType: type === 'module' ? (moduleType || null) : null,
+      url: type === 'link' ? url.trim() : null,
+      body: type === 'note' ? body.trim() : null,
+      order: order ?? 0,
+      status: 'pending',
+      suggestorId: callerId,
+    },
+    include: { suggestor: { select: { id: true, username: true, displayName: true } } },
+  });
+}
+
+export async function listPendingResources(studyId, callerId) {
+  await assertCanEditStudy(studyId, callerId);
+  return prisma.studyResource.findMany({
+    where: { studyId, status: 'pending' },
+    include: { suggestor: { select: { id: true, username: true, displayName: true } } },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+export async function approveResource(resourceId, callerId) {
+  const resource = await prisma.studyResource.findUnique({ where: { id: resourceId } });
+  if (!resource) { const err = new Error('Resource not found.'); err.status = 404; throw err; }
+  await assertCanEditStudy(resource.studyId, callerId);
+  return prisma.studyResource.update({ where: { id: resourceId }, data: { status: 'approved' } });
 }
 
 export async function listAllReflections(studyId, callerId) {
@@ -773,7 +812,7 @@ export async function getReflection(lessonId, userId) {
   });
 }
 
-export async function saveReflection(lessonId, userId, body) {
+export async function saveReflection(lessonId, userId, body, shared = false) {
   const lesson = await prisma.studyLesson.findUnique({ where: { id: lessonId } });
   if (!lesson) {
     const err = new Error('Lesson not found.');
@@ -796,8 +835,21 @@ export async function saveReflection(lessonId, userId, body) {
   }
   return prisma.studyLessonReflection.upsert({
     where: { lessonId_userId: { lessonId, userId } },
-    create: { lessonId, userId, body: body.trim() },
-    update: { body: body.trim() },
+    create: { lessonId, userId, body: body.trim(), shared: Boolean(shared) },
+    update: { body: body.trim(), shared: Boolean(shared) },
+  });
+}
+
+/** Shared reflections are visible to all study participants —
+ *  the sharer has opted in, so this doesn't need owner gating. */
+export async function listSharedReflections(lessonId, viewerId) {
+  const lesson = await prisma.studyLesson.findUnique({ where: { id: lessonId } });
+  if (!lesson) { const err = new Error('Lesson not found.'); err.status = 404; throw err; }
+  await getStudy(lesson.studyId, viewerId); // visibility + participant check handled by getStudy
+  return prisma.studyLessonReflection.findMany({
+    where: { lessonId, shared: true, userId: { not: viewerId } },
+    include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+    orderBy: { createdAt: 'asc' },
   });
 }
 
@@ -1078,4 +1130,98 @@ export async function listMyStudyHighlights(userId, { reference, prefix, module 
     },
     orderBy: { createdAt: 'asc' },
   });
+}
+
+// ─── Progress Dashboard ───────────────────────────────────────────────────────
+
+/** Returns each participant paired with their lesson completions — used
+ *  by the editor-only progress dashboard in the Members tab. */
+export async function getAllParticipantProgress(studyId, callerId) {
+  await assertCanEditStudy(studyId, callerId);
+  const [participants, lessons, completions] = await Promise.all([
+    prisma.studyParticipant.findMany({
+      where: { studyId },
+      include: { user: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
+      orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
+    }),
+    prisma.studyLesson.findMany({ where: { studyId }, select: { id: true, title: true, order: true }, orderBy: { order: 'asc' } }),
+    prisma.studyLessonCompletion.findMany({
+      where: { lesson: { studyId } },
+      select: { userId: true, lessonId: true, completedAt: true },
+    }),
+  ]);
+  const completionsByUser = {};
+  for (const c of completions) {
+    if (!completionsByUser[c.userId]) completionsByUser[c.userId] = new Set();
+    completionsByUser[c.userId].add(c.lessonId);
+  }
+  return {
+    lessons,
+    participants: participants.map((p) => ({
+      ...p.user,
+      role: p.role,
+      joinedAt: p.joinedAt,
+      completedLessonIds: [...(completionsByUser[p.user.id] || [])],
+    })),
+  };
+}
+
+// ─── Activity Feed ────────────────────────────────────────────────────────────
+
+const ACTIVITY_USER = { select: { id: true, username: true, displayName: true, avatarUrl: true } };
+
+/** Computes a unified activity timeline for a study from existing records.
+ *  Requires at least participant access to the study. */
+export async function getActivityFeed(studyId, viewerId) {
+  await getStudy(studyId, viewerId); // visibility check
+  const [participants, lessons, completions, reflections, posts, resources] = await Promise.all([
+    prisma.studyParticipant.findMany({
+      where: { studyId },
+      include: { user: ACTIVITY_USER },
+      orderBy: { joinedAt: 'desc' },
+      take: 30,
+    }),
+    prisma.studyLesson.findMany({
+      where: { studyId },
+      select: { id: true, title: true, order: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    }),
+    prisma.studyLessonCompletion.findMany({
+      where: { lesson: { studyId } },
+      include: { user: ACTIVITY_USER, lesson: { select: { id: true, title: true, order: true } } },
+      orderBy: { completedAt: 'desc' },
+      take: 30,
+    }),
+    prisma.studyLessonReflection.findMany({
+      where: { lesson: { studyId }, shared: true },
+      include: { user: ACTIVITY_USER, lesson: { select: { id: true, title: true, order: true } } },
+      orderBy: { updatedAt: 'desc' },
+      take: 30,
+    }),
+    prisma.studyPost.findMany({
+      where: { studyId, parentId: null },
+      include: { author: ACTIVITY_USER },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    }),
+    prisma.studyResource.findMany({
+      where: { studyId, status: 'approved' },
+      select: { id: true, label: true, type: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    }),
+  ]);
+
+  const events = [
+    ...participants.map((p) => ({ type: 'joined', ts: p.joinedAt, user: p.user })),
+    ...lessons.map((l) => ({ type: 'lesson_added', ts: l.createdAt, lesson: { id: l.id, title: l.title, order: l.order } })),
+    ...completions.map((c) => ({ type: 'completed', ts: c.completedAt, user: c.user, lesson: c.lesson })),
+    ...reflections.map((r) => ({ type: 'reflection_shared', ts: r.updatedAt, user: r.user, lesson: r.lesson })),
+    ...posts.map((p) => ({ type: 'discussion_post', ts: p.createdAt, user: p.author, preview: p.title || p.body?.slice(0, 80) })),
+    ...resources.map((r) => ({ type: 'resource_added', ts: r.createdAt, resource: { id: r.id, label: r.label, resourceType: r.type } })),
+  ];
+
+  events.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  return events.slice(0, 50);
 }

@@ -140,6 +140,7 @@ model User {
   studyParticipations    StudyParticipant[]
   studyLessonCompletions  StudyLessonCompletion[]
   studyLessonReflections  StudyLessonReflection[]
+  studyResourceSuggestions StudyResource[] @relation("StudyResourceSuggestions")
   studyComments      StudyComment[]
   studyCommentLikes  StudyCommentLike[]
   readingPlanProgress ReadingPlanProgress[]
@@ -343,6 +344,7 @@ model StudyLessonReflection {
   userId    String
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   body      String
+  shared    Boolean     @default(false)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
@@ -389,19 +391,23 @@ model StudyCommentLike {
 // compare-translations endpoint directly, not a per-study resource a
 // leader curates.
 model StudyResource {
-  id         String   @id @default(cuid())
-  studyId    String
-  study      Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  type       String   // "commentary" | "module" | "link" | "note"
-  label      String   // display text, e.g. "Clarke's Commentary" or "Bible Project: John"
-  moduleCode String?  // required for type="commentary"|"module"
-  moduleType String?  // "BIBLE" | "COMMENTARY" | "DICT" — for type="module"
-  url        String?  // required for type="link"
-  body       String?  // required for type="note"
-  order      Int      @default(0)
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  studyId     String
+  study       Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  type        String   // "commentary" | "module" | "link" | "note"
+  label       String   // display text, e.g. "Clarke's Commentary" or "Bible Project: John"
+  moduleCode  String?  // required for type="commentary"|"module"
+  moduleType  String?  // "BIBLE" | "COMMENTARY" | "DICT" — for type="module"
+  url         String?  // required for type="link"
+  body        String?  // required for type="note"
+  order       Int      @default(0)
+  status      String   @default("approved") // "approved" | "pending"
+  suggestorId String?
+  suggestor   User?    @relation("StudyResourceSuggestions", fields: [suggestorId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
 
   @@index([studyId])
+  @@index([suggestorId])
 }
 
 model ScriptoriumResource {
