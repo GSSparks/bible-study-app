@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { Copy, Check, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import { decodeRobinsonMorph } from '../utils/robinsonMorphology.js';
 
@@ -7,10 +7,31 @@ const MIN_HEIGHT = 100;
 const MAX_HEIGHT = 520;
 const DEFAULT_HEIGHT = 220;
 
-function SourceSection({ label, children }) {
+function stripHtml(html) {
+  const el = document.createElement('div');
+  el.innerHTML = html;
+  return el.textContent.replace(/\s+/g, ' ').trim();
+}
+
+function CopyButton({ label, onCopy, copied }) {
+  return (
+    <button
+      onClick={onCopy}
+      title={`Copy ${label} entry`}
+      className="ml-auto shrink-0 rounded p-0.5 text-pageMuted/40 transition-colors hover:text-pageMuted"
+    >
+      {copied ? <Check size={11} className="text-verdigris" /> : <Copy size={11} />}
+    </button>
+  );
+}
+
+function SourceSection({ label, headerAction, children }) {
   return (
     <div className="border-t border-pageBorder/50 pt-2 first:border-t-0 first:pt-0">
-      <p className="mb-1 text-[10px] uppercase tracking-widest text-pageMuted">{label}</p>
+      <div className="mb-1 flex items-center gap-1.5">
+        <p className="text-[10px] uppercase tracking-widest text-pageMuted">{label}</p>
+        {headerAction}
+      </div>
       {children}
     </div>
   );
@@ -38,7 +59,7 @@ export default function StrongsDrawer({
   const [loading, setLoading] = useState(true);
   const [expandedLexicons, setExpandedLexicons] = useState(new Set());
   const [drawerHeight, setDrawerHeight] = useState(DEFAULT_HEIGHT);
-  const dragRef = useRef(null);
+  const [copied, setCopied] = useState(null); // "key:source" string
 
   useEffect(() => {
     setHistory([{ key: strongsKey, morph, wordText }]);
@@ -82,6 +103,37 @@ export default function StrongsDrawer({
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+  }
+
+  async function writeClipboard(sourceKey, text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(sourceKey);
+      setTimeout(() => setCopied((c) => (c === sourceKey ? null : c)), 1500);
+    } catch {
+      // clipboard unavailable (non-HTTPS or denied)
+    }
+  }
+
+  function copySwordsEntry(key, entry) {
+    const lines = [];
+    if (entry.transcription || entry.phoneticTranscription) {
+      const head = [entry.transcription, entry.phoneticTranscription && `(${entry.phoneticTranscription})`]
+        .filter(Boolean).join(' ');
+      lines.push(head);
+    }
+    if (entry.definition) lines.push(entry.definition);
+    writeClipboard(`${key}:strongs`, lines.join('\n'));
+  }
+
+  async function copyBuiltinEntry(key, lex) {
+    try {
+      const res = await api.getDictionaryEntry(lex.moduleCode, key);
+      const plain = stripHtml(res.html || '');
+      writeClipboard(`${key}:${lex.moduleCode}`, `${lex.name} — ${key}\n${plain}`);
+    } catch {
+      writeClipboard(`${key}:${lex.moduleCode}`, `${lex.name} — ${key}\n${lex.firstParagraph}`);
+    }
   }
 
   return (
@@ -144,7 +196,16 @@ export default function StrongsDrawer({
               <div className="space-y-2.5">
                 {/* ── Strong's entry ── */}
                 {hasSword && (
-                  <SourceSection label="Strong's">
+                  <SourceSection
+                    label="Strong's"
+                    headerAction={
+                      <CopyButton
+                        label="Strong's"
+                        copied={copied === `${key}:strongs`}
+                        onCopy={() => copySwordsEntry(key, entry)}
+                      />
+                    }
+                  >
                     {(entry.transcription || entry.phoneticTranscription) && (
                       <p className="font-display text-sm text-pageText">
                         {entry.transcription}
@@ -183,7 +244,17 @@ export default function StrongsDrawer({
                     ? lex.firstParagraph.slice(0, 200) + '…'
                     : lex.firstParagraph;
                   return (
-                    <SourceSection key={lex.moduleCode} label={lex.name}>
+                    <SourceSection
+                      key={lex.moduleCode}
+                      label={lex.name}
+                      headerAction={
+                        <CopyButton
+                          label={lex.name}
+                          copied={copied === `${key}:${lex.moduleCode}`}
+                          onCopy={() => copyBuiltinEntry(key, lex)}
+                        />
+                      }
+                    >
                       {lex.lemma && (
                         <p className="font-display text-sm text-pageText">
                           {lex.lemma}
