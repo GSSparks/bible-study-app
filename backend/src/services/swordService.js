@@ -934,18 +934,18 @@ class SwordService {
       if (!src || /^https?:|^data:|^\/\//.test(src)) return imgTag;
       if (src.startsWith('/api/sword-data/')) return imgTag;
 
-      // Resolve src relative to each candidate base using path.resolve so
-      // that ../ sequences in src are handled correctly without doubling the
-      // base prefix.
+      // Strip a leading '/' so path.resolve treats it as relative to the
+      // candidate base rather than as an absolute filesystem path.
+      const relativeSrc = src.startsWith('/') ? src.slice(1) : src;
+
       const tryBases = [
-        path.join(swordBase, dataPath),       // A: inside module's DataPath dir
-        path.join(swordBase, parentDataPath),  // B: one level up (some modules)
-        swordBase,                             // C: .sword root
+        path.join(swordBase, dataPath),
+        path.join(swordBase, parentDataPath),
+        swordBase,
       ];
 
       for (const base of tryBases) {
-        const abs = path.resolve(base, src);
-        // Guard: don't escape the sword base directory
+        const abs = path.resolve(base, relativeSrc);
         if (!abs.startsWith(swordBase + path.sep) && abs !== swordBase) continue;
         if (fs.existsSync(abs)) {
           const rel = path.relative(swordBase, abs).replace(/\\/g, '/');
@@ -953,9 +953,8 @@ class SwordService {
         }
       }
 
-      // File not found on disk — emit the most likely URL anyway so a future
-      // install or cache hit can serve it.
-      const abs = path.resolve(path.join(swordBase, dataPath), src);
+      // File not found on disk — emit the most likely URL anyway.
+      const abs = path.resolve(path.join(swordBase, dataPath), relativeSrc);
       const rel = path.relative(swordBase, abs).replace(/\\/g, '/');
       return imgTag.replace(m[0], `src="/api/sword-data/${rel}"`);
     });
