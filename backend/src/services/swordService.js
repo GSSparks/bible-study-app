@@ -665,162 +665,174 @@ class SwordService {
 
   getBookKeys(moduleCode) {
     try {
-      const mod = this.sword.getLocalModule(moduleCode);
-      if (mod?.location) {
-        const keys = this._parseGenBookTree(mod.location);
-        console.log(`[getBookKeys] ${moduleCode} parsed ${keys.length} keys, first 3:`, keys.slice(0, 3));
-        if (keys.length > 0) {
-          // Verify the first key actually returns content so we catch format mismatches early.
-          try {
-            const test = this.sword.getRawModuleEntry(moduleCode, keys[0]);
-            console.log(`[getBookKeys] key test "${keys[0]}" → ${test?.trim().length ? 'ok' : 'EMPTY'}`);
-          } catch (e) {
-            console.warn(`[getBookKeys] key test failed: ${e.message}`);
-          }
-          return keys;
-        }
-      }
+      const files = this._openGenBookFiles(moduleCode);
+      if (!files) return [];
+      const { readNode } = files;
+      const keys = [];
+      const visited = new Set();
+      const traverse = (idxOffset, parentPath) => {
+        if (idxOffset < 0 || visited.has(idxOffset)) return;
+        visited.add(idxOffset);
+        const node = readNode(idxOffset);
+        if (!node) return;
+        const fullPath = parentPath ? (node.name ? `${parentPath}/${node.name}` : parentPath) : node.name;
+        if (node.name) keys.push(fullPath);
+        if (node.firstChild !== -1) traverse(node.firstChild, fullPath || parentPath);
+        if (node.next !== -1) traverse(node.next, parentPath);
+      };
+      traverse(0, '');
+      return keys;
     } catch (e) {
       console.error('[getBookKeys] error:', e.message);
-    }
-    return [];
-  }
-
-  // Parse the SWORD RawGenBook binary name tree to extract all key paths.
-  // Tries .bnt first (modern format), then .dat (older modules that ship
-  // .dat + .idx instead of .bnt + .bdt). Both use the same TreeKeyIdx
-  // binary layout, so _parseBntTree handles both.
-  _parseGenBookTree(location) {
-    let files;
-    try { files = fs.readdirSync(location); } catch { return []; }
-
-    const treeFile =
-      files.find((f) => f.toLowerCase().endsWith('.bnt')) ||
-      files.find((f) => f.toLowerCase().endsWith('.dat'));
-
-    if (!treeFile) {
-      console.log(`[parseGenBookTree] no .bnt or .dat found in ${location}, files: ${files.join(',')}`);
       return [];
     }
-
-    console.log(`[parseGenBookTree] using ${treeFile}`);
-    return this._parseBntTree(path.join(location, treeFile));
   }
 
-  _parseBntTree(bntPath) {
-    // TreeKeyIdx: each record is 6 × INT32LE (parent, firstChild, nextSibling,
-    // prevSibling, dataOffset, dataSize) followed by a null-terminated name.
-    // Stored values are byte offsets into this same file; -1 (0xFFFFFFFF) means "none".
-    let buf;
-    try { buf = fs.readFileSync(bntPath); } catch { return []; }
-
-    const HEADER = 24;
-    const keys = [];
-    const visited = new Set();
-
-    function readName(offset) {
-      let end = offset + HEADER;
-      while (end < buf.length && buf[end] !== 0) end++;
-      return buf.slice(offset + HEADER, end).toString('utf8');
-    }
-
-    // Log root record to help diagnose format issues.
-    if (buf.length >= HEADER) {
-      const rootParent = buf.readInt32LE(0);
-      const rootFirstChild = buf.readInt32LE(4);
-      const rootNextSib = buf.readInt32LE(8);
-      const rootName = readName(0);
-      console.log(`[parseBntTree] ${path.basename(bntPath)} size=${buf.length} root: parent=${rootParent} firstChild=${rootFirstChild} nextSib=${rootNextSib} name="${rootName}"`);
-    }
-
-    function traverse(offset, parentPath) {
-      if (offset < 0 || offset + HEADER > buf.length || visited.has(offset)) return;
-      visited.add(offset);
-      const firstChild = buf.readInt32LE(offset + 4);
-      const nextSib = buf.readInt32LE(offset + 8);
-      const name = readName(offset);
-      const fullPath = parentPath ? (name ? `${parentPath}/${name}` : parentPath) : name;
-      if (name) keys.push(fullPath);
-      if (firstChild !== -1) traverse(firstChild, fullPath || parentPath);
-      if (nextSib !== -1) traverse(nextSib, parentPath);
-    }
-
-    traverse(0, '');
-    console.log(`[parseBntTree] ${path.basename(bntPath)} found ${keys.length} keys`);
-    return keys;
-  }
-
-  // Read every section of a GenBook module in DFS order and return them
-  // concatenated as HTML. Bypasses NSWI's getRawModuleEntry entirely by
-  // reading the binary tree file (.bnt or .dat) for section names and
-  // data offsets, then pulling content from the data file (.bdt, or the
-  // same tree file for older self-referential formats).
+  // Read every section of a RawGenBook module in DFS order, concatenated as HTML.
+  //
+  // SWORD RawGenBook on-disk format (TreeKeyIdx + .bdt):
+  //   .idx  — array of 4-byte SW_u32 entries; entry N (at idx byte 4N) = byte
+  //           offset into .dat for that node.  Root is always at idx offset 0.
+  //   .dat  — variable-length node records:
+  //             parent    INT32LE  (idx byte offset of parent, -1 = root)
+  //             next      INT32LE  (idx byte offset of next sibling, -1 = none)
+  //             firstChild INT32LE (idx byte offset of first child, -1 = none)
+  //             name      null-terminated string
+  //             dsize     SW_u16   (size of userData, always 8 for content nodes)
+  //             userData  dsize bytes — for RawGenBook: (SW_u32 bdtOffset, SW_u32 bdtSize)
+  //   .bdt  — raw content file; bdtOffset/bdtSize from userData index into this.
   getFullBookContent(moduleCode) {
-    const mod = this.sword.getLocalModule(moduleCode);
-    if (!mod?.location) return '';
-
-    const location = mod.location;
-    let files;
-    try { files = fs.readdirSync(location); } catch { return ''; }
-
-    const bntFile = files.find((f) => f.toLowerCase().endsWith('.bnt'));
-    const bdtFile = files.find((f) => f.toLowerCase().endsWith('.bdt'));
-    const datFile = files.find((f) => f.toLowerCase().endsWith('.dat'));
-
-    const treePath = bntFile
-      ? path.join(location, bntFile)
-      : datFile ? path.join(location, datFile) : null;
-    if (!treePath) return '';
-
-    // .bdt is the companion data file for .bnt; older modules may be
-    // self-referential (.dat stores both tree and content).
-    const dataPath = bdtFile
-      ? path.join(location, bdtFile)
-      : treePath;
-
-    return this._concatAllContent(treePath, dataPath);
-  }
-
-  _concatAllContent(treePath, dataPath) {
-    const HEADER = 24;
-    let tree, data;
-    try { tree = fs.readFileSync(treePath); } catch { return ''; }
-    try { data = fs.readFileSync(dataPath); } catch { return ''; }
+    const files = this._openGenBookFiles(moduleCode);
+    if (!files) return '';
+    const { readNode, bdt } = files;
+    if (!bdt) return '';
 
     const sections = [];
     const visited = new Set();
-
-    const readName = (offset) => {
-      let end = offset + HEADER;
-      while (end < tree.length && tree[end] !== 0) end++;
-      return tree.slice(offset + HEADER, end).toString('utf8');
-    };
-
-    const collect = (offset, depth) => {
-      if (offset < 0 || offset + HEADER > tree.length || visited.has(offset)) return;
-      visited.add(offset);
-      const firstChild = tree.readInt32LE(offset + 4);
-      const nextSib = tree.readInt32LE(offset + 8);
-      const dataOffset = tree.readUInt32LE(offset + 16);
-      const dataSize = tree.readUInt32LE(offset + 20);
-      const name = readName(offset);
-
-      if (dataSize > 0 && dataSize < 5_000_000 && dataOffset + dataSize <= data.length) {
-        const raw = data.slice(dataOffset, dataOffset + dataSize).toString('utf8');
-        if (raw.trim()) sections.push({ name, depth, content: raw });
+    const collect = (idxOffset, depth, parentPath) => {
+      if (idxOffset < 0 || visited.has(idxOffset)) return;
+      visited.add(idxOffset);
+      const node = readNode(idxOffset);
+      if (!node) return;
+      const fullPath = parentPath
+        ? (node.name ? `${parentPath}/${node.name}` : parentPath)
+        : node.name;
+      if (node.bdtOffset >= 0 && node.bdtSize > 0 && node.bdtOffset + node.bdtSize <= bdt.length) {
+        const raw = bdt.slice(node.bdtOffset, node.bdtOffset + node.bdtSize).toString('utf8');
+        if (raw.trim()) sections.push({ name: node.name, depth, content: raw });
       }
+      if (node.firstChild !== -1) collect(node.firstChild, depth + 1, fullPath);
+      if (node.next !== -1) collect(node.next, depth, parentPath);
+    };
+    collect(0, 0, '');
 
-      if (firstChild !== -1) collect(firstChild, depth + 1);
-      if (nextSib !== -1) collect(nextSib, depth);
+    // Format a tree node name for display: underscores → spaces, ALL_CAPS → Title Case.
+    const fmtName = (n) => {
+      const s = n.replace(/_/g, ' ').trim();
+      return /^[A-Z0-9\s]+$/.test(s) && /[A-Z]{2}/.test(s)
+        ? s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+        : s;
     };
 
-    collect(0, 0);
+    // If the section's own HTML already opens with a heading element, don't
+    // inject a duplicate — the existing heading will anchor the TOC entry.
+    const STARTS_HEADING = /^\s*<h[1-3][\s>]/i;
 
-    return sections.map(({ name, depth, content }) => {
+    const html = sections.map(({ name, depth, content }) => {
       const processed = this.processDictEntryContent(content);
+      if (!name || STARTS_HEADING.test(processed)) return processed;
       const tag = depth <= 1 ? 'h2' : 'h3';
-      return name ? `<${tag} class="book-section-heading">${name}</${tag}>${processed}` : processed;
+      return `<${tag} class="book-section-heading">${fmtName(name)}</${tag}>${processed}`;
     }).join('\n');
+
+    // Use DataPath from conf as the preferred image base; fall back to the
+    // resolved module directory if the conf file isn't found (covers cases
+    // where getModuleDataPath returns null for GenBook modules).
+    const swordBase = path.join(config.swordModulesPath, '.sword');
+    const fallbackDataPath = path.relative(swordBase, files.dir).replace(/\\/g, '/').replace(/\/?$/, '/');
+    return this.rewriteImageSrcs(html, moduleCode, fallbackDataPath);
+  }
+
+  // Opens the three RawGenBook files (.idx, .dat, .bdt) for a module and
+  // returns a readNode() function plus the .bdt buffer.
+  // mod.location from NSWI may be a directory or a file prefix; if absent,
+  // falls back to DataPath from the .conf file.
+  _openGenBookFiles(moduleCode) {
+    const mod = this.sword.getLocalModule(moduleCode);
+    let rawLocation = mod?.location;
+    if (!rawLocation) {
+      const dp = this.getModuleDataPath(moduleCode);
+      if (dp) rawLocation = path.join(config.swordModulesPath, '.sword', dp.replace(/\/?$/, ''));
+    }
+    if (!rawLocation) return null;
+
+    // Resolve to (directory, optional filename prefix).
+    let dir, prefix;
+    try {
+      if (fs.statSync(rawLocation).isDirectory()) {
+        dir = rawLocation; prefix = null;
+      } else {
+        dir = path.dirname(rawLocation); prefix = path.basename(rawLocation);
+      }
+    } catch {
+      dir = path.dirname(rawLocation); prefix = path.basename(rawLocation);
+    }
+
+    let allFiles;
+    try { allFiles = fs.readdirSync(dir); } catch { return null; }
+    const cands = prefix
+      ? allFiles.filter((f) => f.toLowerCase().startsWith(prefix.toLowerCase()))
+      : allFiles;
+
+    const find = (ext) => cands.find((f) => f.toLowerCase().endsWith(ext));
+    const idxFile = find('.idx');
+    const datFile = find('.dat');
+    const bdtFile = find('.bdt');
+    if (!idxFile || !datFile) return null;
+
+    let idx, dat, bdt = null;
+    try { idx = fs.readFileSync(path.join(dir, idxFile)); } catch { return null; }
+    try { dat = fs.readFileSync(path.join(dir, datFile)); } catch { return null; }
+    if (bdtFile) try { bdt = fs.readFileSync(path.join(dir, bdtFile)); } catch {}
+
+    // Read the node whose position in the tree is identified by its idx offset.
+    // idx offset N (a byte offset into .idx) → read 4 bytes → dat byte offset
+    // → read node record from .dat.
+    const readNode = (idxOffset) => {
+      if (idxOffset < 0 || idxOffset + 4 > idx.length) return null;
+      const datOffset = idx.readUInt32LE(idxOffset);
+      if (datOffset + 12 > dat.length) return null;
+      const parent = dat.readInt32LE(datOffset);
+      const next = dat.readInt32LE(datOffset + 4);
+      const firstChild = dat.readInt32LE(datOffset + 8);
+      let nameEnd = datOffset + 12;
+      while (nameEnd < dat.length && dat[nameEnd] !== 0) nameEnd++;
+      const name = dat.slice(datOffset + 12, nameEnd).toString('utf8');
+      const dsizePos = nameEnd + 1;
+      if (dsizePos + 2 > dat.length) return null;
+      const dsize = dat.readUInt16LE(dsizePos);
+      // RawGenBook userData = (SW_u32 bdtOffset, SW_u32 bdtSize) when dsize >= 8
+      let bdtOffset = -1, bdtSize = 0;
+      if (dsize >= 8 && dsizePos + 2 + 8 <= dat.length) {
+        bdtOffset = dat.readUInt32LE(dsizePos + 2);
+        bdtSize = dat.readUInt32LE(dsizePos + 6);
+      }
+      return { parent, next, firstChild, name, bdtOffset, bdtSize };
+    };
+
+    return { readNode, bdt, dir };
+  }
+
+  // mod.location from NSWI may be a directory OR a file prefix
+  // (e.g. ".../DarkNight/DarkNight" without extension). Detect which
+  // and return { dir, prefix } so callers can readdirSync(dir) and
+  // filter by prefix when set.
+  _resolveModuleDir(location) {
+    try {
+      const stat = fs.statSync(location);
+      if (stat.isDirectory()) return { dir: location, prefix: null };
+    } catch {} // not a directory — fall through
+    return { dir: path.dirname(location), prefix: path.basename(location) };
   }
 
   getBookEntry(moduleCode, key) {
@@ -909,42 +921,42 @@ class SwordService {
   // data directory (DataPath), others store them at the .sword/ root in a
   // folder named after the module. We probe both on disk and pick whichever
   // actually has the file.
-  rewriteImageSrcs(html, moduleCode) {
-    const dataPath = this.getModuleDataPath(moduleCode);
+  rewriteImageSrcs(html, moduleCode, fallbackDataPath = null) {
+    const dataPath = this.getModuleDataPath(moduleCode) ?? fallbackDataPath;
     if (!dataPath) return html;
-    const swordBase = path.join(config.swordModulesPath, '.sword');
+    const swordBase = path.resolve(path.join(config.swordModulesPath, '.sword'));
+    const parentDataPath = path.dirname(dataPath.replace(/\/$/, '')) + '/';
 
     return html.replace(/<img\b[^>]*?>/gi, (imgTag) => {
       const m = imgTag.match(/\bsrc\s*=\s*(?:"([^"]*?)"|'([^']*?)'|([^\s"'>][^\s>]*))/i);
       if (!m) return imgTag;
       const src = m[1] ?? m[2] ?? m[3] ?? '';
       if (!src || /^https?:|^data:|^\/\//.test(src)) return imgTag;
-      if (src.startsWith('/api/sword-data/')) return imgTag; // already rewritten
+      if (src.startsWith('/api/sword-data/')) return imgTag;
 
-      // Normalise: strip leading ./ or /
-      const cleanSrc = src.replace(/^\.\//, '').replace(/^\//, '');
+      // Strip a leading '/' so path.resolve treats it as relative to the
+      // candidate base rather than as an absolute filesystem path.
+      const relativeSrc = src.startsWith('/') ? src.slice(1) : src;
 
-      // Option A: image is inside the module's data directory (DataPath)
-      const moduleRelFile = path.join(swordBase, dataPath, cleanSrc);
-      // Option B: image is one level up from DataPath — some modules (e.g.
-      // histmideast) store data files in a subdirectory of the module folder
-      // but keep images in the parent directory alongside that subdirectory.
-      const parentDataPath = path.dirname(dataPath.replace(/\/$/, '')) + '/';
-      const parentRelFile  = path.join(swordBase, parentDataPath, cleanSrc);
-      // Option C: image is at the .sword root (e.g. histmideast/images/foo.jpg)
-      const rootRelFile    = path.join(swordBase, cleanSrc);
+      const tryBases = [
+        path.join(swordBase, dataPath),
+        path.join(swordBase, parentDataPath),
+        swordBase,
+      ];
 
-      let newSrc;
-      if (fs.existsSync(moduleRelFile)) {
-        newSrc = `/api/sword-data/${dataPath}${cleanSrc}`;
-      } else if (fs.existsSync(parentRelFile)) {
-        newSrc = `/api/sword-data/${parentDataPath}${cleanSrc}`;
-      } else if (fs.existsSync(rootRelFile)) {
-        newSrc = `/api/sword-data/${cleanSrc}`;
-      } else {
-        newSrc = `/api/sword-data/${parentDataPath}${cleanSrc}`;
+      for (const base of tryBases) {
+        const abs = path.resolve(base, relativeSrc);
+        if (!abs.startsWith(swordBase + path.sep) && abs !== swordBase) continue;
+        if (fs.existsSync(abs)) {
+          const rel = path.relative(swordBase, abs).replace(/\\/g, '/');
+          return imgTag.replace(m[0], `src="/api/sword-data/${rel}"`);
+        }
       }
-      return imgTag.replace(m[0], `src="${newSrc}"`);
+
+      // File not found on disk — emit the most likely URL anyway.
+      const abs = path.resolve(path.join(swordBase, dataPath), relativeSrc);
+      const rel = path.relative(swordBase, abs).replace(/\\/g, '/');
+      return imgTag.replace(m[0], `src="/api/sword-data/${rel}"`);
     });
   }
 
