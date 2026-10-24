@@ -1,0 +1,8 @@
+{
+  "name": "Vine's Expository Dictionary of New Testament Words",
+  "description": "Expository dictionary of NT Greek words organized by English keyword. W.E. Vine, 1940.",
+  "type": "DICT",
+  "language": "greek",
+  "format": "thayer-json",
+  "dataFile": "lexicon.json"
+}

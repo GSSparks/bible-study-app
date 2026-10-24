@@ -319,16 +319,26 @@ export default function CellView({
     navigateFocus(osisRef);
   }
 
-  function openStrongsInDictionary(strongsKey) {
+  function openStrongsInDictionary(strongsKey, preferredModuleCode = null) {
     const lang = strongsKey.startsWith('H') ? 'hebrew' : 'greek';
-    const dictKey = strongsKey.replace(/^[GH]/i, '').padStart(5, '0');
+    // SWORD StrongsGreek keys are zero-padded 5-digit numbers without the G/H prefix.
+    // Builtin modules use the full G/H-prefixed Strong's key directly.
+    const swordDictKey = strongsKey.replace(/^[GH]/i, '').padStart(5, '0');
     api.listInstalledModules('DICT').then((mods) => {
-      const candidates = mods.filter((m) => !/topical|nave/i.test(`${m.name} ${m.description || ''}`));
-      const match =
-        candidates.find((m) => new RegExp(`strongs?${lang}`, 'i').test(m.name)) ||
-        candidates.find((m) => (m.description || m.name).toLowerCase().includes(lang)) ||
-        candidates.find((m) => /strong/i.test(m.description || m.name));
+      let match;
+      if (preferredModuleCode) {
+        match = mods.find((m) => m.name === preferredModuleCode);
+      }
+      if (!match) {
+        const candidates = mods.filter((m) => !/topical|nave/i.test(`${m.name} ${m.description || ''}`));
+        match =
+          candidates.find((m) => new RegExp(`strongs?${lang}`, 'i').test(m.name)) ||
+          candidates.find((m) => (m.description || m.name).toLowerCase().includes(lang)) ||
+          candidates.find((m) => /strong/i.test(m.description || m.name));
+      }
       if (!match) return;
+      // Builtin modules use full G/H-prefixed keys; SWORD StrongsGreek uses padded numbers.
+      const dictKey = match.name.startsWith('builtin:') ? strongsKey : swordDictKey;
 
       // Find or create a dictionary pane
       let dictCol = layout.columns.find((c) => c.rows.some((r) => r.type === 'dictionary'));

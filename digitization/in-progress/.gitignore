@@ -1,0 +1,7 @@
+# Ignore large intermediate files produced during extraction
+*.jsonl
+*.sqlite
+*.csv
+*_raw.json
+*_chunks/
+tmp/

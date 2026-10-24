@@ -23,11 +23,13 @@ export default function StrongsDrawer({
   const [entries, setEntries] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [expandedLexicons, setExpandedLexicons] = useState(new Set());
 
   // Reset history when the external key changes (new word clicked in reader)
   useEffect(() => {
     setHistory([{ key: strongsKey, morph, wordText }]);
     setHistoryIndex(0);
+    setExpandedLexicons(new Set());
   }, [strongsKey]);
 
   useEffect(() => {
@@ -131,6 +133,46 @@ export default function StrongsDrawer({
                     </div>
                   </div>
                 )}
+
+                {(entry.builtinLexicons ?? []).map((lex) => {
+                  const snippetKey = `${key}:${lex.moduleCode}`;
+                  const expanded = expandedLexicons.has(snippetKey);
+                  const preview = lex.firstParagraph.length > 200 && !expanded
+                    ? lex.firstParagraph.slice(0, 200) + '…'
+                    : lex.firstParagraph;
+                  return (
+                    <div key={lex.moduleCode} className="border-t border-pageBorder/50 pt-2">
+                      <p className="mb-0.5 text-[10px] uppercase tracking-widest text-pageMuted">{lex.name}</p>
+                      {lex.lemma && (
+                        <p className="font-display text-sm text-pageText">
+                          {lex.lemma}
+                          {lex.transliteration && <span className="ml-1.5 text-xs text-pageMuted">({lex.transliteration})</span>}
+                          {lex.grammar && <span className="ml-1.5 text-xs italic text-pageMuted">{lex.grammar}</span>}
+                        </p>
+                      )}
+                      <p className="mt-0.5 text-xs leading-relaxed text-pageText/80">{preview}</p>
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                        {lex.hasMore && !expanded && (
+                          <button
+                            onClick={() => setExpandedLexicons((s) => new Set([...s, snippetKey]))}
+                            className="text-[11px] text-pageMuted hover:text-pageText"
+                          >
+                            Show more ↓
+                          </button>
+                        )}
+                        {onOpenInDictionary && (
+                          <button
+                            onClick={() => onOpenInDictionary(key, lex.moduleCode)}
+                            className="text-[11px] text-verdigris hover:text-brass"
+                          >
+                            Full entry in {lex.name.split("'")[0].trim()} →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
                 <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
                   {onSearchTopical && wordText && (
                     <button

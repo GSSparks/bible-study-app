@@ -161,19 +161,26 @@ export default function StudyMode({ auth, onNavigateToLibrary, pendingBibleOpen,
     }
   }
 
-  function openStrongsInDictionary(strongsKey) {
+  function openStrongsInDictionary(strongsKey, preferredModuleCode = null) {
     const lang = strongsKey.startsWith('H') ? 'hebrew' : 'greek';
-    const dictKey = strongsKey.replace(/^[GH]/i, '').padStart(5, '0');
+    const swordDictKey = strongsKey.replace(/^[GH]/i, '').padStart(5, '0');
     api.listInstalledModules('DICT').then((mods) => {
-      const candidates = mods.filter((m) => !/topical|nave/i.test(`${m.name} ${m.description || ''}`));
-      const match =
-        candidates.find((m) => new RegExp(`strongs?${lang}`, 'i').test(m.name)) ||
-        candidates.find((m) => (m.description || m.name).toLowerCase().includes(lang)) ||
-        candidates.find((m) => /strong/i.test(m.description || m.name));
+      let match;
+      if (preferredModuleCode) {
+        match = mods.find((m) => m.name === preferredModuleCode);
+      }
+      if (!match) {
+        const candidates = mods.filter((m) => !/topical|nave/i.test(`${m.name} ${m.description || ''}`));
+        match =
+          candidates.find((m) => new RegExp(`strongs?${lang}`, 'i').test(m.name)) ||
+          candidates.find((m) => (m.description || m.name).toLowerCase().includes(lang)) ||
+          candidates.find((m) => /strong/i.test(m.description || m.name));
+      }
       if (!match) {
         console.warn(`No installed Strong's dictionary module found for ${lang} (looking up ${strongsKey}).`);
         return;
       }
+      const dictKey = match.name.startsWith('builtin:') ? strongsKey : swordDictKey;
       const existingTab = dictionary.tabs.find((t) => t.module === match.name);
       const targetTabId = existingTab ? existingTab.id : dictionary.addTab(match.name, match.description || match.name);
       if (existingTab) dictionary.setActiveTabId(existingTab.id);

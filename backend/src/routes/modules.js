@@ -5,6 +5,7 @@ import { listPersonalModules } from '../services/personalModuleService.js';
 import { filterAvailableModules } from '../services/moduleVisibilityService.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { listMdModules, installMdModuleFromZip, removeMdModule, isMdModuleCode, mdDirName } from '../services/mdModuleService.js';
+import { listBuiltinModules } from '../services/builtinLexiconService.js';
 
 export const modulesRouter = Router();
 
@@ -63,11 +64,12 @@ modulesRouter.get('/installed', async (req, res, next) => {
       swordModules = await filterAvailableModules(swordModules);
     }
     const mdModules = await listMdModules(type);
+    const builtinModules = listBuiltinModules(type);
     if (type === 'DICT' || type === 'COMMENTARY') {
       const personalModules = await listPersonalModules(type, req.user?.id);
-      return res.json([...swordModules, ...personalModules, ...mdModules]);
+      return res.json([...swordModules, ...personalModules, ...mdModules, ...builtinModules]);
     }
-    res.json([...swordModules, ...mdModules]);
+    res.json([...swordModules, ...mdModules, ...builtinModules]);
   } catch (err) {
     next(err);
   }

@@ -91,7 +91,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
     setError(null);
     setMode('probing');
 
-    if (!focusedReference) {
+    if (!focusedReference || module.startsWith('builtin:')) {
       setMode('keys');
       return;
     }
