@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { swordService } from '../services/swordService.js';
 import { isPersonalModuleCode, listPersonalKeys, getPersonalEntryByKey } from '../services/personalModuleService.js';
 import { isMdModuleCode, mdDirName, getMdDictionaryKeys, getMdDictionaryEntry, getMdBookChapters, getMdModuleType } from '../services/mdModuleService.js';
+import { isBuiltinModuleCode, getBuiltinDictionaryEntry, listBuiltinDictionaryKeys } from '../services/builtinLexiconService.js';
 
 export const dictionaryRouter = Router();
 
@@ -23,6 +24,9 @@ dictionaryRouter.get('/:module/keys', async (req, res, next) => {
         throw err;
       }
       return res.json(await listPersonalKeys(req.params.module, req.user.id));
+    }
+    if (isBuiltinModuleCode(req.params.module)) {
+      return res.json(listBuiltinDictionaryKeys(req.params.module));
     }
     if (swordService.isGenBookModule(req.params.module)) {
       return res.json(swordService.getBookKeys(req.params.module));
@@ -60,6 +64,15 @@ dictionaryRouter.get('/:module/entry', async (req, res, next) => {
         throw err;
       }
       return res.json({ key, html: entry.body });
+    }
+    if (isBuiltinModuleCode(req.params.module)) {
+      const html = getBuiltinDictionaryEntry(req.params.module, key);
+      if (!html) {
+        const err = new Error(`No entry found for "${key}"`);
+        err.status = 404;
+        throw err;
+      }
+      return res.json({ key, html });
     }
     const html = swordService.getRawEntry(req.params.module, key);
     res.json({ key, html });

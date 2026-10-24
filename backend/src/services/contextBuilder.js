@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { prisma } from '../db/prisma.js';
 import { swordService } from './swordService.js';
 import { listMdModules, getMdPassage, mdDirName, mdVersesToText, isMdModuleCode } from './mdModuleService.js';
+import { getBuiltinFullText } from './builtinLexiconService.js';
 
 const anthropic = config.anthropicApiKey ? new Anthropic({ apiKey: config.anthropicApiKey }) : null;
 
@@ -273,16 +274,26 @@ export async function buildWordStudyContext({ module, strongsKey }) {
 
   let dictionaryEntry = null;
   try {
-    const entry = swordService.getStrongsEntry(strongsKey);
-    if (entry) {
+    // Prefer Thayer's full scholarly definition; fall back to the SWORD brief gloss.
+    const thayer = getBuiltinFullText(strongsKey);
+    if (thayer) {
       dictionaryEntry = {
-        transcription: entry.transcription,
-        phoneticTranscription: entry.phoneticTranscription,
-        definition: entry.definition,
+        transcription: thayer.lemma,
+        phoneticTranscription: thayer.transliteration,
+        definition: thayer.text,
       };
+    } else {
+      const entry = swordService.getStrongsEntry(strongsKey);
+      if (entry) {
+        dictionaryEntry = {
+          transcription: entry.transcription,
+          phoneticTranscription: entry.phoneticTranscription,
+          definition: entry.definition,
+        };
+      }
     }
   } catch {
-    // Strong's lookup failing shouldn't block the occurrence list itself
+    // dictionary lookup failing shouldn't block the occurrence list itself
   }
 
   const allOccurrences = await swordService.getStrongsOccurrences(module, strongsKey);

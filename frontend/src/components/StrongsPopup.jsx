@@ -27,10 +27,13 @@ export default function StrongsPopup({
   const [entries, setEntries] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Track which builtin lexicon snippets are expanded to their full first paragraph
+  const [expandedLexicons, setExpandedLexicons] = useState(new Set());
 
   useEffect(() => {
     setLoading(true);
     setError(null);
+    setExpandedLexicons(new Set());
     Promise.all(keys.map((k) => api.getStrongsEntry(k).then((entry) => ({ key: k, entry }))))
       .then(setEntries)
       .catch((e) => setError(e.message))
@@ -69,6 +72,8 @@ export default function StrongsPopup({
         {entries?.map(({ key, entry }, i) => {
           const morphCode = morphCodes[i];
           const morphGloss = morphCode ? decodeRobinsonMorph(morphCode) : null;
+          const lexicons = entry.builtinLexicons ?? [];
+
           return (
             <div key={key} className={i > 0 ? 'mt-3 border-t border-pageBorder pt-3' : ''}>
               {entries.length > 1 && <p className="mb-1 font-mono text-xs text-pageMuted">{key}</p>}
@@ -104,7 +109,47 @@ export default function StrongsPopup({
                     </div>
                   </div>
                 )}
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
+
+                {lexicons.map((lex) => {
+                  const snippetKey = `${key}:${lex.moduleCode}`;
+                  const expanded = expandedLexicons.has(snippetKey);
+                  const preview = lex.firstParagraph.length > 180 && !expanded
+                    ? lex.firstParagraph.slice(0, 180) + '…'
+                    : lex.firstParagraph;
+                  return (
+                    <div key={lex.moduleCode} className="mt-2 border-t border-pageBorder/50 pt-2">
+                      <p className="mb-1 text-[10px] uppercase tracking-widest text-pageMuted">{lex.name}</p>
+                      {lex.lemma && (
+                        <p className="font-display text-sm text-pageText">
+                          {lex.lemma}
+                          {lex.transliteration && <span className="ml-1.5 text-xs text-pageMuted">({lex.transliteration})</span>}
+                          {lex.grammar && <span className="ml-1.5 text-xs italic text-pageMuted">{lex.grammar}</span>}
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs leading-relaxed text-pageText/80">{preview}</p>
+                      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                        {lex.hasMore && !expanded && (
+                          <button
+                            onClick={() => setExpandedLexicons((s) => new Set([...s, snippetKey]))}
+                            className="text-[11px] text-pageMuted hover:text-pageText"
+                          >
+                            Show more ↓
+                          </button>
+                        )}
+                        {onOpenInDictionary && (
+                          <button
+                            onClick={() => onOpenInDictionary(key, lex.moduleCode)}
+                            className="text-[11px] text-verdigris hover:text-brass"
+                          >
+                            Full entry in {lex.name.split("'")[0].trim()} →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
                   {onOpenInDictionary && (
                     <button
                       onClick={() => onOpenInDictionary(key)}

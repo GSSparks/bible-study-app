@@ -1,0 +1,8 @@
+{
+  "name": "Thayer's Greek-English Lexicon",
+  "description": "A Greek-English Lexicon of the New Testament by Joseph Henry Thayer (1889). Full scholarly definitions for all NT Greek vocabulary, cross-linked to Strong's numbers.",
+  "type": "DICT",
+  "language": "greek",
+  "format": "thayer-json",
+  "dataFile": "lexicon.json"
+}

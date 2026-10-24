@@ -6,3 +6,6 @@ backend/public/
 images/
 .claude-account
 .claude/
+
+# Source PDFs for digitization pipeline (large binaries, not source code)
+digitization/sources/*.pdf

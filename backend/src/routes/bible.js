@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { swordService } from '../services/swordService.js';
 import { isPersonalModuleCode, getPersonalPassage } from '../services/personalModuleService.js';
 import { isMdModuleCode, mdDirName, getMdPassage } from '../services/mdModuleService.js';
+import { isBuiltinModuleCode } from '../services/builtinLexiconService.js';
 
 export const bibleRouter = Router();
 
@@ -15,6 +16,9 @@ bibleRouter.get('/:module/passage', async (req, res, next) => {
   try {
     const { ref } = req.query;
     if (!ref) return res.status(400).json({ error: 'ref query param is required' });
+    if (isBuiltinModuleCode(req.params.module)) {
+      return res.json({ module: req.params.module, reference: ref, verses: [] });
+    }
     if (isMdModuleCode(req.params.module)) {
       const verses = await getMdPassage(mdDirName(req.params.module), ref);
       return res.json({ module: req.params.module, reference: ref, verses: verses || [] });
