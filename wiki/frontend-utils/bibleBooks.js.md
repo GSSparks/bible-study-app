@@ -6,6 +6,7 @@ Exports the canonical Bible book list as a structured data array for use in UI p
 
 **Key exports / contents**
 
+- `getAdjacentChapter(bookOsis, chapter, delta)` — returns `{ book, chapter }` for the chapter `delta` steps away (±1), crossing book boundaries correctly (e.g. John 21 → Acts 1). Returns `null` at the edges of the canon (before Gen 1 or after Rev 22).
 - `BIBLE_BOOKS` — array of 66 objects, one per canonical Bible book, each with:
   - `osis` — OSIS abbreviation (e.g., `'Gen'`, `'Matt'`, `'Rev'`).
   - `name` — full human-readable name (e.g., `'Genesis'`, `'Matthew'`, `'Revelation'`).

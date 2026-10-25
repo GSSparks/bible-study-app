@@ -126,6 +126,7 @@ export default function BiblePanel({ open, onClose, pendingOpen, onPendingConsum
                 module={tab.module}
                 reference={reference}
                 onNavigate={navigateTo}
+                onScrollNavigate={(ref) => { if (ref !== reference) { setReference(ref); onReferenceChange?.(ref); } }}
                 onStrongsClick={(key, event, morph, wordText, module) => {
                   setVerseDrawer(null);
                   setStrongsDrawer({ key, morph, wordText, module });

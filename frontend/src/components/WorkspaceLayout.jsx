@@ -271,6 +271,10 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                       interlinearMode={interlinearMode}
                       onInterlinearToggle={() => setInterlinearMode((m) => !m)}
                       onNavigate={handleBibleNavigate}
+                      onScrollNavigate={(ref) => {
+                        if (activeTab) setBibleTabReference(col.id, row.id, activeTab.id, ref);
+                        syncFocusedReference(ref);
+                      }}
                       onOpenInTab={(ref) => openVerseTab(item.module, ref)}
                       onStrongsClick={onStrongsClick}
                       onVerseRefClick={onVerseRefClick}
