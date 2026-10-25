@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import { getAdjacentChapter } from '../utils/bibleBooks.js';
+import { parseVerseTokens, collectStrongsKeys } from '../utils/parseInterlinear.js';
 import VerseCommentaryEditor from './VerseCommentaryEditor.jsx';
 import ShareFindingModal from './ShareFindingModal.jsx';
 
@@ -129,11 +130,12 @@ export default function ReaderPane({
   onVerseRefClick,
   refreshNonce,
   isLoggedIn: _il,
-  // props reserved for future features — accepted so callers don't need to change:
-  showMarginalia: _sm, onOpenInTab: _ooit, onAnnotate: _oa,
+  showMarginalia = false,
+  onOpenInTab: _ooit, onAnnotate: _oa,
   onAskAboutPassage, onPhraseStudy,
   onPersonalCommentarySaved: _opcs,
-  interlinearMode: _im, onInterlinearToggle: _oii,
+  interlinearMode: interlinearModeProp,
+  onInterlinearToggle,
 }) {
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -145,6 +147,9 @@ export default function ReaderPane({
   const [noteEditor, setNoteEditor] = useState(null);     // { verseRef, x, y }
   const [shareFinding, setShareFinding] = useState(null);   // { verseRef, verseText, x, y }
   const [phraseSelection, setPhraseSelection] = useState(null); // { text, strongsSequence, x, y, verseRef }
+  const [interlinearInternal, setInterlinearInternal] = useState(false);
+  const [strongsCache, setStrongsCache] = useState(new Map()); // strongsKey → transcription string
+  const interlinearMode = interlinearModeProp !== undefined ? interlinearModeProp : interlinearInternal;
 
   // ── continuous-reading refs ──────────────────────────────────────────────
   const loadedSlotKeys  = useRef(new Set());   // chapter keys currently in `verses`
@@ -155,6 +160,7 @@ export default function ReaderPane({
   const topSentinelRef     = useRef(null);
   const bottomSentinelRef  = useRef(null);
   const verseRefs          = useRef(new Map()); // verseKey → span DOM element
+  const fetchedKeys        = useRef(new Set()); // keys already fetched or in-flight
   const lastEmittedKey     = useRef(null);     // dedup: verseKey last emitted by scroll tracker
   const lastEmittedRef     = useRef(null);     // echo-guard: ref string last emitted by tracker
   const programmaticActive = useRef(false);    // true while scrollIntoView is animating
@@ -417,6 +423,40 @@ export default function ReaderPane({
     };
   }, [focusMode, onNavigate, onScrollNavigate]);
 
+  // ── interlinear: fetch Strong's transcriptions ───────────────────────────
+
+  useEffect(() => {
+    if (!interlinearMode || verses.length === 0) return;
+    const keys = collectStrongsKeys(verses);
+    const missing = keys.filter((k) => !fetchedKeys.current.has(k));
+    if (missing.length === 0) return;
+    for (const k of missing) fetchedKeys.current.add(k);
+    Promise.allSettled(missing.map((k) => api.getStrongsEntry(k).then((entry) => ({ k, entry }))))
+      .then((results) => {
+        const updates = [];
+        for (const r of results) {
+          if (r.status === 'fulfilled' && r.value.entry?.transcription) {
+            updates.push([r.value.k, r.value.entry.transcription]);
+          }
+        }
+        if (updates.length > 0) {
+          setStrongsCache((prev) => {
+            const next = new Map(prev);
+            for (const [k, t] of updates) next.set(k, t);
+            return next;
+          });
+        }
+      });
+  }, [interlinearMode, verses]);
+
+  function toggleInterlinear() {
+    if (onInterlinearToggle) {
+      onInterlinearToggle(!interlinearMode);
+    } else {
+      setInterlinearInternal((v) => !v);
+    }
+  }
+
   // ── highlight actions ────────────────────────────────────────────────────
 
   async function handleHighlightToggle(color) {
@@ -620,18 +660,29 @@ export default function ReaderPane({
         <header className="mb-4 flex items-baseline gap-3">
           <h1 className="font-display text-2xl text-pageText">{reference || 'Select a passage'}</h1>
           {module && <span className="font-mono text-xs uppercase tracking-wide text-pageMuted">{module}</span>}
-          {firstVerse && (
-            <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex items-center gap-2">
+            {showMarginalia && (
               <button
-                onClick={() => goToChapter(-1)}
-                className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
-              >‹</button>
-              <button
-                onClick={() => goToChapter(1)}
-                className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
-              >›</button>
-            </div>
-          )}
+                onClick={toggleInterlinear}
+                title="Toggle interlinear mode"
+                className={`rounded border px-2 py-1 text-xs transition-colors ${interlinearMode ? 'border-verdigris text-verdigris' : 'border-pageBorder text-pageMuted hover:border-pageAccent hover:text-pageText'}`}
+              >
+                Interlinear
+              </button>
+            )}
+            {firstVerse && (
+              <>
+                <button
+                  onClick={() => goToChapter(-1)}
+                  className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
+                >‹</button>
+                <button
+                  onClick={() => goToChapter(1)}
+                  className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
+                >›</button>
+              </>
+            )}
+          </div>
         </header>
       )}
 
@@ -659,31 +710,77 @@ export default function ReaderPane({
                   {seg.sectionTitles.join(' — ')}
                 </h3>
               )}
-              <p className="break-words">
-                {seg.verses.map((v) => {
-                  const verseKey = `${v.bibleBookShortTitle}-${v.chapter}-${v.verseNr}`;
-                  const isFocused = focusMode && verseKey === focusedVerseKey;
-                  const hlEntry = highlightMap[verseKey];
-                  return (
-                    <span
-                      key={verseKey}
-                      data-versekey={verseKey}
-                      ref={(el) => {
-                        if (el) verseRefs.current.set(verseKey, el);
-                        else verseRefs.current.delete(verseKey);
-                      }}
-                      className={[
-                        'rounded',
-                        hlEntry ? HIGHLIGHT_BG[hlEntry.color] : '',
-                        isFocused ? 'border-l-2 border-pageAccent pl-1' : '',
-                      ].filter(Boolean).join(' ')}
-                    >
-                      <sup data-verse-number="true" className="mr-1 cursor-pointer select-none text-xs text-pageAccent hover:text-brass">{v.verseNr}</sup>
-                      <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
-                    </span>
-                  );
-                })}
-              </p>
+              {interlinearMode ? (
+                <div className="flex flex-wrap items-start gap-x-2 gap-y-4">
+                  {seg.verses.map((v) => {
+                    const verseKey = `${v.bibleBookShortTitle}-${v.chapter}-${v.verseNr}`;
+                    const isFocused = focusMode && verseKey === focusedVerseKey;
+                    const hlEntry = highlightMap[verseKey];
+                    const tokens = parseVerseTokens(v.content);
+                    return (
+                      <span
+                        key={verseKey}
+                        data-versekey={verseKey}
+                        ref={(el) => {
+                          if (el) verseRefs.current.set(verseKey, el);
+                          else verseRefs.current.delete(verseKey);
+                        }}
+                        className={[
+                          'inline-flex flex-wrap items-start gap-x-1.5 gap-y-2',
+                          hlEntry ? HIGHLIGHT_BG[hlEntry.color] : '',
+                          isFocused ? 'border-l-2 border-pageAccent pl-1' : '',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        <sup data-verse-number="true" className="mt-1 cursor-pointer select-none text-xs text-pageAccent hover:text-brass">{v.verseNr}</sup>
+                        {tokens.map((tok, ti) =>
+                          tok.type === 'text' ? (
+                            <span key={ti} className="font-display text-sm text-pageText">{tok.text}</span>
+                          ) : (
+                            <span key={ti} className="inline-flex flex-col items-center gap-0.5 text-center">
+                              <span className="font-display text-sm leading-snug text-pageText">{tok.word}</span>
+                              <button
+                                className="font-mono text-[10px] leading-none text-verdigris hover:text-brass"
+                                onClick={(e) => { e.stopPropagation(); onStrongsClick?.(tok.strong, e, tok.morph, tok.word, module); }}
+                              >
+                                {tok.strong.split(',')[0]}
+                              </button>
+                              <span className="text-[10px] leading-none italic text-pageMuted">
+                                {strongsCache.get(tok.strong.split(',')[0]) ?? '…'}
+                              </span>
+                            </span>
+                          )
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="break-words">
+                  {seg.verses.map((v) => {
+                    const verseKey = `${v.bibleBookShortTitle}-${v.chapter}-${v.verseNr}`;
+                    const isFocused = focusMode && verseKey === focusedVerseKey;
+                    const hlEntry = highlightMap[verseKey];
+                    return (
+                      <span
+                        key={verseKey}
+                        data-versekey={verseKey}
+                        ref={(el) => {
+                          if (el) verseRefs.current.set(verseKey, el);
+                          else verseRefs.current.delete(verseKey);
+                        }}
+                        className={[
+                          'rounded',
+                          hlEntry ? HIGHLIGHT_BG[hlEntry.color] : '',
+                          isFocused ? 'border-l-2 border-pageAccent pl-1' : '',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        <sup data-verse-number="true" className="mr-1 cursor-pointer select-none text-xs text-pageAccent hover:text-brass">{v.verseNr}</sup>
+                        <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
+                      </span>
+                    );
+                  })}
+                </p>
+              )}
             </div>
           ))}
         </div>
