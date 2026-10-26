@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import { getAdjacentChapter } from '../utils/bibleBooks.js';
@@ -161,8 +161,9 @@ export default function ReaderPane({
   const bottomSentinelRef  = useRef(null);
   const verseRefs          = useRef(new Map()); // verseKey → span DOM element
   const fetchedKeys        = useRef(new Set()); // keys already fetched or in-flight
-  const lastEmittedKey     = useRef(null);     // dedup: verseKey last emitted by scroll tracker
-  const lastEmittedRef     = useRef(null);     // echo-guard: ref string last emitted by tracker
+  const prependScrollAnchor = useRef(null);    // { el, savedTop } — compensate scroll after prepend/trim
+  const lastEmittedKey      = useRef(null);     // dedup: verseKey last emitted by scroll tracker
+  const scrollEmittedRefs  = useRef(new Set()); // Set of ref strings emitted by scroll tracker (unconsumed)
   const programmaticActive = useRef(false);    // true while scrollIntoView is animating
   const pendingScroll      = useRef(false);    // set true to trigger the scroll-to effect once
 
@@ -217,6 +218,27 @@ export default function ReaderPane({
       if (trimmed) loadedSlotKeys.current.delete(trimmed.key);
       loadedSlotKeys.current.add(key);
 
+      // Capture a visible verse as scroll anchor before the DOM changes above the
+      // viewport (prepend inserts above; trim removes from above when appending).
+      // Use content-relative coordinates (el.top + scrollTop - containerTop) so the
+      // saved position is stable even if the user scrolls during the async API call.
+      if (position === 'prepend' || (position === 'append' && trimmed !== null)) {
+        const container = actualScrollRef.current;
+        if (container) {
+          const containerTop = container.getBoundingClientRect().top;
+          for (const [, el] of verseRefs.current) {
+            const { top } = el.getBoundingClientRect();
+            if (top >= containerTop) {
+              prependScrollAnchor.current = {
+                el,
+                savedContentTop: top + container.scrollTop - containerTop,
+              };
+              break;
+            }
+          }
+        }
+      }
+
       const drop = (arr, slot) =>
         arr.filter((v) => !(v.bibleBookShortTitle === slot.book && String(v.chapter) === String(slot.chapter)));
 
@@ -258,10 +280,15 @@ export default function ReaderPane({
       const verseNum = reference.includes(':') ? parseInt(reference.split(':')[1], 10) : null;
 
       if (loadedSlotKeys.current.has(slotKey)) {
-        // Echo-back guard: if the ref came from our own scroll tracker, skip scrolling
-        if (verseNum && !isNaN(verseNum) && reference !== lastEmittedRef.current) {
-          setFocusedVerseKey(`${parsed.book}-${parsed.chapter}-${verseNum}`);
-          pendingScroll.current = true;
+        if (verseNum && !isNaN(verseNum)) {
+          if (scrollEmittedRefs.current.has(reference)) {
+            // Came from our scroll tracker — consume the entry, skip scrollIntoView
+            scrollEmittedRefs.current.delete(reference);
+          } else {
+            // Explicit navigation — scroll to the verse
+            setFocusedVerseKey(`${parsed.book}-${parsed.chapter}-${verseNum}`);
+            pendingScroll.current = true;
+          }
         }
         return;
       }
@@ -271,7 +298,8 @@ export default function ReaderPane({
       loadingSlotKeys.current.clear();
       slotMetaRef.current = [];
       lastEmittedKey.current = null;
-      lastEmittedRef.current = null;
+      scrollEmittedRefs.current.clear();
+      prependScrollAnchor.current = null; // discard any in-flight anchor from previous location
       setVerses([]);
       setHighlightMap({});
       setFocusedVerseKey(null);
@@ -326,7 +354,7 @@ export default function ReaderPane({
     pendingScroll.current = false;
     programmaticActive.current = true;
     lastEmittedKey.current = null;
-    lastEmittedRef.current = null;
+    scrollEmittedRefs.current.clear();
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(() => { programmaticActive.current = false; }, 600);
   }, [focusMode, focusedVerseKey, verses]);
@@ -337,13 +365,21 @@ export default function ReaderPane({
     if (!focusMode) return;
     const sentinel = topSentinelRef.current;
     if (!sentinel) return;
+    let container = null;
     let p = sentinel.parentElement;
     while (p && p !== document.body) {
       const { overflowY } = getComputedStyle(p);
-      if (overflowY === 'auto' || overflowY === 'scroll') { actualScrollRef.current = p; return; }
+      if (overflowY === 'auto' || overflowY === 'scroll') { container = p; break; }
       p = p.parentElement;
     }
-    actualScrollRef.current = scrollContainerRef.current;
+    if (!container) container = scrollContainerRef.current;
+    actualScrollRef.current = container;
+    // Disable browser scroll anchoring so our useLayoutEffect compensation is the
+    // sole adjuster — browser anchoring + manual compensation = double-correction.
+    if (container) {
+      container.style.overflowAnchor = 'none';
+      return () => { container.style.overflowAnchor = ''; };
+    }
   }, [focusMode]);
 
   // ── IntersectionObserver: lazy-load chapters at scroll edges ────────────
@@ -371,7 +407,7 @@ export default function ReaderPane({
           }
         }
       }
-    }, { root, rootMargin: '400px 0px 400px 0px' });
+    }, { root, rootMargin: '600px 0px 600px 0px' });
     io.observe(topEl);
     io.observe(botEl);
     return () => io.disconnect();
@@ -384,31 +420,41 @@ export default function ReaderPane({
     const emit = onScrollNavigate || onNavigate;
     if (!emit) return;
     let raf = null;
+    let endTimer = null;
+
+    function evaluate() {
+      if (programmaticActive.current) return;
+      // User is manually scrolling — cancel any deferred programmatic scroll
+      pendingScroll.current = false;
+      const container = actualScrollRef.current;
+      if (!container) return;
+      const containerTop = container.getBoundingClientRect().top;
+      const threshold = container.clientHeight * 0.35;
+      let bestKey = null, bestY = -Infinity, fallbackKey = null, fallbackY = Infinity;
+      for (const [key, el] of verseRefs.current) {
+        const relTop = el.getBoundingClientRect().top - containerTop;
+        if (relTop <= threshold && relTop > bestY) { bestY = relTop; bestKey = key; }
+        if (relTop > threshold && relTop < fallbackY) { fallbackY = relTop; fallbackKey = key; }
+      }
+      const verseKey = bestKey || fallbackKey;
+      if (!verseKey || verseKey === lastEmittedKey.current) return;
+      lastEmittedKey.current = verseKey;
+      const parts = verseKey.split('-');
+      const refString = `${parts.slice(0, -2).join('-')} ${parts[parts.length - 2]}:${parts[parts.length - 1]}`;
+      scrollEmittedRefs.current.add(refString);
+      emit(refString);
+      setFocusedVerseKey(verseKey);
+    }
 
     function onScroll() {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = null;
-        if (programmaticActive.current) return;
-        const container = actualScrollRef.current;
-        if (!container) return;
-        const containerTop = container.getBoundingClientRect().top;
-        const threshold = container.clientHeight * 0.35;
-        let bestKey = null, bestY = -Infinity, fallbackKey = null, fallbackY = Infinity;
-        for (const [key, el] of verseRefs.current) {
-          const relTop = el.getBoundingClientRect().top - containerTop;
-          if (relTop <= threshold && relTop > bestY) { bestY = relTop; bestKey = key; }
-          if (relTop > threshold && relTop < fallbackY) { fallbackY = relTop; fallbackKey = key; }
-        }
-        const verseKey = bestKey || fallbackKey;
-        if (!verseKey || verseKey === lastEmittedKey.current) return;
-        lastEmittedKey.current = verseKey;
-        const parts = verseKey.split('-');
-        const refString = `${parts.slice(0, -2).join('-')} ${parts[parts.length - 2]}:${parts[parts.length - 1]}`;
-        lastEmittedRef.current = refString;
-        emit(refString);
-        setFocusedVerseKey(verseKey);
-      });
+      // Throttle live updates to one per animation frame
+      if (!raf) {
+        raf = requestAnimationFrame(() => { raf = null; evaluate(); });
+      }
+      // Final evaluation after scroll settles — fixes cases where the rAF snapshot
+      // landed mid-animation on the wrong verse (e.g. one scroll-wheel click)
+      clearTimeout(endTimer);
+      endTimer = setTimeout(evaluate, 100);
     }
 
     const timer = setTimeout(() => {
@@ -417,11 +463,27 @@ export default function ReaderPane({
     }, 50);
     return () => {
       clearTimeout(timer);
+      clearTimeout(endTimer);
       const c = actualScrollRef.current;
       if (c) c.removeEventListener('scroll', onScroll);
       if (raf) cancelAnimationFrame(raf);
     };
   }, [focusMode, onNavigate, onScrollNavigate]);
+
+  // ── scroll position compensation after prepend / trim ───────────────────
+  // Runs synchronously after commit so the correction is invisible to the user.
+
+  useLayoutEffect(() => {
+    const anchor = prependScrollAnchor.current;
+    if (!anchor) return;
+    prependScrollAnchor.current = null;
+    const container = actualScrollRef.current;
+    if (!container) return;
+    const containerTop = container.getBoundingClientRect().top;
+    const newContentTop = anchor.el.getBoundingClientRect().top + container.scrollTop - containerTop;
+    const delta = newContentTop - anchor.savedContentTop;
+    if (Math.abs(delta) > 0) container.scrollTop += delta;
+  }, [verses]);
 
   // ── interlinear: fetch Strong's transcriptions ───────────────────────────
 
@@ -756,7 +818,7 @@ export default function ReaderPane({
                         className={[
                           'inline-flex flex-wrap items-start gap-x-1.5 gap-y-2',
                           hlEntry ? HIGHLIGHT_BG[hlEntry.color] : '',
-                          isFocused ? 'border-l-2 border-pageAccent pl-1' : '',
+                          isFocused ? 'bg-brass/10' : '',
                         ].filter(Boolean).join(' ')}
                       >
                         <sup data-verse-number="true" className="mt-1 cursor-pointer select-none text-xs text-pageAccent hover:text-brass">{v.verseNr}</sup>
@@ -799,7 +861,7 @@ export default function ReaderPane({
                         className={[
                           'rounded',
                           hlEntry ? HIGHLIGHT_BG[hlEntry.color] : '',
-                          isFocused ? 'border-l-2 border-pageAccent pl-1' : '',
+                          isFocused ? 'bg-brass/10' : '',
                         ].filter(Boolean).join(' ')}
                       >
                         <sup data-verse-number="true" className="mr-1 cursor-pointer select-none text-xs text-pageAccent hover:text-brass">{v.verseNr}</sup>
@@ -814,9 +876,6 @@ export default function ReaderPane({
         </div>
       )}
 
-      {focusMode && loadingAdjacent && (
-        <div className="py-3 text-center text-xs text-pageMuted">Loading…</div>
-      )}
       {focusMode && <div ref={bottomSentinelRef} className="pointer-events-none h-1" />}
 
       {!loading && !error && verses.length === 0 && reference && (
