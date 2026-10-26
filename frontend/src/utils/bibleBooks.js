@@ -72,3 +72,22 @@ export const BIBLE_BOOKS = [
   { osis: 'Jude', name: 'Jude', chapters: 1, testament: 'NT' },
   { osis: 'Rev', name: 'Revelation', chapters: 22, testament: 'NT' },
 ];
+
+/** Given a book OSIS code and chapter number, return the adjacent chapter
+ * accounting for book boundaries. Returns null at the edges of the canon. */
+export function getAdjacentChapter(bookOsis, chapter, delta) {
+  const idx = BIBLE_BOOKS.findIndex((b) => b.osis === bookOsis);
+  if (idx === -1) return null;
+  let newCh = chapter + delta;
+  let newIdx = idx;
+  if (newCh < 1) {
+    if (idx === 0) return null;
+    newIdx = idx - 1;
+    newCh = BIBLE_BOOKS[newIdx].chapters;
+  } else if (newCh > BIBLE_BOOKS[idx].chapters) {
+    if (idx === BIBLE_BOOKS.length - 1) return null;
+    newIdx = idx + 1;
+    newCh = 1;
+  }
+  return { book: BIBLE_BOOKS[newIdx].osis, chapter: newCh };
+}

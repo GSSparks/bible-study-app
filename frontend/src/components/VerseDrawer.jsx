@@ -2,6 +2,14 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { api } from '../api/client.js';
 
+function osisToRef(str) {
+  const start = str.split('-')[0];
+  if (!start.includes('.')) return start;
+  const parts = start.split('.');
+  if (parts.length === 2) return `${parts[0]} ${parts[1]}`;
+  return `${parts[0]} ${parts[1]}:${parts[2]}`;
+}
+
 /** Bottom-docked drawer showing Bible verse text, identical in structure
  * to StrongsDrawer. Clicking a cross-reference or verse-ref inside the
  * rendered content navigates the drawer itself (back button appears),
@@ -115,7 +123,7 @@ export default function VerseDrawer({ osisRef, module, onClose, onOpenInTab }) {
               </p>
               {onOpenInTab && (
                 <button
-                  onClick={() => onOpenInTab(module, ref)}
+                  onClick={() => onOpenInTab(module, osisToRef(ref))}
                   className="text-xs text-verdigris hover:text-brass"
                 >
                   {truncated

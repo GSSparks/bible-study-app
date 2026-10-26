@@ -1,24 +1,53 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Languages } from 'lucide-react';
 import { api } from '../api/client.js';
-import SelectableNoteRegion from './SelectableNoteRegion.jsx';
+import { getAdjacentChapter } from '../utils/bibleBooks.js';
+import { parseVerseTokens, collectStrongsKeys } from '../utils/parseInterlinear.js';
 import VerseCommentaryEditor from './VerseCommentaryEditor.jsx';
-import FootnotePopup from './FootnotePopup.jsx';
-import { parseVerseTokens, collectStrongsKeys, cleanMorph } from '../utils/parseInterlinear.js';
-import VerseHoverCard from './VerseHoverCard.jsx';
 import ShareFindingModal from './ShareFindingModal.jsx';
+
+// ─── constants ────────────────────────────────────────────────────────────────
+
+const HIGHLIGHT_COLORS = [
+  { id: 'yellow', label: 'Yellow' },
+  { id: 'blue',   label: 'Blue'   },
+  { id: 'green',  label: 'Green'  },
+  { id: 'pink',   label: 'Pink'   },
+  { id: 'purple', label: 'Purple' },
+];
+
+// Tailwind classes — full strings so JIT picks them up
+const HIGHLIGHT_BG = {
+  yellow: 'bg-amber-300/30',
+  blue:   'bg-sky-300/30',
+  green:  'bg-emerald-300/25',
+  pink:   'bg-rose-300/25',
+  purple: 'bg-violet-300/25',
+};
+
+const HIGHLIGHT_SWATCH = {
+  yellow: 'bg-amber-400',
+  blue:   'bg-sky-400',
+  green:  'bg-emerald-400',
+  pink:   'bg-rose-400',
+  purple: 'bg-violet-400',
+};
+
+const MAX_SLOTS = 5;
+
+// ─── pure helpers ─────────────────────────────────────────────────────────────
 
 function groupVerses(verses) {
   const segments = [];
   let prev = null;
-
   for (const v of verses) {
-    const sameBook = prev && prev.bibleBookShortTitle === v.bibleBookShortTitle;
-    const sameChapter = sameBook && prev.chapter === v.chapter;
-    const contiguous = sameChapter && Number(v.absoluteVerseNr) === Number(prev.absoluteVerseNr) + 1;
+    const sameChapter =
+      prev &&
+      prev.bibleBookShortTitle === v.bibleBookShortTitle &&
+      prev.chapter === v.chapter;
+    const contiguous =
+      sameChapter && Number(v.absoluteVerseNr) === Number(prev.absoluteVerseNr) + 1;
     const hasTitles = v.titles && v.titles.length > 0;
-
     if (!contiguous || hasTitles) {
       segments.push({
         key: `${v.bibleBookShortTitle}-${v.chapter}-${v.verseNr}`,
@@ -31,48 +60,25 @@ function groupVerses(verses) {
     segments[segments.length - 1].verses.push(v);
     prev = v;
   }
-
   return segments;
 }
 
-function extractStrongsData(target) {
-  let el = target;
-  for (let depth = 0; el && depth < 4; depth++, el = el.parentElement) {
-    if (el.dataset?.strong) {
-      return { key: el.dataset.strong, morph: el.dataset.morph || null, word: el.textContent?.trim() || null };
-    }
-
-    const href = el.getAttribute?.('href') || '';
-    if (href.startsWith('strong:')) return { key: href.slice(7), morph: null, word: el.textContent?.trim() || null };
-
-    const title = el.getAttribute?.('title') || '';
-    const titleMatch = title.match(/\b([GH]\d{1,5})\b/);
-    if (titleMatch) return { key: titleMatch[1], morph: null, word: el.textContent?.trim() || null };
-
-    if (el.classList?.contains('strongs')) {
-      const text = el.textContent.trim();
-      if (/^[GH]\d{1,5}$/.test(text)) return { key: text, morph: null, word: null };
-    }
-
-    const ownText = el.textContent?.trim();
-    if (ownText && /^[GH]\d{1,5}$/.test(ownText)) return { key: ownText, morph: null, word: null };
-  }
-  return null;
+function parseRefToChapter(ref) {
+  if (!ref) return null;
+  const m = ref.trim().match(/^(\S+)\s+(\d+)/);
+  if (!m) return null;
+  return { book: m[1], chapter: parseInt(m[2], 10) };
 }
 
-/** window.getSelection().toString() faithfully includes the text
- * content of every DOM node the selection passes through — including
- * our own xref/footnote marker superscripts (tiny inline elements
- * sitting immediately next to real words, e.g. a cross-reference letter
- * "b"), which a natural drag-selection can easily sweep over without
- * the person noticing. Confirmed as a real bug: a selection over
- * "...unless it has been given..." came back as "...unless it bhas
- * been given...", a stray marker letter fused into the middle of a
- * word, corrupting the phrase search. Cloning the selected range into a
- * detached fragment and stripping marker elements out of the clone
- * before reading textContent avoids reproducing that — the clone is
- * never attached to the page, so removing elements from it can't affect
- * anything the person actually sees. */
+// Convert verseKey ("Matt-5-3") → reference string ("Matt 5:3")
+function verseKeyToRef(verseKey) {
+  const parts = verseKey.split('-');
+  return `${parts.slice(0, -2).join('-')} ${parts[parts.length - 2]}:${parts[parts.length - 1]}`;
+}
+
+// Extract clean text from a selection range, stripping xref/footnote marker
+// elements that a drag-selection can silently sweep over, which would otherwise
+// fuse stray marker characters ("b", "†") into the phrase query text.
 function extractCleanSelectionText(range) {
   const fragment = range.cloneContents();
   fragment.querySelectorAll('.xref-marker, .footnote-marker').forEach((el) => el.remove());
@@ -81,969 +87,949 @@ function extractCleanSelectionText(range) {
   return container.textContent.trim().replace(/\s+/g, ' ');
 }
 
-// Canonical chapter counts for all 66 Protestant canon books, keyed by
-// the short title SWORD returns (standard OSIS abbreviations). Used to
-// prevent the ‹/› nav buttons from navigating to a chapter that doesn't exist.
-const BOOK_CHAPTER_COUNT = {
-  Gen:50, Exod:40, Lev:27, Num:36, Deut:34, Josh:24, Judg:21, Ruth:4,
-  '1Sam':31, '2Sam':24, '1Kgs':22, '2Kgs':25, '1Chr':29, '2Chr':36,
-  Ezra:10, Neh:13, Esth:10, Job:42, Ps:150, Prov:31, Eccl:12, Song:8,
-  Isa:66, Jer:52, Lam:5, Ezek:48, Dan:12, Hos:14, Joel:3, Amos:9,
-  Obad:1, Jonah:4, Mic:7, Nah:3, Hab:3, Zeph:3, Hag:2, Zech:14, Mal:4,
-  Matt:28, Mark:16, Luke:24, John:21, Acts:28, Rom:16, '1Cor':16, '2Cor':13,
-  Gal:6, Eph:6, Phil:4, Col:4, '1Thess':5, '2Thess':3, '1Tim':6, '2Tim':4,
-  Titus:3, Phlm:1, Heb:13, Jas:5, '1Pet':5, '2Pet':3, '1John':5, '2John':1,
-  '3John':1, Jude:1, Rev:22,
-};
+// Strip HTML tags to get plain readable text from SWORD verse content.
+function stripHtml(html) {
+  const el = document.createElement('div');
+  el.innerHTML = html;
+  return el.textContent || '';
+}
 
-const HIGHLIGHT_BG = {
-  yellow: 'bg-amber-300/30',
-  blue: 'bg-sky-300/30',
-  green: 'bg-emerald-300/25',
-  pink: 'bg-rose-300/25',
-  purple: 'bg-violet-300/25',
-};
+// Walk up to 4 ancestors looking for a Strong's key in the SWORD markup.
+function extractStrongsData(target) {
+  let el = target;
+  for (let d = 0; el && d < 4; d++, el = el.parentElement) {
+    if (el.dataset?.strong)
+      return { key: el.dataset.strong, morph: el.dataset.morph || null, word: el.textContent?.trim() || null };
+    const href = el.getAttribute?.('href') || '';
+    if (href.startsWith('strong:'))
+      return { key: href.slice(7), morph: null, word: el.textContent?.trim() || null };
+    const titleMatch = (el.getAttribute?.('title') || '').match(/\b([GH]\d{1,5})\b/);
+    if (titleMatch)
+      return { key: titleMatch[1], morph: null, word: el.textContent?.trim() || null };
+    if (el.classList?.contains('strongs')) {
+      const t = el.textContent.trim();
+      if (/^[GH]\d{1,5}$/.test(t)) return { key: t, morph: null, word: null };
+    }
+    const ownText = el.textContent?.trim();
+    if (ownText && /^[GH]\d{1,5}$/.test(ownText))
+      return { key: ownText, morph: null, word: null };
+  }
+  return null;
+}
 
-// Group shared highlights use a lighter tint so personal highlights read
-// as "mine" and group highlights read as "noticed by the group".
-const GROUP_HIGHLIGHT_BG = {
-  yellow: 'bg-amber-300/15',
-  blue: 'bg-sky-300/15',
-  green: 'bg-emerald-300/10',
-  pink: 'bg-rose-300/10',
-  purple: 'bg-violet-300/10',
-};
-
-const HIGHLIGHT_SWATCH = {
-  yellow: 'bg-amber-400',
-  blue: 'bg-sky-400',
-  green: 'bg-emerald-400',
-  pink: 'bg-rose-400',
-  purple: 'bg-violet-400',
-};
+// ─── component ────────────────────────────────────────────────────────────────
 
 export default function ReaderPane({
   module,
   reference,
   focusMode = false,
   noScroll = false,
-  showMarginalia = true,
-  interlinearMode: controlledInterlinearMode,
-  onInterlinearToggle,
   onNavigate,
-  onOpenInTab,
+  onScrollNavigate,
   onStrongsClick,
   onVerseRefClick,
-  onAnnotate,
-  onAskAboutPassage,
-  onPhraseStudy,
   refreshNonce,
-  onPersonalCommentarySaved,
-  isLoggedIn = false,
+  isLoggedIn: _il,
+  showMarginalia = false,
+  onOpenInTab: _ooit, onAnnotate: _oa,
+  onAskAboutPassage, onPhraseStudy,
+  onPersonalCommentarySaved: _opcs,
+  interlinearMode: interlinearModeProp,
+  onInterlinearToggle,
 }) {
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [hoverCard, setHoverCard] = useState(null); // { refStr, rect }
-  const hoverCloseTimer = useRef(null);
-  const preserveSelectionRef = useRef(false);
-  const [footnotePopup, setFootnotePopup] = useState(null);
-  const [selectedRange, setSelectedRange] = useState(null);
-  const [phraseSelection, setPhraseSelection] = useState(null); // { text, strongsSequence, x, y }
   const [focusedVerseKey, setFocusedVerseKey] = useState(null);
-  const [highlightMap, setHighlightMap] = useState(new Map()); // verseRef → { id, color }
-  const [noteCount, setNoteCount] = useState(0);
-  const [verseNoteRef, setVerseNoteRef] = useState(null); // { reference, x, y }
-  const [_interlinearMode, _setInterlinearMode] = useState(false);
-  const interlinearMode = controlledInterlinearMode !== undefined ? controlledInterlinearMode : _interlinearMode;
-  function toggleInterlinear() {
-    if (onInterlinearToggle) onInterlinearToggle();
-    else _setInterlinearMode((m) => !m);
-  }
-  const [strongsCache, setStrongsCache] = useState(new Map()); // strongsKey → transcription
-  const verseRefs = useRef(new Map());
-  const [groupFindings, setGroupFindings] = useState([]); // ScriptoriumFinding[] for current chapter
-  const [groupHighlightMap, setGroupHighlightMap] = useState(new Map()); // verseRef → ScriptoriumHighlight[]
-  const [shareFindingRef, setShareFindingRef] = useState(null); // { reference, module, x, y }
+  const [loadingAdjacent, setLoadingAdjacent] = useState(false);
+  const [highlightMap, setHighlightMap] = useState({}); // verseKey → { id, color }
+  const [contextMenu, setContextMenu] = useState(null);   // { verseKey, verseRef, x, y }
+  const [noteEditor, setNoteEditor] = useState(null);     // { verseRef, x, y }
+  const [shareFinding, setShareFinding] = useState(null);   // { verseRef, verseText, x, y }
+  const [phraseSelection, setPhraseSelection] = useState(null); // { text, strongsSequence, x, y, verseRef }
+  const [interlinearInternal, setInterlinearInternal] = useState(false);
+  const [strongsCache, setStrongsCache] = useState(new Map()); // strongsKey → transcription string
+  const interlinearMode = interlinearModeProp !== undefined ? interlinearModeProp : interlinearInternal;
+
+  // ── continuous-reading refs ──────────────────────────────────────────────
+  const loadedSlotKeys  = useRef(new Set());   // chapter keys currently in `verses`
+  const loadingSlotKeys = useRef(new Set());   // chapter keys being fetched right now
+  const slotMetaRef     = useRef([]);          // ordered [{ key, book, chapter }]
+  const scrollContainerRef = useRef(null);     // this component's root div
+  const actualScrollRef    = useRef(null);     // resolved scroll ancestor (differs when noScroll=true)
+  const topSentinelRef     = useRef(null);
+  const bottomSentinelRef  = useRef(null);
+  const verseRefs          = useRef(new Map()); // verseKey → span DOM element
+  const fetchedKeys        = useRef(new Set()); // keys already fetched or in-flight
+  const prependScrollAnchor = useRef(null);    // { el, savedTop } — compensate scroll after prepend/trim
+  const lastEmittedKey      = useRef(null);     // dedup: verseKey last emitted by scroll tracker
+  const scrollEmittedRefs  = useRef(new Set()); // Set of ref strings emitted by scroll tracker (unconsumed)
+  const programmaticActive = useRef(false);    // true while scrollIntoView is animating
+  const pendingScroll      = useRef(false);    // set true to trigger the scroll-to effect once
+
+  // ── highlight loader ─────────────────────────────────────────────────────
+
+  const loadHighlights = useCallback(async (book, chapter, mod) => {
+    try {
+      const highlights = await api.listHighlights({ prefix: `${book} ${chapter}:` });
+      setHighlightMap((prev) => {
+        const next = { ...prev };
+        // Clear stale entries for this chapter
+        for (const k of Object.keys(next)) {
+          if (k.startsWith(`${book}-${chapter}-`)) delete next[k];
+        }
+        for (const hl of highlights) {
+          if (hl.module !== mod) continue;
+          const m = hl.reference.match(/^(\S+)\s+(\d+):(\d+)$/);
+          if (m) next[`${m[1]}-${m[2]}-${m[3]}`] = { id: hl.id, color: hl.color };
+        }
+        return next;
+      });
+    } catch {
+      // Not logged in or network error — silently ignore
+    }
+  }, []);
+
+  // ── chapter loader ───────────────────────────────────────────────────────
+
+  const loadSlot = useCallback(async (mod, book, chapter, position) => {
+    const key = `${book}|${chapter}`;
+    if (loadedSlotKeys.current.has(key) || loadingSlotKeys.current.has(key)) return;
+    loadingSlotKeys.current.add(key);
+    if (position !== 'reset') setLoadingAdjacent(true);
+    try {
+      const res = await api.getPassage(mod, `${book} ${chapter}`);
+      const newVerses = res.verses || [];
+      if (!newVerses.length) return;
+
+      // Manage the rolling window of MAX_SLOTS chapters
+      const current = slotMetaRef.current;
+      let newSlots, trimmed = null;
+      if (position === 'prepend') {
+        newSlots = [{ key, book, chapter }, ...current];
+        if (newSlots.length > MAX_SLOTS) trimmed = newSlots.pop();
+      } else if (position === 'append') {
+        newSlots = [...current, { key, book, chapter }];
+        if (newSlots.length > MAX_SLOTS) trimmed = newSlots.shift();
+      } else {
+        newSlots = [{ key, book, chapter }];
+      }
+      slotMetaRef.current = newSlots;
+      if (trimmed) loadedSlotKeys.current.delete(trimmed.key);
+      loadedSlotKeys.current.add(key);
+
+      // Capture a visible verse as scroll anchor before the DOM changes above the
+      // viewport (prepend inserts above; trim removes from above when appending).
+      // Use content-relative coordinates (el.top + scrollTop - containerTop) so the
+      // saved position is stable even if the user scrolls during the async API call.
+      if (position === 'prepend' || (position === 'append' && trimmed !== null)) {
+        const container = actualScrollRef.current;
+        if (container) {
+          const containerTop = container.getBoundingClientRect().top;
+          for (const [, el] of verseRefs.current) {
+            const { top } = el.getBoundingClientRect();
+            if (top >= containerTop) {
+              prependScrollAnchor.current = {
+                el,
+                savedContentTop: top + container.scrollTop - containerTop,
+              };
+              break;
+            }
+          }
+        }
+      }
+
+      const drop = (arr, slot) =>
+        arr.filter((v) => !(v.bibleBookShortTitle === slot.book && String(v.chapter) === String(slot.chapter)));
+
+      setVerses((prev) => {
+        if (position === 'prepend') return trimmed ? [...newVerses, ...drop(prev, trimmed)] : [...newVerses, ...prev];
+        if (position === 'append')  return trimmed ? [...drop(prev, trimmed), ...newVerses] : [...prev, ...newVerses];
+        return newVerses;
+      });
+
+      // Remove highlights for any trimmed chapter
+      if (trimmed) {
+        setHighlightMap((prev) => {
+          const next = { ...prev };
+          for (const k of Object.keys(next)) {
+            if (k.startsWith(`${trimmed.book}-${trimmed.chapter}-`)) delete next[k];
+          }
+          return next;
+        });
+      }
+
+      // Load highlights for the new chapter (non-blocking)
+      loadHighlights(book, chapter, mod);
+    } finally {
+      loadingSlotKeys.current.delete(key);
+      setLoadingAdjacent(false);
+    }
+  }, [loadHighlights]);
+
+  // ── main navigation effect ───────────────────────────────────────────────
 
   useEffect(() => {
     if (!module || !reference) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    if (!preserveSelectionRef.current) setSelectedRange(null);
-    preserveSelectionRef.current = false;
-    setHighlightMap(new Map());
-    setNoteCount(0);
-    setGroupFindings([]);
-    setGroupHighlightMap(new Map());
 
-    async function loadAnnotations(loadedVerses) {
-      if (!showMarginalia || !loadedVerses.length) return;
-      const v0 = loadedVerses[0];
-      const chapterRef = `${v0.bibleBookShortTitle} ${v0.chapter}`;
-      const prefix = `${chapterRef}:`;
-      try {
-        const fetchList = [
-          api.listHighlights({ prefix }),
-          api.listNotes({ reference: chapterRef }),
-        ];
-        if (isLoggedIn) {
-          fetchList.push(api.listStudyGroupFindings(prefix));
-          fetchList.push(api.listStudyGroupHighlights(prefix, module));
-        }
-        const [hls, nts, groupFnds, groupHls] = await Promise.all(fetchList);
-        if (cancelled) return;
-        const hMap = new Map();
-        for (const h of hls) hMap.set(h.reference, { id: h.id, color: h.color });
-        setHighlightMap(hMap);
-        setNoteCount(nts.length);
-        if (isLoggedIn) {
-          setGroupFindings(groupFnds || []);
-          const ghMap = new Map();
-          for (const gh of (groupHls || [])) {
-            const arr = ghMap.get(gh.reference) || [];
-            arr.push(gh);
-            ghMap.set(gh.reference, arr);
+    if (focusMode) {
+      const parsed = parseRefToChapter(reference);
+      if (!parsed) return;
+      const slotKey = `${parsed.book}|${parsed.chapter}`;
+      const verseNum = reference.includes(':') ? parseInt(reference.split(':')[1], 10) : null;
+
+      if (loadedSlotKeys.current.has(slotKey)) {
+        if (verseNum && !isNaN(verseNum)) {
+          if (scrollEmittedRefs.current.has(reference)) {
+            // Came from our scroll tracker — consume the entry, skip scrollIntoView
+            scrollEmittedRefs.current.delete(reference);
+          } else {
+            // Explicit navigation — scroll to the verse
+            setFocusedVerseKey(`${parsed.book}-${parsed.chapter}-${verseNum}`);
+            pendingScroll.current = true;
           }
-          setGroupHighlightMap(ghMap);
         }
-      } catch {} // non-fatal
+        return;
+      }
+
+      // New location — full reset, then load anchor + neighbours
+      loadedSlotKeys.current.clear();
+      loadingSlotKeys.current.clear();
+      slotMetaRef.current = [];
+      lastEmittedKey.current = null;
+      scrollEmittedRefs.current.clear();
+      prependScrollAnchor.current = null; // discard any in-flight anchor from previous location
+      setVerses([]);
+      setHighlightMap({});
+      setFocusedVerseKey(null);
+      setError(null);
+      setLoading(true);
+
+      const prevAdj = getAdjacentChapter(parsed.book, parsed.chapter, -1);
+      const nextAdj = getAdjacentChapter(parsed.book, parsed.chapter,  1);
+
+      (async () => {
+        await loadSlot(module, parsed.book, parsed.chapter, 'reset');
+        if (cancelled) return;
+        if (verseNum && !isNaN(verseNum)) {
+          pendingScroll.current = true;
+          setFocusedVerseKey(`${parsed.book}-${parsed.chapter}-${verseNum}`);
+        }
+        const tasks = [];
+        if (prevAdj) tasks.push(loadSlot(module, prevAdj.book, prevAdj.chapter, 'prepend'));
+        if (nextAdj) tasks.push(loadSlot(module, nextAdj.book, nextAdj.chapter, 'append'));
+        await Promise.allSettled(tasks);
+      })()
+        .catch((e) => { if (!cancelled) setError(e.message); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+
+      return () => { cancelled = true; };
     }
 
-    async function load() {
-      let loadedVerses;
-      if (!focusMode) {
-        const res = await api.getPassage(module, reference);
-        loadedVerses = res.verses || [];
-        if (!cancelled) setVerses(loadedVerses);
-      } else {
-        const anchorRes = await api.getPassage(module, reference);
-        const anchor = anchorRes.verses?.[0];
-        if (!anchor) {
-          loadedVerses = anchorRes.verses || [];
-          if (!cancelled) setVerses(loadedVerses);
+    // Non-focusMode: single chapter
+    setLoading(true);
+    setError(null);
+    setVerses([]);
+    setHighlightMap({});
+    api.getPassage(module, reference)
+      .then((res) => {
+        if (cancelled) return;
+        setVerses(res.verses || []);
+        const parsed = parseRefToChapter(reference);
+        if (parsed) loadHighlights(parsed.book, parsed.chapter, module);
+      })
+      .catch((e)  => { if (!cancelled) setError(e.message); })
+      .finally(()  => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [module, reference, focusMode, refreshNonce, loadSlot, loadHighlights]);
+
+  // ── scroll to pending verse ──────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!focusMode || !focusedVerseKey || !pendingScroll.current) return;
+    const el = verseRefs.current.get(focusedVerseKey);
+    if (!el) return;
+    pendingScroll.current = false;
+    programmaticActive.current = true;
+    lastEmittedKey.current = null;
+    scrollEmittedRefs.current.clear();
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => { programmaticActive.current = false; }, 600);
+  }, [focusMode, focusedVerseKey, verses]);
+
+  // ── resolve actual scroll container ─────────────────────────────────────
+
+  useEffect(() => {
+    if (!focusMode) return;
+    const sentinel = topSentinelRef.current;
+    if (!sentinel) return;
+    let container = null;
+    let p = sentinel.parentElement;
+    while (p && p !== document.body) {
+      const { overflowY } = getComputedStyle(p);
+      if (overflowY === 'auto' || overflowY === 'scroll') { container = p; break; }
+      p = p.parentElement;
+    }
+    if (!container) container = scrollContainerRef.current;
+    actualScrollRef.current = container;
+    // Disable browser scroll anchoring so our useLayoutEffect compensation is the
+    // sole adjuster — browser anchoring + manual compensation = double-correction.
+    if (container) {
+      container.style.overflowAnchor = 'none';
+      return () => { container.style.overflowAnchor = ''; };
+    }
+  }, [focusMode]);
+
+  // ── IntersectionObserver: lazy-load chapters at scroll edges ────────────
+
+  useEffect(() => {
+    if (!focusMode) return;
+    const topEl = topSentinelRef.current;
+    const botEl = bottomSentinelRef.current;
+    if (!topEl || !botEl) return;
+    const root = actualScrollRef.current || undefined;
+    const io = new IntersectionObserver((entries) => {
+      for (const { target, isIntersecting } of entries) {
+        if (!isIntersecting) continue;
+        if (target === topEl) {
+          const first = slotMetaRef.current[0];
+          if (first) {
+            const adj = getAdjacentChapter(first.book, first.chapter, -1);
+            if (adj) loadSlot(module, adj.book, adj.chapter, 'prepend');
+          }
         } else {
-          const chapterRes = await api.getPassage(module, `${anchor.bibleBookShortTitle} ${anchor.chapter}`);
-          loadedVerses = chapterRes.verses || [];
-          if (!cancelled) {
-            setVerses(loadedVerses);
-            setFocusedVerseKey(`${anchor.chapter}-${anchor.verseNr}`);
+          const last = slotMetaRef.current[slotMetaRef.current.length - 1];
+          if (last) {
+            const adj = getAdjacentChapter(last.book, last.chapter, 1);
+            if (adj) loadSlot(module, adj.book, adj.chapter, 'append');
           }
         }
       }
-      await loadAnnotations(loadedVerses || []);
-    }
+    }, { root, rootMargin: '600px 0px 600px 0px' });
+    io.observe(topEl);
+    io.observe(botEl);
+    return () => io.disconnect();
+  }, [focusMode, module, loadSlot]);
 
-    load()
-      .catch((err) => !cancelled && setError(err.message))
-      .finally(() => !cancelled && setLoading(false));
-
-    return () => {
-      cancelled = true;
-    };
-  }, [module, reference, focusMode, refreshNonce]);
+  // ── scroll tracker ───────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!focusMode || !focusedVerseKey) return;
-    const el = verseRefs.current.get(focusedVerseKey);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [focusMode, focusedVerseKey, verses]);
+    if (!focusMode) return;
+    const emit = onScrollNavigate || onNavigate;
+    if (!emit) return;
+    let raf = null;
+    let endTimer = null;
 
-  // Fetch Strong's transcriptions for all words in the passage when
-  // interlinear mode is active. Results are cached so toggling off/on
-  // doesn't re-fetch. Uses the existing /api/strongs/:key endpoint.
+    function evaluate() {
+      if (programmaticActive.current) return;
+      // User is manually scrolling — cancel any deferred programmatic scroll
+      pendingScroll.current = false;
+      const container = actualScrollRef.current;
+      if (!container) return;
+      const containerTop = container.getBoundingClientRect().top;
+      const threshold = container.clientHeight * 0.35;
+      let bestKey = null, bestY = -Infinity, fallbackKey = null, fallbackY = Infinity;
+      for (const [key, el] of verseRefs.current) {
+        const relTop = el.getBoundingClientRect().top - containerTop;
+        if (relTop <= threshold && relTop > bestY) { bestY = relTop; bestKey = key; }
+        if (relTop > threshold && relTop < fallbackY) { fallbackY = relTop; fallbackKey = key; }
+      }
+      const verseKey = bestKey || fallbackKey;
+      if (!verseKey || verseKey === lastEmittedKey.current) return;
+      lastEmittedKey.current = verseKey;
+      const parts = verseKey.split('-');
+      const refString = `${parts.slice(0, -2).join('-')} ${parts[parts.length - 2]}:${parts[parts.length - 1]}`;
+      scrollEmittedRefs.current.add(refString);
+      emit(refString);
+      setFocusedVerseKey(verseKey);
+    }
+
+    function onScroll() {
+      // Throttle live updates to one per animation frame
+      if (!raf) {
+        raf = requestAnimationFrame(() => { raf = null; evaluate(); });
+      }
+      // Final evaluation after scroll settles — fixes cases where the rAF snapshot
+      // landed mid-animation on the wrong verse (e.g. one scroll-wheel click)
+      clearTimeout(endTimer);
+      endTimer = setTimeout(evaluate, 100);
+    }
+
+    const timer = setTimeout(() => {
+      const c = actualScrollRef.current;
+      if (c) c.addEventListener('scroll', onScroll, { passive: true });
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(endTimer);
+      const c = actualScrollRef.current;
+      if (c) c.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [focusMode, onNavigate, onScrollNavigate]);
+
+  // ── scroll position compensation after prepend / trim ───────────────────
+  // Runs synchronously after commit so the correction is invisible to the user.
+
+  useLayoutEffect(() => {
+    const anchor = prependScrollAnchor.current;
+    if (!anchor) return;
+    prependScrollAnchor.current = null;
+    const container = actualScrollRef.current;
+    if (!container) return;
+    const containerTop = container.getBoundingClientRect().top;
+    const newContentTop = anchor.el.getBoundingClientRect().top + container.scrollTop - containerTop;
+    const delta = newContentTop - anchor.savedContentTop;
+    if (Math.abs(delta) > 0) container.scrollTop += delta;
+  }, [verses]);
+
+  // ── interlinear: fetch Strong's transcriptions ───────────────────────────
+
   useEffect(() => {
     if (!interlinearMode || verses.length === 0) return;
     const keys = collectStrongsKeys(verses);
-    const missing = keys.filter((k) => !strongsCache.has(k));
+    const missing = keys.filter((k) => !fetchedKeys.current.has(k));
     if (missing.length === 0) return;
-    Promise.allSettled(missing.map((k) => api.getStrongsEntry(k).then((e) => [k, e?.transcription || ''])))
+    for (const k of missing) fetchedKeys.current.add(k);
+    Promise.allSettled(missing.map((k) => api.getStrongsEntry(k).then((entry) => ({ k, entry }))))
       .then((results) => {
-        setStrongsCache((prev) => {
-          const next = new Map(prev);
-          for (const r of results) {
-            if (r.status === 'fulfilled') next.set(r.value[0], r.value[1]);
+        const updates = [];
+        for (const r of results) {
+          if (r.status === 'fulfilled' && r.value.entry?.transcription) {
+            updates.push([r.value.k, r.value.entry.transcription]);
           }
-          return next;
-        });
+        }
+        if (updates.length > 0) {
+          setStrongsCache((prev) => {
+            const next = new Map(prev);
+            for (const [k, t] of updates) next.set(k, t);
+            return next;
+          });
+        }
       });
   }, [interlinearMode, verses]);
 
-  const indexedVerses = useMemo(() => verses.map((v, i) => ({ ...v, __index: i })), [verses]);
-  const segments = useMemo(() => groupVerses(indexedVerses), [indexedVerses]);
-  const first = verses[0];
-
-  const selectionVerseCount = useMemo(() => {
-    if (!selectedRange) return 0;
-    return Math.abs(selectedRange.focus - selectedRange.anchor) + 1;
-  }, [selectedRange]);
-
-  const selectionHasHighlight = useMemo(() => {
-    if (!selectedRange) return false;
-    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
-    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
-    for (let i = lo; i <= hi; i++) {
-      const v = verses[i];
-      if (v && highlightMap.has(`${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`)) return true;
+  function toggleInterlinear() {
+    if (onInterlinearToggle) {
+      onInterlinearToggle(!interlinearMode);
+    } else {
+      setInterlinearInternal((v) => !v);
     }
-    return false;
-  }, [selectedRange, verses, highlightMap]);
-
-  const phraseSelectionHasHighlight = useMemo(() => {
-    if (!phraseSelection?.verseIndices) return false;
-    const [loIdx, hiIdx] = phraseSelection.verseIndices;
-    if (loIdx === null || hiIdx === null) return false;
-    for (let i = loIdx; i <= hiIdx; i++) {
-      const v = verses[i];
-      if (v && highlightMap.has(`${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`)) return true;
-    }
-    return false;
-  }, [phraseSelection, verses, highlightMap]);
-
-  function goToChapter(delta) {
-    if (!first) return;
-    const nextChapter = Number(first.chapter) + delta;
-    if (nextChapter < 1) return;
-    const maxChapter = BOOK_CHAPTER_COUNT[first.bibleBookShortTitle];
-    if (maxChapter && nextChapter > maxChapter) return;
-    onNavigate?.(focusMode ? `${first.bibleBookShortTitle} ${nextChapter}:1` : `${first.bibleBookShortTitle} ${nextChapter}`);
   }
 
-  function handleVerseNumberClick(e, v) {
-    e.stopPropagation();
-    setPhraseSelection(null);
-    if (e.shiftKey && selectedRange) {
-      setSelectedRange((prev) => ({ ...prev, focus: v.__index, x: e.clientX, y: e.clientY + 16, popupOpen: false }));
+  // ── highlight actions ────────────────────────────────────────────────────
+
+  async function handleHighlightToggle(color) {
+    if (!contextMenu) return;
+    const { verseKey, selectedVerseKeys } = contextMenu;
+    setContextMenu(null);
+
+    // When a text selection spans multiple verses, highlight all of them;
+    // otherwise fall back to the single right-clicked verse.
+    const keys = selectedVerseKeys?.length ? selectedVerseKeys : (verseKey ? [verseKey] : []);
+    if (keys.length === 0) return;
+
+    const snapshot = { ...highlightMap };
+
+    // If every verse in the selection already has this color, toggle all off.
+    if (keys.every((k) => snapshot[k]?.color === color)) {
+      setHighlightMap((prev) => {
+        const n = { ...prev };
+        for (const k of keys) delete n[k];
+        return n;
+      });
+      for (const k of keys) {
+        const existing = snapshot[k];
+        if (existing) api.deleteHighlight(existing.id).catch(() => {
+          setHighlightMap((prev) => ({ ...prev, [k]: existing }));
+        });
+      }
       return;
     }
-    if (focusMode) {
-      preserveSelectionRef.current = true;
-      onNavigate?.(`${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`);
-    }
-    setSelectedRange({ anchor: v.__index, focus: v.__index, x: e.clientX, y: e.clientY + 16, popupOpen: true });
-  }
 
-  function isIndexSelected(index) {
-    if (!selectedRange) return false;
-    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
-    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
-    return index >= lo && index <= hi;
-  }
-
-  function getSelectedReference() {
-    if (!selectedRange) return null;
-    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
-    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
-    const startV = verses[lo];
-    const endV = verses[hi];
-    if (!startV || !endV) return null;
-    if (startV.bibleBookShortTitle === endV.bibleBookShortTitle && startV.chapter === endV.chapter) {
-      return lo === hi
-        ? `${startV.bibleBookShortTitle} ${startV.chapter}:${startV.verseNr}`
-        : `${startV.bibleBookShortTitle} ${startV.chapter}:${startV.verseNr}-${endV.verseNr}`;
-    }
-    return `${startV.bibleBookShortTitle} ${startV.chapter}:${startV.verseNr}-${endV.chapter}:${endV.verseNr}`;
-  }
-
-  function handleAskAboutSelection() {
-    const selectedRef = getSelectedReference();
-    if (!selectedRef) return;
-    onAskAboutPassage?.(module, selectedRef);
-    setSelectedRange(null);
-  }
-
-  function handleCopySelection() {
-    if (!selectedRange) return;
-    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
-    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
-    const ref = getSelectedReference();
-    const tempEl = document.createElement('div');
-    const text = verses
-      .slice(lo, hi + 1)
-      .map((v) => {
-        tempEl.innerHTML = v.content;
-        return tempEl.textContent.trim();
-      })
-      .join(' ');
-    navigator.clipboard?.writeText(`"${text}" (${ref}, ${module})`).catch(() => {});
-    setSelectedRange(null);
-  }
-
-  async function handleHighlight(color) {
-    if (!selectedRange) return;
-    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
-    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
-    const refs = [];
-    for (let i = lo; i <= hi; i++) {
-      const v = verses[i];
-      if (v) refs.push(`${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`);
-    }
-    // Optimistic update (no ID yet)
+    // Optimistic: apply color to all selected verses immediately.
+    const now = Date.now();
+    const tempIds = Object.fromEntries(keys.map((k) => [k, `temp-${now}-${k}`]));
     setHighlightMap((prev) => {
-      const next = new Map(prev);
-      for (const ref of refs) next.set(ref, { id: null, color });
-      return next;
+      const n = { ...prev };
+      for (const k of keys) n[k] = { id: tempIds[k], color };
+      return n;
     });
-    setSelectedRange(null);
-    try {
-      const created = await Promise.all(refs.map((ref) => api.createHighlight({ reference: ref, module, color })));
-      // Fill in real IDs
-      setHighlightMap((prev) => {
-        const next = new Map(prev);
-        refs.forEach((ref, i) => { if (created[i]?.id) next.set(ref, { id: created[i].id, color }); });
-        return next;
-      });
-    } catch (e) {
-      console.error('Failed to save highlight:', e);
-    }
-  }
 
-  async function handleRemoveHighlight() {
-    if (!selectedRange) return;
-    const lo = Math.min(selectedRange.anchor, selectedRange.focus);
-    const hi = Math.max(selectedRange.anchor, selectedRange.focus);
-    const idsToDelete = [];
-    const refsToRemove = [];
-    for (let i = lo; i <= hi; i++) {
-      const v = verses[i];
-      if (!v) continue;
-      const ref = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
-      const hl = highlightMap.get(ref);
-      if (hl) {
-        refsToRemove.push(ref);
-        if (hl.id) idsToDelete.push(hl.id);
+    await Promise.allSettled(keys.map(async (k) => {
+      const ref = verseKeyToRef(k);
+      const existing = snapshot[k];
+      const tempId = tempIds[k];
+      try {
+        if (existing) await api.deleteHighlight(existing.id);
+        const created = await api.createHighlight({ reference: ref, module, color });
+        setHighlightMap((prev) => {
+          if (prev[k]?.id !== tempId) return prev;
+          return { ...prev, [k]: { id: created.id, color } };
+        });
+      } catch {
+        setHighlightMap((prev) => {
+          if (prev[k]?.id !== tempId) return prev;
+          const n = { ...prev };
+          if (existing) n[k] = existing; else delete n[k];
+          return n;
+        });
       }
-    }
-    setHighlightMap((prev) => {
-      const next = new Map(prev);
-      for (const ref of refsToRemove) next.delete(ref);
-      return next;
-    });
-    setSelectedRange(null);
-    try {
-      await Promise.all(idsToDelete.map((id) => api.deleteHighlight(id)));
-    } catch (e) {
-      console.error('Failed to delete highlight:', e);
-    }
+    }));
   }
 
-  async function handleHighlightFromPhrase(color) {
-    if (!phraseSelection?.verseIndices) return;
-    const [loIdx, hiIdx] = phraseSelection.verseIndices;
-    if (loIdx === null || hiIdx === null) return;
-    const refs = [];
-    for (let i = loIdx; i <= hiIdx; i++) {
-      const v = verses[i];
-      if (v) refs.push(`${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`);
-    }
-    setHighlightMap((prev) => {
-      const next = new Map(prev);
-      for (const ref of refs) next.set(ref, { id: null, color });
-      return next;
-    });
-    setPhraseSelection(null);
+  function getVerseText(verseKey) {
+    const parts = verseKey.split('-');
+    const book = parts.slice(0, -2).join('-');
+    const chapter = parts[parts.length - 2];
+    const verseNr = parts[parts.length - 1];
+    const v = verses.find(
+      (x) => x.bibleBookShortTitle === book && String(x.chapter) === chapter && String(x.verseNr) === verseNr
+    );
+    return v ? stripHtml(v.content) : '';
+  }
+
+  async function handleCopy() {
+    if (!contextMenu) return;
+    const { verseRef } = contextMenu;
+    const text = contextMenu.selectionText ?? getVerseText(contextMenu.verseKey);
+    const content = `${text}${verseRef ? `\n— ${verseRef} (${module})` : ''}`;
+    setContextMenu(null);
     window.getSelection()?.removeAllRanges();
     try {
-      const created = await Promise.all(refs.map((ref) => api.createHighlight({ reference: ref, module, color })));
-      setHighlightMap((prev) => {
-        const next = new Map(prev);
-        refs.forEach((ref, i) => { if (created[i]?.id) next.set(ref, { id: created[i].id, color }); });
-        return next;
-      });
-    } catch (e) {
-      console.error('Failed to save highlight:', e);
+      await navigator.clipboard.writeText(content);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = content;
+      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* nothing more we can do */ }
+      document.body.removeChild(ta);
     }
   }
 
-  async function handleRemoveHighlightFromPhrase() {
-    if (!phraseSelection?.verseIndices) return;
-    const [loIdx, hiIdx] = phraseSelection.verseIndices;
-    if (loIdx === null || hiIdx === null) return;
-    const idsToDelete = [];
-    const refsToRemove = [];
-    for (let i = loIdx; i <= hiIdx; i++) {
-      const v = verses[i];
-      if (!v) continue;
-      const ref = `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`;
-      const hl = highlightMap.get(ref);
-      if (hl) {
-        refsToRemove.push(ref);
-        if (hl.id) idsToDelete.push(hl.id);
-      }
-    }
-    setHighlightMap((prev) => {
-      const next = new Map(prev);
-      for (const ref of refsToRemove) next.delete(ref);
-      return next;
-    });
-    setPhraseSelection(null);
+  function handleShare() {
+    if (!contextMenu) return;
+    const { verseRef, x, y } = contextMenu;
+    const verseText = contextMenu.selectionText ?? getVerseText(contextMenu.verseKey);
+    setShareFinding({ verseRef, verseText, x, y });
+    setContextMenu(null);
     window.getSelection()?.removeAllRanges();
-    try {
-      await Promise.all(idsToDelete.map((id) => api.deleteHighlight(id)));
-    } catch (e) {
-      console.error('Failed to delete highlight:', e);
-    }
   }
 
-  function handleContentClick(e) {
-    const footnoteEl = e.target.closest('.footnote-marker');
-    if (footnoteEl) {
-      setFootnotePopup({ text: footnoteEl.dataset.note, x: e.clientX, y: e.clientY });
-      return;
-    }
-    const xrefEl = e.target.closest('.xref-marker');
-    if (xrefEl) {
-      onVerseRefClick?.(xrefEl.dataset.refs, e);
-      return;
-    }
-    const verseRefEl = e.target.closest('.verse-ref');
-    if (verseRefEl) {
-      onVerseRefClick?.(verseRefEl.dataset.ref, e);
-      return;
-    }
-    if (!onStrongsClick) return;
-    const result = extractStrongsData(e.target);
-    if (result) onStrongsClick(result.key, e, result.morph, result.word, module);
+  function handleAskAbout() {
+    if (!contextMenu) return;
+    onAskAboutPassage?.(module, contextMenu.verseRef);
+    setContextMenu(null);
+    window.getSelection()?.removeAllRanges();
   }
 
-  /**
-   * Detects a real inline text selection (dragging over rendered words,
-   * as opposed to clicking a verse number) via the browser's native
-   * window.getSelection() — the standard DOM API for this, not
-   * anything SWORD/app-specific. Distinct from selectedRange above,
-   * which tracks whole-verse selection by index; this tracks an
-   * arbitrary mid-sentence text span, which is what a "phrase" actually
-   * is. The two are mutually exclusive (this clears selectedRange, and
-   * handleVerseNumberClick clears this) so only one floating toolbar
-   * ever shows at once.
-   *
-   * Also collects the Strong's key of every tagged word the selection
-   * overlaps, in reading order, via Range.intersectsNode (again,
-   * standard DOM API) — this is what powers "study this phrase by
-   * original words" as well as by exact text, without needing any
-   * SWORD-specific selection machinery.
-   */
   function handleContentMouseUp(e) {
     const selection = window.getSelection();
     const rawText = selection?.toString().trim();
-    if (!rawText || selection.isCollapsed) {
-      return;
-    }
+    if (!rawText || selection.isCollapsed) return;
     const range = selection.getRangeAt(0);
     const container = e.currentTarget;
-    if (!container.contains(range.commonAncestorContainer)) {
-      return;
-    }
-    setSelectedRange(null);
+    if (!container.contains(range.commonAncestorContainer)) return;
 
     const text = extractCleanSelectionText(range);
     if (!text) return;
 
-    const taggedWords = container.querySelectorAll('[data-strong]');
+    // Only show phrase toolbar for short selections (≤ 5 words).
+    // Longer selections stay highlighted so the user can right-click to copy/share.
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    if (wordCount > 5) return;
+
+    // Collect one Strong's key per tagged word the selection overlaps (reading order)
     const strongsSequence = [];
-    for (const el of taggedWords) {
+    for (const el of container.querySelectorAll('[data-strong]')) {
       if (range.intersectsNode(el)) {
         const keys = (el.dataset.strong || '').split(',').map((k) => k.trim()).filter(Boolean);
         if (keys.length > 0) strongsSequence.push(keys[0]);
       }
     }
 
-    // Find which verse indices are spanned by this text selection so
-    // the phrase toolbar can apply highlights and open the note editor
-    // with the correct reference.
-    const verseByKey = new Map(verses.map((v, i) => [`${v.chapter}-${v.verseNr}`, i]));
-    const spannedIndices = [];
+    // Find the first verse span the selection touches for the note editor
+    let verseRef = null;
     for (const [key, el] of verseRefs.current) {
-      if (range.intersectsNode(el)) {
-        const idx = verseByKey.get(key);
-        if (idx !== undefined) spannedIndices.push(idx);
-      }
+      if (range.intersectsNode(el)) { verseRef = verseKeyToRef(key); break; }
     }
-    const loIdx = spannedIndices.length ? Math.min(...spannedIndices) : null;
-    const hiIdx = spannedIndices.length ? Math.max(...spannedIndices) : null;
-    const firstVerse = loIdx !== null ? verses[loIdx] : null;
-    const verseRef = firstVerse
-      ? `${firstVerse.bibleBookShortTitle} ${firstVerse.chapter}:${parseInt(firstVerse.verseNr, 10)}`
-      : null;
 
     const rect = range.getBoundingClientRect();
-    setPhraseSelection({ text, strongsSequence, x: rect.left, y: rect.bottom + 8, verseIndices: [loIdx, hiIdx], verseRef });
+    setContextMenu(null);
+    setPhraseSelection({ text, strongsSequence, x: rect.left, y: rect.bottom + 8, verseRef });
   }
 
-  function handlePhraseStudyClick(useOriginalWords) {
+  function handlePhraseStudy(useOriginalWords) {
     if (!phraseSelection) return;
     onPhraseStudy?.(
       phraseSelection.text,
       module,
-      useOriginalWords ? phraseSelection.strongsSequence : undefined
+      useOriginalWords ? phraseSelection.strongsSequence : undefined,
     );
     setPhraseSelection(null);
     window.getSelection()?.removeAllRanges();
   }
 
-  function scheduleHoverClose() {
-    clearTimeout(hoverCloseTimer.current);
-    hoverCloseTimer.current = setTimeout(() => setHoverCard(null), 150);
+  // ── event handlers ───────────────────────────────────────────────────────
+
+  function handleContextMenu(e) {
+    e.preventDefault();
+    setPhraseSelection(null);
+    setNoteEditor(null);
+
+    // Always try to find the right-clicked verse span (for highlights + note).
+    const span = e.target.closest('[data-versekey]');
+    const verseKey = span?.dataset.versekey ?? null;
+    let verseRef = verseKey ? verseKeyToRef(verseKey) : null;
+
+    // Also check for an active text selection — use its text for copy/share,
+    // and collect every verse the selection spans so highlights cover all of them.
+    let selectionText = null;
+    let selectedVerseKeys = null; // all verse keys the selection overlaps
+    const sel = window.getSelection();
+    const selRaw = sel?.toString().trim();
+    if (selRaw && !sel.isCollapsed) {
+      const range = sel.getRangeAt(0);
+      if (e.currentTarget.contains(range.commonAncestorContainer)) {
+        selectionText = extractCleanSelectionText(range);
+        const keys = [];
+        for (const [key, el] of verseRefs.current) {
+          if (range.intersectsNode(el)) keys.push(key);
+        }
+        if (keys.length > 0) {
+          selectedVerseKeys = keys;
+          if (!verseRef) verseRef = verseKeyToRef(keys[0]);
+        }
+      }
+    }
+
+    if (!verseKey && !verseRef) return;
+    setContextMenu({ verseKey, verseRef, selectionText, selectedVerseKeys, x: e.clientX, y: e.clientY });
   }
 
-  function cancelHoverClose() {
-    clearTimeout(hoverCloseTimer.current);
-  }
-
-  function handleContentMouseOver(e) {
+  function handleClick(e) {
+    // Verse number superscript → navigate to that verse
+    const sup = e.target.closest('sup[data-verse-number]');
+    if (sup) {
+      const verseSpan = sup.closest('[data-versekey]');
+      if (verseSpan) { onNavigate?.(verseKeyToRef(verseSpan.dataset.versekey)); return; }
+    }
     const xref = e.target.closest('.xref-marker');
-    if (xref) {
-      cancelHoverClose();
-      const refs = (xref.dataset.refs || xref.dataset.ref || '').split(',');
-      const refStr = refs[0]?.trim();
-      if (refStr && hoverCard?.refStr !== refStr) {
-        setHoverCard({ refStr, rect: xref.getBoundingClientRect() });
-      }
-      return;
+    if (xref) { onVerseRefClick?.(xref.dataset.refs, e); return; }
+    const vref = e.target.closest('.verse-ref');
+    if (vref) { onVerseRefClick?.(vref.dataset.ref, e); return; }
+    if (onStrongsClick) {
+      const s = extractStrongsData(e.target);
+      if (s) onStrongsClick(s.key, e, s.morph, s.word, module);
     }
-    const span = e.target.closest('.verse-ref');
-    if (span) {
-      cancelHoverClose();
-      const refStr = span.dataset.ref;
-      if (refStr && hoverCard?.refStr !== refStr) {
-        setHoverCard({ refStr, rect: span.getBoundingClientRect() });
-      }
-      return;
-    }
-    if (hoverCard) scheduleHoverClose();
   }
+
+  // ── derived ──────────────────────────────────────────────────────────────
+
+  const segments = useMemo(() => groupVerses(verses), [verses]);
+  const firstVerse = verses[0];
+
+  function goToChapter(delta) {
+    if (!firstVerse) return;
+    const adj = getAdjacentChapter(firstVerse.bibleBookShortTitle, Number(firstVerse.chapter), delta);
+    if (adj) onNavigate?.(`${adj.book} ${adj.chapter}`);
+  }
+
+  // ── render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className={`${noScroll ? '' : 'h-full overflow-y-auto '}bg-page px-6 py-6 text-pageText`}>
+    <div
+      ref={scrollContainerRef}
+      className={`${noScroll ? '' : 'h-full overflow-y-auto '}bg-page px-6 py-6 text-pageText`}
+    >
       {!focusMode && (
         <header className="mb-4 flex items-baseline gap-3">
           <h1 className="font-display text-2xl text-pageText">{reference || 'Select a passage'}</h1>
           {module && <span className="font-mono text-xs uppercase tracking-wide text-pageMuted">{module}</span>}
-          {first && (
-            <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex items-center gap-2">
+            {showMarginalia && (
               <button
-                onClick={() => goToChapter(-1)}
-                className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
-                title="Previous chapter"
+                onClick={toggleInterlinear}
+                title="Toggle interlinear mode"
+                className={`rounded border px-2 py-1 text-xs transition-colors ${interlinearMode ? 'border-verdigris text-verdigris' : 'border-pageBorder text-pageMuted hover:border-pageAccent hover:text-pageText'}`}
               >
-                ‹
+                Interlinear
               </button>
-              <button
-                onClick={() => goToChapter(1)}
-                className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
-                title="Next chapter"
-              >
-                ›
-              </button>
-            </div>
-          )}
+            )}
+            {firstVerse && (
+              <>
+                <button
+                  onClick={() => goToChapter(-1)}
+                  className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
+                >‹</button>
+                <button
+                  onClick={() => goToChapter(1)}
+                  className="rounded border border-pageBorder px-2 py-1 text-xs text-pageMuted hover:border-pageAccent hover:text-pageText"
+                >›</button>
+              </>
+            )}
+          </div>
         </header>
       )}
 
-      {loading && verses.length === 0 && <p className="text-pageMuted">Loading passage…</p>}
+      {focusMode && <div ref={topSentinelRef} className="pointer-events-none h-1" />}
+
+      {loading && verses.length === 0 && <p className="text-pageMuted">Loading…</p>}
       {error && <p className="text-red-600">{error}</p>}
 
       {verses.length > 0 && (
-        <div className="flex gap-3">
-          {showMarginalia && (
-            <div className="flex shrink-0 flex-col items-center gap-2 pt-1">
-              <button
-                className={`marginalia-tick cursor-pointer${highlightMap.size > 0 || noteCount > 0 ? ' marginalia-tick--active' : ''}`}
-                title={noteCount > 0 ? `${noteCount} note${noteCount !== 1 ? 's' : ''} on this passage` : 'Add a note or highlight on this passage'}
-                onClick={(e) => {
-                  if (verses.length === 0) return;
-                  setPhraseSelection(null);
-                  setSelectedRange({ anchor: 0, focus: verses.length - 1, x: e.clientX, y: e.clientY + 16, popupOpen: true });
-                }}
-                aria-label="Annotate this passage"
-              />
-              <button
-                onClick={toggleInterlinear}
-                title={interlinearMode ? 'Switch to normal reading mode' : 'Switch to interlinear mode'}
-                className={`rounded p-0.5 transition-colors ${interlinearMode ? 'text-brass' : 'text-pageMuted/40 hover:text-pageMuted'}`}
-              >
-                <Languages size={13} strokeWidth={2} />
-              </button>
-            </div>
-          )}
-          <SelectableNoteRegion
-            reference={reference}
-            module={module}
-            showNoteButton={false}
-            className={`verse-content max-w-2xl flex-1 space-y-4 font-display text-base leading-relaxed text-pageText ${
-              focusMode ? '' : 'markdown-body markdown-body-page'
-            }`}
-            onClick={handleContentClick}
-            onMouseUp={handleContentMouseUp}
-            onMouseOver={handleContentMouseOver}
-            onMouseLeave={scheduleHoverClose}
-          >
-            {segments.map((seg, i) => (
-              <div key={seg.key}>
-                {seg.showHeader ? (
-                  <h2 className="mb-1 font-sans text-xs uppercase tracking-wide text-verdigris">{seg.header}</h2>
-                ) : (
-                  i > 0 && seg.sectionTitles.length === 0 && <div className="mb-1 text-xs text-pageMuted">⋯</div>
-                )}
-                {seg.sectionTitles.length > 0 && (
-                  <h3 className="mb-2 mt-1 font-display text-lg italic text-pageAccent">{seg.sectionTitles.join(' — ')}</h3>
-                )}
-                {interlinearMode ? (
-                  <div className="flex flex-wrap items-start gap-x-2 gap-y-4">
-                    {seg.verses.map((v) => {
-                      const verseKey = `${v.chapter}-${v.verseNr}`;
-                      const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`;
-                      const hlColor = showMarginalia ? highlightMap.get(verseRef)?.color : null;
-                      const tokens = parseVerseTokens(v.content);
-                      return (
-                        <span
-                          key={verseKey}
-                          ref={(el) => { if (el) verseRefs.current.set(verseKey, el); else verseRefs.current.delete(verseKey); }}
-                          className={`inline-flex flex-wrap items-start gap-x-2 gap-y-4 ${hlColor ? (HIGHLIGHT_BG[hlColor] ?? 'bg-amber-300/30') : ''}`}
-                        >
-                          <sup
-                            className="cursor-pointer text-xs text-pageAccent hover:text-brass"
-                            onClick={(e) => handleVerseNumberClick(e, v)}
-                          >
-                            {v.verseNr}
-                          </sup>
-                          {tokens.map((tok, ti) =>
-                            tok.type === 'text' ? (
-                              tok.text.trim() ? (
-                                <span key={ti} className="font-display text-sm text-pageText">{tok.text}</span>
-                              ) : null
-                            ) : (
-                              <span key={ti} className="inline-flex flex-col items-center gap-0.5 text-center">
-                                <span className="font-display text-sm leading-snug text-pageText">{tok.word}</span>
-                                <button
-                                  className="font-mono text-[10px] leading-none text-verdigris hover:text-brass"
-                                  onClick={(e) => onStrongsClick?.(tok.strong, e, tok.morph, tok.word, module)}
-                                >
-                                  {tok.strong.split(',')[0]}
-                                </button>
-                                <span className="text-[10px] leading-none italic text-pageMuted">
-                                  {strongsCache.get(tok.strong.split(',')[0]) || '…'}
-                                </span>
+        <div
+          className="max-w-2xl font-display text-base leading-relaxed text-pageText verse-content"
+          onClick={handleClick}
+          onMouseUp={handleContentMouseUp}
+          onContextMenu={handleContextMenu}
+        >
+          {segments.map((seg) => (
+            <div key={seg.key}>
+              {seg.showHeader && (
+                <h2 className="mb-1 mt-4 border-t border-pageBorder pt-4 font-sans text-xs uppercase tracking-wide text-verdigris first:mt-0 first:border-t-0 first:pt-0">
+                  {seg.header}
+                </h2>
+              )}
+              {seg.sectionTitles.length > 0 && (
+                <h3 className="mb-2 mt-1 font-display text-lg italic text-pageAccent">
+                  {seg.sectionTitles.join(' — ')}
+                </h3>
+              )}
+              {interlinearMode ? (
+                <div className="flex flex-wrap items-start gap-x-2 gap-y-4">
+                  {seg.verses.map((v) => {
+                    const verseKey = `${v.bibleBookShortTitle}-${v.chapter}-${v.verseNr}`;
+                    const isFocused = focusMode && verseKey === focusedVerseKey;
+                    const hlEntry = highlightMap[verseKey];
+                    const tokens = parseVerseTokens(v.content);
+                    return (
+                      <span
+                        key={verseKey}
+                        data-versekey={verseKey}
+                        ref={(el) => {
+                          if (el) verseRefs.current.set(verseKey, el);
+                          else verseRefs.current.delete(verseKey);
+                        }}
+                        className={[
+                          'inline-flex flex-wrap items-start gap-x-1.5 gap-y-2',
+                          hlEntry ? HIGHLIGHT_BG[hlEntry.color] : '',
+                          isFocused ? 'bg-brass/10' : '',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        <sup data-verse-number="true" className="mt-1 cursor-pointer select-none text-xs text-pageAccent hover:text-brass">{v.verseNr}</sup>
+                        {tokens.map((tok, ti) =>
+                          tok.type === 'text' ? (
+                            <span key={ti} className="font-display text-sm text-pageText">{tok.text}</span>
+                          ) : (
+                            <span key={ti} className="inline-flex flex-col items-center gap-0.5 text-center">
+                              <span className="font-display text-sm leading-snug text-pageText">{tok.word}</span>
+                              <button
+                                className="font-mono text-[10px] leading-none text-verdigris hover:text-brass"
+                                onClick={(e) => { e.stopPropagation(); onStrongsClick?.(tok.strong, e, tok.morph, tok.word, module); }}
+                              >
+                                {tok.strong.split(',')[0]}
+                              </button>
+                              <span className="text-[10px] leading-none italic text-pageMuted">
+                                {strongsCache.get(tok.strong.split(',')[0]) ?? '…'}
                               </span>
-                            )
-                          )}
-                        </span>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="break-words">
-                    {seg.verses.map((v) => {
-                      const verseKey = `${v.chapter}-${v.verseNr}`;
-                      const isFocused = focusMode && verseKey === focusedVerseKey;
-                      const verseRef = `${v.bibleBookShortTitle} ${v.chapter}:${parseInt(v.verseNr, 10)}`;
-                      const hlColor = showMarginalia ? highlightMap.get(verseRef)?.color : null;
-                      const groupHls = showMarginalia ? groupHighlightMap.get(verseRef) : null;
-                      const groupHlColor = !hlColor && groupHls?.length ? groupHls[0].color : null;
-                      const groupNames = groupHls?.length
-                        ? groupHls.map((h) => `${h.scriptorium.name} (${h.author.displayName || h.author.username})`).join(', ')
-                        : null;
-                      return (
-                        <span
-                          key={verseKey}
-                          ref={(el) => {
-                            if (el) verseRefs.current.set(verseKey, el);
-                            else verseRefs.current.delete(verseKey);
-                          }}
-                          title={groupNames ? `Shared highlight: ${groupNames}` : undefined}
-                          className={[
-                            isIndexSelected(v.__index) ? 'rounded bg-pageAccent/20' : '',
-                            isFocused ? 'border-l-2 border-pageAccent bg-pageAccent/10 pl-1' : '',
-                            hlColor ? (HIGHLIGHT_BG[hlColor] ?? 'bg-amber-300/30') : '',
-                            groupHlColor ? (GROUP_HIGHLIGHT_BG[groupHlColor] ?? 'bg-amber-300/15') : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                        >
-                          <sup
-                            className="mr-1 cursor-pointer text-xs text-pageAccent hover:text-brass"
-                            title={focusMode ? 'Click to focus this verse' : 'Click to select, shift-click to extend selection'}
-                            onClick={(e) => handleVerseNumberClick(e, v)}
-                          >
-                            {v.verseNr}
-                          </sup>
-                          <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
-                        </span>
-                      );
-                    })}
-                  </p>
-                )}
-              </div>
-            ))}
-          </SelectableNoteRegion>
+                            </span>
+                          )
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="break-words">
+                  {seg.verses.map((v) => {
+                    const verseKey = `${v.bibleBookShortTitle}-${v.chapter}-${v.verseNr}`;
+                    const isFocused = focusMode && verseKey === focusedVerseKey;
+                    const hlEntry = highlightMap[verseKey];
+                    return (
+                      <span
+                        key={verseKey}
+                        data-versekey={verseKey}
+                        ref={(el) => {
+                          if (el) verseRefs.current.set(verseKey, el);
+                          else verseRefs.current.delete(verseKey);
+                        }}
+                        className={[
+                          'rounded',
+                          hlEntry ? HIGHLIGHT_BG[hlEntry.color] : '',
+                          isFocused ? 'bg-brass/10' : '',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        <sup data-verse-number="true" className="mr-1 cursor-pointer select-none text-xs text-pageAccent hover:text-brass">{v.verseNr}</sup>
+                        <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
+                      </span>
+                    );
+                  })}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       )}
+
+      {focusMode && <div ref={bottomSentinelRef} className="pointer-events-none h-1" />}
 
       {!loading && !error && verses.length === 0 && reference && (
-          <p className="text-pageMuted">No text returned for this reference in {module}.</p>
+        <p className="text-pageMuted">No text for {reference} in {module}.</p>
       )}
 
-      {groupFindings.length > 0 && (
-        <div className="mt-6 border-t border-pageBorder pt-4">
-          <h3 className="mb-3 font-sans text-xs uppercase tracking-wider text-pageMuted">Study Findings</h3>
-          <div className="space-y-3">
-            {groupFindings.map((f) => (
-              <div key={f.id} className="rounded border border-pageBorder/60 bg-pageAccent/5 p-3">
-                <div className="mb-1 flex items-baseline gap-2">
-                  <span className="font-mono text-xs font-medium text-brass">{f.reference}</span>
-                  <span className="text-xs text-pageMuted">— {f.study.title}</span>
-                  <span className="ml-auto text-xs text-pageMuted/60">{f.author.displayName || f.author.username}</span>
-                </div>
-                {f.title && <p className="mb-1 text-sm font-medium text-pageText">{f.title}</p>}
-                <p className="text-sm leading-relaxed text-pageText/80">{f.body}</p>
+      {/* Right-click context menu */}
+      {contextMenu && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[60]"
+            onClick={() => { setContextMenu(null); window.getSelection()?.removeAllRanges(); }}
+          />
+          <div
+            className="fixed z-[70] rounded-lg border border-rule bg-panel shadow-xl"
+            style={{
+              left: Math.min(contextMenu.x, window.innerWidth - 240),
+              top: Math.min(contextMenu.y + 4, window.innerHeight - 120),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Highlight swatches + note — only when a specific verse was right-clicked */}
+            {contextMenu.verseKey && (
+              <div className="flex items-center gap-1.5 px-2.5 py-2">
+                {HIGHLIGHT_COLORS.map((c) => {
+                  const isActive = highlightMap[contextMenu.verseKey]?.color === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      title={c.label}
+                      onClick={() => handleHighlightToggle(c.id)}
+                      className={`h-6 w-6 rounded-full ${HIGHLIGHT_SWATCH[c.id]} border-2 transition-transform hover:scale-110 ${
+                        isActive ? 'border-parchment scale-110' : 'border-transparent hover:border-parchment/50'
+                      }`}
+                    />
+                  );
+                })}
+                <div className="mx-1 h-5 w-px bg-rule" />
+                <button
+                  title="Add note"
+                  onClick={() => {
+                    setNoteEditor({ verseRef: contextMenu.verseRef, x: contextMenu.x, y: contextMenu.y });
+                    setContextMenu(null);
+                  }}
+                  className="px-2 py-1 text-xs text-muted hover:text-parchment"
+                >
+                  ✎
+                </button>
               </div>
-            ))}
+            )}
+            {/* Copy / Share / Ask AI */}
+            <div className={`flex items-center gap-0.5 px-2 py-1.5 ${contextMenu.verseKey ? 'border-t border-rule' : ''}`}>
+              <button onClick={handleCopy} className="flex-1 rounded px-2 py-1 text-xs text-muted hover:bg-brass/10 hover:text-parchment">
+                Copy
+              </button>
+              <button onClick={handleShare} className="flex-1 rounded px-2 py-1 text-xs text-muted hover:bg-brass/10 hover:text-parchment">
+                Share
+              </button>
+              {onAskAboutPassage && (
+                <button onClick={handleAskAbout} className="flex-1 rounded px-2 py-1 text-xs text-muted hover:bg-brass/10 hover:text-parchment">
+                  Ask AI
+                </button>
+              )}
+            </div>
+            {/* Footer: verse ref */}
+            {contextMenu.verseRef && (
+              <div className="border-t border-rule px-2.5 py-1">
+                <span className="font-mono text-[10px] text-muted">{contextMenu.verseRef}</span>
+              </div>
+            )}
           </div>
-        </div>
+        </>,
+        document.body
       )}
 
-      {selectedRange?.popupOpen &&
-        createPortal(
-          <>
-            <div className="fixed inset-0 z-30" onClick={() => setSelectedRange((prev) => ({ ...prev, popupOpen: false }))} />
-            <div
-              className="fixed z-40 flex items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
-              style={{ left: Math.min(selectedRange.x, window.innerWidth - 460), top: Math.min(selectedRange.y, window.innerHeight - 52) }}
+      {/* Note editor */}
+      {noteEditor && (
+        <VerseCommentaryEditor
+          reference={noteEditor.verseRef}
+          x={noteEditor.x}
+          y={noteEditor.y}
+          onClose={() => setNoteEditor(null)}
+          onSaved={() => setNoteEditor(null)}
+        />
+      )}
+
+      {/* Phrase / word study toolbar */}
+      {phraseSelection && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[60]"
+            onClick={() => { setPhraseSelection(null); window.getSelection()?.removeAllRanges(); }}
+          />
+          <div
+            className="fixed z-[70] flex flex-wrap items-center gap-1 rounded-md border border-rule bg-panel p-1.5 shadow-2xl"
+            style={{
+              left: Math.min(phraseSelection.x, window.innerWidth - 480),
+              top: Math.min(phraseSelection.y, window.innerHeight - 60),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="max-w-[200px] truncate px-1 font-mono text-[10px] text-muted">
+              "{phraseSelection.text}"
+            </span>
+            <div className="h-4 w-px bg-rule" />
+            <button
+              onClick={() => handlePhraseStudy(false)}
+              className="rounded bg-brass px-2 py-1 text-xs font-medium text-ink hover:bg-brass/90"
+              title="Search this exact wording across the whole Bible in this translation"
             >
-              <span className="px-1 font-mono text-xs text-muted">
-                {getSelectedReference()}
-                {selectionVerseCount > 1 && (
-                  <span className="ml-1 text-muted/60">({selectionVerseCount}v)</span>
-                )}
-              </span>
-              <div className="flex items-center gap-0.5 border-r border-rule pr-1.5">
-                {Object.entries(HIGHLIGHT_SWATCH).map(([color, swatchCls]) => (
-                  <button
-                    key={color}
-                    onClick={() => handleHighlight(color)}
-                    className={`h-4 w-4 rounded-full ring-1 ring-rule/60 hover:ring-2 hover:ring-rule ${swatchCls}`}
-                    title={`Highlight ${color}`}
-                  />
-                ))}
-                {selectionHasHighlight && (
-                  <button
-                    onClick={handleRemoveHighlight}
-                    className="flex h-4 w-4 items-center justify-center rounded-full ring-1 ring-rule/60 hover:bg-red-900/30 hover:ring-red-400"
-                    title="Remove highlight"
-                  >
-                    <span className="text-[9px] leading-none text-muted">✕</span>
-                  </button>
-                )}
-              </div>
+              Study wording →
+            </button>
+            {phraseSelection.strongsSequence.length > 0 && (
+              <button
+                onClick={() => handlePhraseStudy(true)}
+                className="rounded bg-verdigris px-2 py-1 text-xs font-medium text-ink hover:bg-verdigris/90"
+                title="Search for the same underlying original-language words, regardless of English wording"
+              >
+                Study original words →
+              </button>
+            )}
+            {phraseSelection.verseRef && (
               <button
                 onClick={() => {
-                  const ref = getSelectedReference();
-                  if (ref) setVerseNoteRef({ reference: ref, x: selectedRange.x, y: selectedRange.y + 28 });
-                  setSelectedRange(null);
+                  setNoteEditor({ verseRef: phraseSelection.verseRef, x: phraseSelection.x, y: phraseSelection.y + 32 });
+                  setPhraseSelection(null);
+                  window.getSelection()?.removeAllRanges();
                 }}
                 className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-verdigris hover:text-parchment"
-                title="Write a note on this verse"
               >
                 Note
               </button>
-              {isLoggedIn && (
-                <button
-                  onClick={() => {
-                    const ref = getSelectedReference();
-                    if (ref) {
-                      const lo = Math.min(selectedRange.anchor, selectedRange.focus);
-                      const hi = Math.max(selectedRange.anchor, selectedRange.focus);
-                      const tempEl = document.createElement('div');
-                      const verseText = verses
-                        .slice(lo, hi + 1)
-                        .map((v) => { tempEl.innerHTML = v.content; return `${v.verseNr} ${tempEl.textContent.trim()}`; })
-                        .join(' ');
-                      setShareFindingRef({ reference: ref, module, verseText, x: selectedRange.x, y: selectedRange.y + 28 });
-                    }
-                    setSelectedRange(null);
-                  }}
-                  className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
-                  title="Share this finding with a Scriptorium"
-                >
-                  Share →
-                </button>
-              )}
-              <button
-                onClick={handleCopySelection}
-                className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
-                title="Copy verse text to clipboard"
-              >
-                Copy
-              </button>
-              {onAskAboutPassage && (
-                <button
-                  onClick={handleAskAboutSelection}
-                  className="rounded bg-brass px-2 py-1 text-xs font-medium text-ink hover:bg-brass/90"
-                >
-                  Ask about this →
-                </button>
-              )}
-              <button
-                onClick={() => setSelectedRange((prev) => ({ ...prev, popupOpen: false }))}
-                className="rounded px-1.5 py-1 text-xs text-muted hover:text-parchment"
-              >
-                ✕
-              </button>
-            </div>
-          </>,
-          document.body
-        )}
-
-      {phraseSelection &&
-        createPortal(
-          <>
-            <div
-              className="fixed inset-0 z-30"
+            )}
+            <button
               onClick={() => { setPhraseSelection(null); window.getSelection()?.removeAllRanges(); }}
-            />
-            <div
-              className="fixed z-40 flex items-center gap-1 rounded-md border border-rule bg-panel p-1 shadow-2xl"
-              style={{ left: Math.min(phraseSelection.x, window.innerWidth - 560), top: Math.min(phraseSelection.y, window.innerHeight - 44) }}
+              className="rounded px-1.5 py-1 text-xs text-muted hover:text-parchment"
             >
-              {/* Highlight swatches — only if we know which verse(s) are spanned */}
-              {phraseSelection.verseIndices[0] !== null && (
-                <div className="flex items-center gap-0.5 border-r border-rule pr-1.5">
-                  {Object.entries(HIGHLIGHT_SWATCH).map(([color, swatchCls]) => (
-                    <button
-                      key={color}
-                      onClick={() => handleHighlightFromPhrase(color)}
-                      className={`h-4 w-4 rounded-full ring-1 ring-rule/60 hover:ring-2 hover:ring-rule ${swatchCls}`}
-                      title={`Highlight ${color}`}
-                    />
-                  ))}
-                  {phraseSelectionHasHighlight && (
-                    <button
-                      onClick={handleRemoveHighlightFromPhrase}
-                      className="flex h-4 w-4 items-center justify-center rounded-full ring-1 ring-rule/60 hover:bg-red-900/30 hover:ring-red-400"
-                      title="Remove highlight"
-                    >
-                      <span className="text-[9px] leading-none text-muted">✕</span>
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Note and Copy side by side */}
-              {phraseSelection.verseRef && (
-                <>
-                  <button
-                    onClick={() => {
-                      setVerseNoteRef({
-                        reference: phraseSelection.verseRef,
-                        x: phraseSelection.x,
-                        y: phraseSelection.y + 32,
-                        initialQuote: phraseSelection.text,
-                      });
-                      setPhraseSelection(null);
-                      window.getSelection()?.removeAllRanges();
-                    }}
-                    className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-verdigris hover:text-parchment"
-                  >
-                    Note
-                  </button>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard?.writeText(`"${phraseSelection.text}" (${phraseSelection.verseRef}, ${module})`).catch(() => {});
-                      setPhraseSelection(null);
-                      window.getSelection()?.removeAllRanges();
-                    }}
-                    className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
-                    title="Copy selected text with reference"
-                  >
-                    Copy
-                  </button>
-                </>
-              )}
-
-              {/* Phrase AI study — only when that feature is wired up */}
-              {onPhraseStudy && (
-                <>
-                  <span className="text-muted/30">|</span>
-                  <button
-                    onClick={() => handlePhraseStudyClick(false)}
-                    className="rounded bg-brass px-2 py-1 text-xs font-medium text-ink hover:bg-brass/90"
-                    title="Search this exact wording across the whole Bible in this translation"
-                  >
-                    Study exact wording →
-                  </button>
-                  {phraseSelection.strongsSequence.length > 0 && (
-                    <button
-                      onClick={() => handlePhraseStudyClick(true)}
-                      className="rounded bg-verdigris px-2 py-1 text-xs font-medium text-ink hover:bg-verdigris/90"
-                      title="Search for the same underlying original-language words, regardless of English wording"
-                    >
-                      Study original words →
-                    </button>
-                  )}
-                </>
-              )}
-              <button
-                onClick={() => { setPhraseSelection(null); window.getSelection()?.removeAllRanges(); }}
-                className="rounded px-1.5 py-1 text-xs text-muted hover:text-parchment"
-              >
-                ✕
-              </button>
-            </div>
-          </>,
-          document.body
-        )}
-
-      {verseNoteRef && (
-        <VerseCommentaryEditor
-          reference={verseNoteRef.reference}
-          initialQuote={verseNoteRef.initialQuote}
-          x={verseNoteRef.x}
-          y={verseNoteRef.y}
-          onClose={() => setVerseNoteRef(null)}
-          onSaved={() => {
-            setNoteCount((n) => n + 1);
-            onPersonalCommentarySaved?.();
-          }}
-        />
+              ✕
+            </button>
+          </div>
+        </>,
+        document.body
       )}
 
-      {footnotePopup && (
-        <FootnotePopup
-          text={footnotePopup.text}
-          x={footnotePopup.x}
-          y={footnotePopup.y}
-          onClose={() => setFootnotePopup(null)}
-        />
-      )}
-
-      {hoverCard && module && (
-        <VerseHoverCard
-          refStr={hoverCard.refStr}
-          rect={hoverCard.rect}
-          bibleModule={module}
-          onNavigate={onOpenInTab ?? onNavigate}
-          onMouseEnter={cancelHoverClose}
-          onMouseLeave={scheduleHoverClose}
-        />
-      )}
-
-      {shareFindingRef && (
+      {/* Share finding to Study */}
+      {shareFinding && (
         <ShareFindingModal
-          reference={shareFindingRef.reference}
-          module={shareFindingRef.module}
-          verseText={shareFindingRef.verseText}
-          x={shareFindingRef.x}
-          y={shareFindingRef.y}
-          onClose={() => setShareFindingRef(null)}
-          onShared={() => {
-            // Re-fetch findings for the current chapter so the new one appears immediately
-            if (verses.length > 0) {
-              const v0 = verses[0];
-              const prefix = `${v0.bibleBookShortTitle} ${v0.chapter}:`;
-              api.listStudyGroupFindings(prefix).then(setGroupFindings).catch(() => {});
-            }
-          }}
+          reference={shareFinding.verseRef}
+          module={module}
+          verseText={shareFinding.verseText}
+          x={shareFinding.x}
+          y={shareFinding.y}
+          onClose={() => setShareFinding(null)}
+          onShared={() => setShareFinding(null)}
         />
       )}
     </div>
