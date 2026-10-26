@@ -93,7 +93,7 @@ export default function BookChapterPicker({ x, y, onSelectChapter, onClose }) {
                 <button
                   key={ch}
                   onClick={() => {
-                    onSelectChapter(`${selectedBook.osis} ${ch}`);
+                    onSelectChapter(`${selectedBook.osis} ${ch}:1`);
                     onClose();
                   }}
                   className="rounded border border-rule py-1.5 text-center text-sm text-parchment/90 hover:border-brass hover:text-brass"

@@ -2,6 +2,16 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 
+// Convert OSIS dot-format ("Isa.56.10-Isa.56.11") to reader format ("Isa 56:10").
+// Takes only the start of a range, since the reader navigates to a single point.
+function osisToRef(str) {
+  const start = str.split('-')[0];
+  if (!start.includes('.')) return start;
+  const parts = start.split('.');
+  if (parts.length === 2) return `${parts[0]} ${parts[1]}`;
+  return `${parts[0]} ${parts[1]}:${parts[2]}`;
+}
+
 export default function VerseHoverCard({ refStr, rect, bibleModule, onNavigate, onMouseEnter, onMouseLeave }) {
   const [verses, setVerses] = useState(null);
 
@@ -51,7 +61,7 @@ export default function VerseHoverCard({ refStr, rect, bibleModule, onNavigate, 
       {onNavigate && (
         <div className="mt-2.5 border-t border-rule/50 pt-2">
           <button
-            onClick={() => onNavigate(refStr)}
+            onClick={() => onNavigate(osisToRef(refStr))}
             className="text-xs text-muted hover:text-brass"
           >
             Open in Cell →

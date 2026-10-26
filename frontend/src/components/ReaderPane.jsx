@@ -461,37 +461,61 @@ export default function ReaderPane({
 
   async function handleHighlightToggle(color) {
     if (!contextMenu) return;
-    const { verseKey, verseRef } = contextMenu;
-    const existing = highlightMap[verseKey];
+    const { verseKey, selectedVerseKeys } = contextMenu;
     setContextMenu(null);
 
-    if (existing?.color === color) {
-      // Toggle off: delete
-      setHighlightMap((prev) => { const n = { ...prev }; delete n[verseKey]; return n; });
-      api.deleteHighlight(existing.id).catch(() => {
-        setHighlightMap((prev) => ({ ...prev, [verseKey]: existing }));
+    // When a text selection spans multiple verses, highlight all of them;
+    // otherwise fall back to the single right-clicked verse.
+    const keys = selectedVerseKeys?.length ? selectedVerseKeys : (verseKey ? [verseKey] : []);
+    if (keys.length === 0) return;
+
+    const snapshot = { ...highlightMap };
+
+    // If every verse in the selection already has this color, toggle all off.
+    if (keys.every((k) => snapshot[k]?.color === color)) {
+      setHighlightMap((prev) => {
+        const n = { ...prev };
+        for (const k of keys) delete n[k];
+        return n;
       });
+      for (const k of keys) {
+        const existing = snapshot[k];
+        if (existing) api.deleteHighlight(existing.id).catch(() => {
+          setHighlightMap((prev) => ({ ...prev, [k]: existing }));
+        });
+      }
       return;
     }
 
-    // Optimistic add (swap colors if one already exists)
-    const tempId = `temp-${Date.now()}`;
-    setHighlightMap((prev) => ({ ...prev, [verseKey]: { id: tempId, color } }));
-    try {
-      if (existing) await api.deleteHighlight(existing.id);
-      const created = await api.createHighlight({ reference: verseRef, module, color });
-      setHighlightMap((prev) => {
-        if (prev[verseKey]?.id !== tempId) return prev;
-        return { ...prev, [verseKey]: { id: created.id, color } };
-      });
-    } catch {
-      setHighlightMap((prev) => {
-        if (prev[verseKey]?.id !== tempId) return prev;
-        const n = { ...prev };
-        if (existing) n[verseKey] = existing; else delete n[verseKey];
-        return n;
-      });
-    }
+    // Optimistic: apply color to all selected verses immediately.
+    const now = Date.now();
+    const tempIds = Object.fromEntries(keys.map((k) => [k, `temp-${now}-${k}`]));
+    setHighlightMap((prev) => {
+      const n = { ...prev };
+      for (const k of keys) n[k] = { id: tempIds[k], color };
+      return n;
+    });
+
+    await Promise.allSettled(keys.map(async (k) => {
+      const ref = verseKeyToRef(k);
+      const existing = snapshot[k];
+      const tempId = tempIds[k];
+      try {
+        if (existing) await api.deleteHighlight(existing.id);
+        const created = await api.createHighlight({ reference: ref, module, color });
+        setHighlightMap((prev) => {
+          if (prev[k]?.id !== tempId) return prev;
+          return { ...prev, [k]: { id: created.id, color } };
+        });
+      } catch {
+        setHighlightMap((prev) => {
+          if (prev[k]?.id !== tempId) return prev;
+          const n = { ...prev };
+          if (existing) n[k] = existing; else delete n[k];
+          return n;
+        });
+      }
+    }));
   }
 
   function getVerseText(verseKey) {
@@ -600,25 +624,29 @@ export default function ReaderPane({
     const verseKey = span?.dataset.versekey ?? null;
     let verseRef = verseKey ? verseKeyToRef(verseKey) : null;
 
-    // Also check for an active text selection — use its text for copy/share.
+    // Also check for an active text selection — use its text for copy/share,
+    // and collect every verse the selection spans so highlights cover all of them.
     let selectionText = null;
+    let selectedVerseKeys = null; // all verse keys the selection overlaps
     const sel = window.getSelection();
     const selRaw = sel?.toString().trim();
     if (selRaw && !sel.isCollapsed) {
       const range = sel.getRangeAt(0);
       if (e.currentTarget.contains(range.commonAncestorContainer)) {
         selectionText = extractCleanSelectionText(range);
-        // If right-click wasn't on a verse span, anchor to the first verse in the selection.
-        if (!verseRef) {
-          for (const [key, el] of verseRefs.current) {
-            if (range.intersectsNode(el)) { verseRef = verseKeyToRef(key); break; }
-          }
+        const keys = [];
+        for (const [key, el] of verseRefs.current) {
+          if (range.intersectsNode(el)) keys.push(key);
+        }
+        if (keys.length > 0) {
+          selectedVerseKeys = keys;
+          if (!verseRef) verseRef = verseKeyToRef(keys[0]);
         }
       }
     }
 
     if (!verseKey && !verseRef) return;
-    setContextMenu({ verseKey, verseRef, selectionText, x: e.clientX, y: e.clientY });
+    setContextMenu({ verseKey, verseRef, selectionText, selectedVerseKeys, x: e.clientX, y: e.clientY });
   }
 
   function handleClick(e) {

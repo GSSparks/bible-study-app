@@ -304,17 +304,9 @@ export default function CellView({
     const firstBibleCol = layout.columns.find((c) => c.rows.some((r) => r.type === 'bible'));
     const firstBibleRow = firstBibleCol?.rows.find((r) => r.type === 'bible');
     if (firstBibleCol && firstBibleRow) {
-      const existingTab = firstBibleRow.tabs.find((t) => t.module === module);
-      if (existingTab) {
-        layout.setActiveTab(firstBibleCol.id, firstBibleRow.id, existingTab.id);
-        layout.setBibleTabReference(firstBibleCol.id, firstBibleRow.id, existingTab.id, osisRef);
-      } else {
-        const allTabs = layout.columns.flatMap((col) => col.rows.flatMap((row) => row.tabs));
-        const title = allTabs.find((t) => t.module === module)?.title || module;
-        navigateFocus(osisRef);
-        layout.addTab(firstBibleCol.id, firstBibleRow.id, module, title);
-        return;
-      }
+      const allTabs = layout.columns.flatMap((col) => col.rows.flatMap((row) => row.tabs));
+      const title = allTabs.find((t) => t.module === module)?.title || module;
+      layout.addTab(firstBibleCol.id, firstBibleRow.id, module, title, osisRef);
     }
     navigateFocus(osisRef);
   }
