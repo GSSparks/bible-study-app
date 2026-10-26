@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "format": "scriptorium-study",
+  "exportedAt": "2026-10-24T00:00:00.000Z",
+  "title": "Introduction to Biblical Hebrew in 10 Lessons",
+  "description": "A beginner's path into the Hebrew alphabet, vowel points, nouns, verbs, and poetry, with practice in Genesis and the Psalms.",
+  "lessons": [
+    {
+      "order": 1,
+      "title": "Lesson 1 — The Hebrew Alphabet",
+      "module": "KJV",
+      "reference": "Psalm 119:1-8",
+      "body": "## Lesson\n\nBiblical Hebrew is read from right to left. Learn the 22 consonants: א aleph, ב bet, ג gimel, ד dalet, ה he, ו vav, ז zayin, ח het, ט tet, י yod, כ kaf, ל lamed, מ mem, נ nun, ס samekh, ע ayin, פ pe, צ tsadi, ק qof, ר resh, ש shin/sin, ת tav. Five letters have distinct final forms: ך ם ן ף ץ.\n\n**Practice:** Copy each letter and identify the letters in שָׁלוֹם.\n\n**Discuss:** Which letters look alike, and how can you keep them distinct?",
+      "videoUrl": null,
+      "reflectionPrompt": "Write all 22 letters from memory and add the five final forms."
+    },
+    {
+      "order": 2,
+      "title": "Lesson 2 — Vowels and Masoretic Points",
+      "module": "KJV",
+      "reference": "Genesis 1:1",
+      "body": "## Lesson\n\nThe Hebrew text was historically written mainly with consonants. The Masoretes preserved a system of vowel signs and reading traditions. Learn common signs: pataḥ ַ, qamats ָ, segol ֶ, tsere ֵ, hiriq ִ, holam ֹ, qibbuts ֻ, and shureq וּ. Sheva ְ may be silent or vocal depending on context. A dagesh dot can mark consonant distinctions or doubling.\n\n**Practice:** Find the vowel signs in בְּרֵאשִׁית and read Genesis 1:1 slowly.\n\n**Discuss:** What does vowel pointing preserve for readers?",
+      "videoUrl": null,
+      "reflectionPrompt": "Mark every vowel sign you recognize in Genesis 1:1 and look up the others."
+    },
+    {
+      "order": 3,
+      "title": "Lesson 3 — Syllables, Stress, and Pronunciation",
+      "module": "KJV",
+      "reference": "Genesis 1:1-3",
+      "body": "## Lesson\n\nHebrew syllables are organized around vowels, with rules for open and closed syllables. Many words are stressed on the final syllable, but exceptions occur. Masoretic accents also help indicate cantillation and phrasing. Pronunciation differs among traditions, so use one consistent Biblical Hebrew learning system.\n\n**Practice:** Read Genesis 1:1-3 in short phrases and compare your reading with a reliable audio version.\n\n**Discuss:** How can reading aloud help you notice patterns?",
+      "videoUrl": null,
+      "reflectionPrompt": "Record yourself reading Genesis 1:1-3. Note three places where you hesitated and practice again."
+    },
+    {
+      "order": 4,
+      "title": "Lesson 4 — Nouns: Gender, Number, and State",
+      "module": "KJV",
+      "reference": "Genesis 1:1; Psalm 23:1",
+      "body": "## Lesson\n\nHebrew nouns are generally masculine or feminine and singular or plural; dual forms remain especially for pairs and measures. In a construct chain, a noun links to the following noun, often expressing “X of Y.” The first noun may change form. The article הַ־ commonly marks definiteness, with spelling adjustments in some contexts.\n\n**Practice:** Study מִזְמוֹר לְדָוִד (“a psalm of David”) as a phrase and identify nouns in Psalm 23.\n\n**Discuss:** How does a construct chain differ from English word order?",
+      "videoUrl": null,
+      "reflectionPrompt": "Find three nouns in Psalm 23 and record dictionary form, gender, number, and state."
+    },
+    {
+      "order": 5,
+      "title": "Lesson 5 — The Definite Article and Adjectives",
+      "module": "KJV",
+      "reference": "Genesis 1:4; Psalm 23:1",
+      "body": "## Lesson\n\nThe Hebrew article הַ־ commonly marks a definite noun. Attributive adjectives generally agree with the noun in gender, number, and definiteness; predicate adjectives often follow different patterns. Hebrew word order differs from English, so identify the phrase before translating it naturally.\n\n**Practice:** Observe כִּי־טוֹב (“that it was good”) in Genesis 1 and identify an adjective-noun phrase in a Hebrew text.\n\n**Discuss:** What can agreement reveal about which words belong together?",
+      "videoUrl": null,
+      "reflectionPrompt": "Find an attributive adjective and its noun. Label gender, number, and definiteness."
+    },
+    {
+      "order": 6,
+      "title": "Lesson 6 — Pronouns and Prepositions",
+      "module": "KJV",
+      "reference": "Psalm 23:1-4",
+      "body": "## Lesson\n\nIndependent pronouns include אֲנִי (“I”), אַתָּה (“you,” masculine singular), הוּא (“he/it”), and הִיא (“she/it”). Pronoun suffixes attach to nouns, prepositions, and verbs. Common prepositional prefixes include בְּ־ (“in/by”), לְ־ (“to/for”), כְּ־ (“like/as”), along with עַל (“on/upon”), מִן (“from”), and אֶל (“to/toward”). Meanings depend on context.\n\n**Practice:** Circle prepositions and find a suffix in Psalm 23:4.\n\n**Discuss:** Why can suffixes make Hebrew words seem more complex than their English equivalents?",
+      "videoUrl": null,
+      "reflectionPrompt": "Separate the prefixes and suffixes in three words from Psalm 23 and verify your analysis."
+    },
+    {
+      "order": 7,
+      "title": "Lesson 7 — Hebrew Roots and Verb Stems",
+      "module": "KJV",
+      "reference": "Genesis 1:1-5",
+      "body": "## Lesson\n\nMany Hebrew verbs are built from three-consonant roots, but the root is not a full definition by itself. Common stems (binyanim) include Qal, Niphal, Piel, Pual, Hiphil, Hophal, and Hithpael. These often relate to voice or verbal nuance, but their meanings are not perfectly mechanical. Lexicons commonly list verbs under a dictionary form such as the Qal perfect third masculine singular.\n\n**Practice:** Look up בָּרָא in Genesis 1:1 and identify its root and stem with a parsing aid.\n\n**Discuss:** Why is it risky to infer a word's meaning from its root alone?",
+      "videoUrl": null,
+      "reflectionPrompt": "Look up two verbs in Genesis 1 and record lexical form, root, stem, and contextual meaning."
+    },
+    {
+      "order": 8,
+      "title": "Lesson 8 — Verb Forms and Narrative",
+      "module": "KJV",
+      "reference": "Genesis 1:1-5",
+      "body": "## Lesson\n\nTraditional labels include perfect and imperfect, but Biblical Hebrew verb forms do not map neatly onto past and future English tenses. The common wayyiqtol form often advances past-time narrative. Imperatives, cohortatives, jussives, infinitives, and participles also contribute meaning. Interpret forms within their clause and the larger discourse.\n\n**Practice:** Observe the verb sequence in Genesis 1:3-5 and look up וַיֹּאמֶר and וַיְהִי in a grammar.\n\n**Discuss:** How can recognizing narrative patterns help you read longer passages?",
+      "videoUrl": null,
+      "reflectionPrompt": "Identify three verbs in Genesis 1:1-5 and explain how they contribute to the narrative sequence."
+    },
+    {
+      "order": 9,
+      "title": "Lesson 9 — Hebrew Poetry and Parallelism",
+      "module": "KJV",
+      "reference": "Psalm 23:1-6",
+      "body": "## Lesson\n\nHebrew poetry often places lines in relationship: repeating, contrasting, developing, or completing an idea. These patterns are often called parallelism, though not every pair fits one category. Imagery—shepherd, paths, table, and dwelling in Psalm 23—works across the whole poem. Masoretic accents can help show phrasing.\n\n**Practice:** Divide Psalm 23 into thought units, identify two examples of parallelism, and compare two translations of one line.\n\n**Discuss:** What is lost when poetry is treated as a list of dictionary definitions?",
+      "videoUrl": null,
+      "reflectionPrompt": "Outline Psalm 23, identify its main images, and explain one example of parallelism."
+    },
+    {
+      "order": 10,
+      "title": "Lesson 10 — Studying a Passage with Hebrew Tools",
+      "module": "KJV",
+      "reference": "Genesis 1:1-5; Psalm 23",
+      "body": "## Lesson\n\nUse a repeatable workflow: read aloud, notice repeated words, mark verbs and clauses, identify morphology, then consult a lexicon and grammar. Verify parsing-tool results against a grammar. A word's entire dictionary range does not apply to every occurrence. Compare translations, then return to the Hebrew wording, syntax, and literary context.\n\n**Practice:** Study Genesis 1:1-5 or Psalm 23 with a Hebrew text, beginner grammar, and lexicon.\n\n**Discuss:** How can you distinguish what the Hebrew text indicates from what remains an interpretive judgment?",
+      "videoUrl": null,
+      "reflectionPrompt": "Prepare a short study of Psalm 23: three Hebrew words, one grammatical feature, one poetic feature, and one question."
+    }
+  ],
+  "resources": [
+    {
+      "type": "note",
+      "label": "Leader Notes",
+      "moduleCode": null,
+      "moduleType": null,
+      "url": null,
+      "body": "**Facilitator guidance:**\n\nDesigned as an introductory language course. Plan 30–60 minutes per lesson. Learners should use a reliable Greek or Hebrew text, beginner grammar, and reputable lexicon. Verify parsing and pronunciation with trusted references. Grammar clarifies the text but should not be used as a shortcut to settle every theological question.",
+      "order": 0
+    }
+  ]
+}

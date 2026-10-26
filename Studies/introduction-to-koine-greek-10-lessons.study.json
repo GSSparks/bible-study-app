@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "format": "scriptorium-study",
+  "exportedAt": "2026-10-24T00:00:00.000Z",
+  "title": "Introduction to Koine Greek in 10 Lessons",
+  "description": "A beginner's path into the alphabet, core grammar, and careful reading of New Testament Greek, with biblical passages for practice.",
+  "lessons": [
+    {
+      "order": 1,
+      "title": "Lesson 1 — The Alphabet and Sounds",
+      "module": "KJV",
+      "reference": "John 1:1-5",
+      "body": "## Lesson\n\nLearn the 24 Greek letters: Α α, Β β, Γ γ, Δ δ, Ε ε, Ζ ζ, Η η, Θ θ, Ι ι, Κ κ, Λ λ, Μ μ, Ν ν, Ξ ξ, Ο ο, Π π, Ρ ρ, Σ σ/ς, Τ τ, Υ υ, Φ φ, Χ χ, Ψ ψ, Ω ω. Sigma is written ς at the end of a word. Pronunciation systems differ; choose one consistent system while learning to recognize the written forms.\n\n**Practice:** Copy uppercase and lowercase letters; identify the letters in λόγος and θεός.\n\n**Discuss:** Why should letter recognition come before translating whole sentences?",
+      "videoUrl": null,
+      "reflectionPrompt": "Write the alphabet from memory. Practice the five letters you still confuse."
+    },
+    {
+      "order": 2,
+      "title": "Lesson 2 — Vowels, Diphthongs, and Accents",
+      "module": "KJV",
+      "reference": "John 1:1-3",
+      "body": "## Lesson\n\nThe vowels are α, ε, η, ι, ο, υ, ω. Common diphthongs include αι, ει, οι, αυ, ευ, ου, υι. Initial vowels may carry smooth or rough breathing marks; rough breathing historically represents an h-like sound. Accents mark accent patterns but do not independently determine a word's meaning.\n\n**Practice:** Identify vowels in θεός, ζωή, λόγος and the diphthong in εὐαγγέλιον.\n\n**Discuss:** What is the difference between spelling, pronunciation, and meaning?",
+      "videoUrl": null,
+      "reflectionPrompt": "Read John 1:1 aloud three times using a consistent pronunciation system."
+    },
+    {
+      "order": 3,
+      "title": "Lesson 3 — Nouns: Gender, Number, and Case",
+      "module": "KJV",
+      "reference": "John 1:1-2; Mark 1:1",
+      "body": "## Lesson\n\nGreek nouns have grammatical gender (masculine, feminine, neuter), number (singular or plural), and case. The nominative often marks the subject; genitive often expresses relationship; dative can mark recipient, means, or location; accusative often marks a direct object. The vocative is used for direct address. These are tendencies, not one-to-one translation rules. Learn nouns with the article ὁ, ἡ, τό.\n\n**Practice:** Identify ὁ λόγος and observe θεοῦ in John 1:1.\n\n**Discuss:** How does inflection help readers understand a sentence?",
+      "videoUrl": null,
+      "reflectionPrompt": "Choose three nouns from a Greek New Testament verse and record dictionary form, gender, number, and case."
+    },
+    {
+      "order": 4,
+      "title": "Lesson 4 — The Article and Adjectives",
+      "module": "KJV",
+      "reference": "John 1:1; John 1:14",
+      "body": "## Lesson\n\nThe Greek article is not identical to English “the.” It can mark noun phrases or turn adjectives and participles into noun-like expressions. Adjectives commonly agree with the nouns they modify in gender, number, and case. Word order and article placement matter, but no single grammatical pattern should be used as an automatic theological rule.\n\n**Practice:** Locate ὁ λόγος in John 1:1 and find an adjective in a Greek text.\n\n**Discuss:** Why should grammar be considered alongside context and the whole passage?",
+      "videoUrl": null,
+      "reflectionPrompt": "Find an article-noun phrase and an adjective in a verse. Label their forms and explain the role of context."
+    },
+    {
+      "order": 5,
+      "title": "Lesson 5 — Verbs: Person, Number, and Tense-Form",
+      "module": "KJV",
+      "reference": "John 3:16; 1 John 1:1",
+      "body": "## Lesson\n\nGreek verbs encode person and number and present actions in different tense-forms. Present and imperfect forms often portray ongoing or past-time actions, while the aorist commonly presents an action as a whole. The aorist does not automatically mean “once” or “completed forever.” Verb stems can change, so dictionaries list lexical forms and often principal parts.\n\n**Practice:** Look up πιστεύει in John 3:16 and identify its lexical form.\n\n**Discuss:** Why is “aorist always means once” an unreliable rule?",
+      "videoUrl": null,
+      "reflectionPrompt": "Choose one verb from John 3:16. Record its lexical form and parse it with a reliable grammar or lexicon."
+    },
+    {
+      "order": 6,
+      "title": "Lesson 6 — Voice and Mood",
+      "module": "KJV",
+      "reference": "Mark 1:15; Ephesians 2:8",
+      "body": "## Lesson\n\nVoice describes how the subject relates to the action: active, middle, or passive, with some forms requiring lexical and contextual attention. Mood includes indicative, subjunctive, imperative, and the less common optative. Infinitives and participles are also common and can serve several functions.\n\n**Practice:** Identify the imperative μετανοεῖτε in Mark 1:15. Compare its grammatical form with an English translation.\n\n**Discuss:** How can a verb form affect whether a statement is a command, assertion, or possibility?",
+      "videoUrl": null,
+      "reflectionPrompt": "Find an imperative in the New Testament and explain what action it calls for in context."
+    },
+    {
+      "order": 7,
+      "title": "Lesson 7 — Prepositions and Conjunctions",
+      "module": "KJV",
+      "reference": "Romans 5:1-5",
+      "body": "## Lesson\n\nPrepositions such as ἐν, εἰς, ἐκ, διά, ἀπό, and πρός take particular cases and express relationships such as location, source, means, or movement. Conjunctions connect ideas: καί often means “and,” δέ can continue or contrast, γάρ often explains, and οὖν often draws an inference. Their function varies with context.\n\n**Practice:** Mark conjunctions and prepositional phrases in Romans 5:1-5.\n\n**Discuss:** How can a small connecting word change the flow of an argument?",
+      "videoUrl": null,
+      "reflectionPrompt": "Diagram the flow of thought in Romans 5:1-5, showing how the clauses connect."
+    },
+    {
+      "order": 8,
+      "title": "Lesson 8 — Pronouns and Relative Clauses",
+      "module": "KJV",
+      "reference": "John 1:1-5; Philippians 2:5-11",
+      "body": "## Lesson\n\nPronouns have forms that indicate case, number, and gender. Relative pronouns such as ὅς, ἥ, ὅ often mean “who,” “which,” or “that.” Their gender and number usually relate to the antecedent, while their case depends on their function inside the relative clause. Marking clause boundaries helps prevent attaching phrases to the wrong words.\n\n**Practice:** Find a relative pronoun in Philippians 2:6-11 with a Greek text and identify its antecedent.\n\n**Discuss:** Why does a relative pronoun's case depend on its role within its own clause?",
+      "videoUrl": null,
+      "reflectionPrompt": "Choose a sentence with a relative pronoun. Mark its antecedent and the pronoun's function in the clause."
+    },
+    {
+      "order": 9,
+      "title": "Lesson 9 — Participles and Infinitives",
+      "module": "KJV",
+      "reference": "John 1:14; Philippians 2:6-8",
+      "body": "## Lesson\n\nA participle combines verbal features with adjective-like behavior and may describe a noun or contribute to a clause. Infinitives can express purpose, result, content, or other relationships. Neither form should be translated with a single automatic English equivalent; syntax and context determine the best rendering.\n\n**Practice:** Find a participle in John 1:14 or Philippians 2:6-8. Identify its lexical form and agreement.\n\n**Discuss:** What can participles and infinitives express that a simple finite verb may not?",
+      "videoUrl": null,
+      "reflectionPrompt": "Parse one participle and one infinitive from a New Testament passage and explain their roles."
+    },
+    {
+      "order": 10,
+      "title": "Lesson 10 — Reading a Passage with Greek Tools",
+      "module": "KJV",
+      "reference": "Philippians 2:1-11",
+      "body": "## Lesson\n\nUse a repeatable workflow: read the passage, mark clauses, identify main verbs, locate subjects and objects, observe connectors, then consult a grammar and lexicon for specific questions. Interlinears and parsing tools help, but word-by-word glosses can obscure syntax. A lexicon lists possible meanings; context determines which meaning fits a particular occurrence.\n\n**Practice:** Mark verbs and conjunctions in Philippians 2:1-11, then compare two translations.\n\n**Discuss:** How can you distinguish what the Greek clearly indicates from what remains interpretive?",
+      "videoUrl": null,
+      "reflectionPrompt": "Write a short study of Philippians 2:1-11, including one grammatical observation and one question for further research."
+    }
+  ],
+  "resources": [
+    {
+      "type": "note",
+      "label": "Leader Notes",
+      "moduleCode": null,
+      "moduleType": null,
+      "url": null,
+      "body": "**Facilitator guidance:**\n\nDesigned as an introductory language course. Plan 30–60 minutes per lesson. Learners should use a reliable Greek or Hebrew text, beginner grammar, and reputable lexicon. Verify parsing and pronunciation with trusted references. Grammar clarifies the text but should not be used as a shortcut to settle every theological question.",
+      "order": 0
+    }
+  ]
+}
