@@ -377,6 +377,16 @@ export default function CellView({
     setPendingSearch({ query, module: firstBibleTab?.module || '', nonce: Date.now() });
   }
 
+  function routeToCommentarySearch(query) {
+    const hasSearch = layout.columns.some((c) => c.rows.some((r) => r.type === 'search'));
+    if (!hasSearch) {
+      const lastCol = layout.columns[layout.columns.length - 1];
+      const lastRow = lastCol.rows[lastCol.rows.length - 1];
+      layout.splitPane(lastCol.id, lastRow.id, 'search');
+    }
+    setPendingSearch({ query, module: '', tab: 'commentary', nonce: Date.now() });
+  }
+
   function togglePaneType(type) {
     const existing = [];
     for (const col of layout.columns) {
@@ -458,7 +468,7 @@ export default function CellView({
 
         {/* Search */}
         <div className="min-w-0 flex-1">
-          <SearchBar ref={searchInputRef} activeModule={firstBibleTab?.module} onJump={navigateFocus} onSearch={routeToSearch} />
+          <SearchBar ref={searchInputRef} activeModule={firstBibleTab?.module} onJump={navigateFocus} onSearch={routeToSearch} onCommentarySearch={routeToCommentarySearch} />
         </div>
 
         {/* Window toggles — hidden on mobile (tab strip handles open/close/switch) */}
