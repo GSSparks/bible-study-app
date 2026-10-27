@@ -279,6 +279,37 @@ function UsersTab() {
   );
 }
 
+const langNames = (() => {
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'language' });
+  } catch {
+    return null;
+  }
+})();
+
+const LANG_OVERRIDES = {
+  grc: 'Ancient Greek',
+  hbo: 'Ancient Hebrew',
+  ojp: 'Old Japanese',
+  enm: 'Middle English',
+  lat: 'Latin',
+  cop: 'Coptic',
+  syr: 'Syriac',
+  arc: 'Aramaic',
+  got: 'Gothic',
+};
+
+function langLabel(code) {
+  if (!code) return code;
+  if (LANG_OVERRIDES[code]) return LANG_OVERRIDES[code];
+  try {
+    const name = langNames?.of(code);
+    return name && name !== code ? name : code;
+  } catch {
+    return code;
+  }
+}
+
 function ModulesTab() {
   const [type, setType] = useState('BIBLE');
   const [repos, setRepos] = useState([]);
@@ -289,6 +320,8 @@ function ModulesTab() {
   const [error, setError] = useState(null);
   const [installing, setInstalling] = useState(null);
   const [availableSearch, setAvailableSearch] = useState('');
+  const [langFilter, setLangFilter] = useState('');
+  const [hideInstalled, setHideInstalled] = useState(true);
   const [removing, setRemoving] = useState(null);
   const [toggling, setToggling] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -317,6 +350,7 @@ function ModulesTab() {
     refresh();
     setAvailable([]);
     setAvailableSearch('');
+    setLangFilter('');
     if (selectedRepo) {
       api.listAvailableModules(selectedRepo, type).then(setAvailable).catch((e) => setError(e.message));
     }
@@ -326,6 +360,7 @@ function ModulesTab() {
   useEffect(() => {
     if (!selectedRepo) return;
     setAvailableSearch('');
+    setLangFilter('');
     api.listAvailableModules(selectedRepo, type).then(setAvailable).catch((e) => setError(e.message));
   }, [selectedRepo, type]);
 
@@ -434,6 +469,27 @@ function ModulesTab() {
               </option>
             ))}
           </select>
+          {available.length > 0 && (() => {
+            const langs = [...new Set(available.map((m) => m.language).filter(Boolean))].sort((a, b) => {
+              if (a === 'en') return -1;
+              if (b === 'en') return 1;
+              return langLabel(a).localeCompare(langLabel(b));
+            });
+            return langs.length > 1 ? (
+              <select
+                value={langFilter}
+                onChange={(e) => setLangFilter(e.target.value)}
+                className="mb-2 w-full rounded-md border border-rule bg-ink px-3 py-1.5 text-sm text-parchment focus:border-brass focus:outline-none"
+              >
+                <option value="">All languages ({available.length})</option>
+                {langs.map((l) => (
+                  <option key={l} value={l}>
+                    {langLabel(l)} ({available.filter((m) => m.language === l).length})
+                  </option>
+                ))}
+              </select>
+            ) : null;
+          })()}
           {available.length > 0 && (
             <input
               value={availableSearch}
@@ -442,20 +498,36 @@ function ModulesTab() {
               className="mb-2 w-full rounded-md border border-rule bg-ink px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
             />
           )}
+          {available.length > 0 && (
+            <label className="mb-2 flex cursor-pointer items-center gap-2 text-xs text-muted hover:text-parchment">
+              <input
+                type="checkbox"
+                checked={hideInstalled}
+                onChange={(e) => setHideInstalled(e.target.checked)}
+                className="accent-brass"
+              />
+              Hide already installed
+            </label>
+          )}
           <div className="max-h-96 overflow-y-auto overflow-x-hidden rounded-md border border-rule">
             {(() => {
+              const installedNames = new Set(installed.map((m) => m.name));
               const q = availableSearch.toLowerCase();
-              const shown = q
-                ? available.filter((m) => m.name.toLowerCase().includes(q) || (m.description || '').toLowerCase().includes(q))
-                : available;
+              let shown = hideInstalled ? available.filter((m) => !installedNames.has(m.name)) : available;
+              if (langFilter) shown = shown.filter((m) => m.language === langFilter);
+              if (q) shown = shown.filter((m) => m.name.toLowerCase().includes(q) || (m.description || '').toLowerCase().includes(q));
               if (!selectedRepo) return <p className="p-3 text-sm text-muted">Pick a repository to browse what's available.</p>;
               if (available.length === 0) return <p className="p-3 text-sm text-muted">No modules of this type found in this repository.</p>;
-              if (shown.length === 0) return <p className="p-3 text-sm text-muted">No matches for "{availableSearch}".</p>;
+              if (shown.length === 0 && hideInstalled && installedNames.size > 0 && !langFilter && !q) return <p className="p-3 text-sm text-muted">All available modules of this type are already installed.</p>;
+              if (shown.length === 0) return <p className="p-3 text-sm text-muted">No matches{langFilter ? ` in ${langLabel(langFilter)}` : ''}{q ? ` for "${availableSearch}"` : ''}.</p>;
               return shown.map((m) => (
                 <div key={m.name} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="text-parchment">{m.description || m.name}</div>
-                    <div className="font-mono text-xs text-muted">{m.name}</div>
+                    <div className="flex items-center gap-2 font-mono text-xs text-muted">
+                      <span>{m.name}</span>
+                      {m.language && <span className="rounded bg-ink px-1 py-px font-sans text-[10px] uppercase tracking-wide">{m.language}</span>}
+                    </div>
                   </div>
                   <button
                     disabled={installing === m.name}
