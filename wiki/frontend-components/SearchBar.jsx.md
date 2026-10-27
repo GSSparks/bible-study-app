@@ -2,28 +2,38 @@
 
 ## Purpose
 
-A unified reference/search input bar shown in the Cell window header. Dispatches to either `onJump` (navigate to a Bible reference) or `onSearch` (open the search results pane) based on whether the input looks like a reference. Uses a simple heuristic: a string matching `BookName chapter[:verse]` format is treated as a reference; anything else is treated as a search query.
+A Google-style inline quick-search bar shown in the Cell window header. Shows a live dropdown as the user types: reference lookups get a direct "Go to…" item; keyword queries show up to 5 matching verse previews fetched in real time, plus footer actions to open full search in the Bible or Commentary tabs. Exposed via `forwardRef` so the parent can focus it on `/` keypress.
 
 ## Props
 
 | Prop | Type | Description |
 |---|---|---|
-| `activeModule` | string | Currently active module (available for context; not currently used in render) |
-| `onJump` | func | `(ref) => void` — navigate to the parsed reference |
-| `onSearch` | func | `(query) => void` — open search results for the query |
+| `activeModule` | string | Currently active Bible module — used for live verse preview searches |
+| `onJump` | func | `(ref) => void` — navigate directly to a Bible reference |
+| `onSearch` | func | `(query) => void` — open the Search pane with a Bible search |
+| `onCommentarySearch` | func | `(query) => void` — open the Search pane on the Commentary tab |
 
 ## State / Key Logic
 
-- `query` — controlled input.
-- `looksLikeReference(q)` — regex test: `(\d\s+)?[a-z][a-z.]+\.?\s+\d` — book name + space + number.
-- On form submit, routes to `onJump` or `onSearch`.
-- Exposed via `forwardRef` so parent (Cell header) can `.focus()` the input on `/` keypress.
+- `query` — controlled input value.
+- `open` — whether the dropdown is visible.
+- `verseHits` — up to 5 verse results from the debounced live preview search.
+- `searching` — true while the debounced API call is in flight.
+- `activeIdx` — keyboard-navigation cursor into `navItems`.
+- `looksLikeReference(q)` — regex: `(\d\s+)?[a-z][a-z.]+\.?\s+\d` — matches `"John 3"`, `"1 Cor 13:1"`, `"Gen.1"`, etc.
+- **Live preview:** when the query is non-empty and not a reference, a 350ms debounced call to `api.search(trimmed, activeModule, 'multiWord')` fetches verse previews. Skipped when `activeModule` is absent.
+- **`navItems` array:** unified list for keyboard navigation — `ref` item (if reference detected), then `verse` items (up to 5), then always `search-bible` and `search-commentary` footer items.
+- **`selectItem(item)`** dispatches to `onJump`, `onSearch`, or `onCommentarySearch` and clears the input.
+- **Keyboard:** ArrowDown/ArrowUp move `activeIdx`; Enter selects the active item or falls back to reference-jump / bible-search; Escape closes the dropdown.
+- **`onMouseDown` (not `onClick`)** on dropdown buttons prevents the input from blurring before the selection fires.
 
 ## Dependencies
 
-None beyond React.
+- `api.search` — for live verse preview
+- `lucide-react` — `Search`, `X`, `ArrowRight`, `BookOpen` icons
 
 ## Notes
 
-- The routing heuristic is intentionally simple and handles edge cases like `1 Cor 13:1` (leading digit), `Gen.1.1` (period-separated), and `Romans 8`. False positives (search queries that happen to look like references) are acceptable — navigating to a wrong reference will show "no text found" rather than producing an error.
+- Reference detection is intentionally simple — false positives navigate to a "not found" state rather than throwing errors.
+- The footer "Search in Bible →" and "Search in Commentaries →" items are always shown when the dropdown is open with a non-empty query, regardless of whether verse hits were found.
 - `forwardRef` pattern lets the parent focus the bar without holding a DOM ref itself.

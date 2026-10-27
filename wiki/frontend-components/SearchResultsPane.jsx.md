@@ -2,32 +2,42 @@
 
 ## Purpose
 
-Full-Bible text search pane for the Cell reading environment. Supports two search modes: "All words" (multi-word, any order) and "Exact phrase". Results are displayed as verse-reference + highlighted verse text cards. Can be triggered programmatically via `pendingSearch` (from the `SearchBar`'s parsed query). Uses `ModulePicker` to select the Bible version to search.
+Full-text search pane for the Cell reading environment, covering both Bible text and commentary modules. Supports two tabs — Bible and Commentary — each with its own search state, module picker, and results list. Can be triggered programmatically via `pendingSearch` (from `SearchBar` or `CellView`). Uses `ModulePicker` to select the Bible version or commentary module to search.
 
 ## Props
 
 | Prop | Type | Description |
 |---|---|---|
-| `pendingSearch` | object | `{ query, module, nonce }` — external trigger; nonce changes drive new searches |
-| `onNavigate` | func | `(ref) => void` — navigate to a result verse |
-| `defaultBibleModule` | string | Pre-selects the module when none is chosen yet |
+| `pendingSearch` | object | `{ query, module, tab, nonce }` — external trigger; nonce changes drive new searches; `tab` is `'bible'` or `'commentary'` |
+| `onNavigate` | func | `(ref) => void` — navigate to a result verse or commentary reference |
+| `defaultBibleModule` | string | Pre-selects the Bible module when none is chosen yet |
 
 ## State / Key Logic
 
-- `query`, `module`, `searchType` — controlled. `module` is seeded from `defaultBibleModule` on first load.
-- `pendingSearch` is watched by nonce — on change, sets `query`, optionally sets `module`, and calls `doSearch`.
-- `doSearch` calls `api.search(query, module, searchType)`. Sets `results`, `total`, `capped`.
-- `highlightedResults` — computed via `useMemo` from `results`. `injectHighlights` uses a DOMParser to walk the verse HTML and wrap matches in `<mark>` elements, skipping `<sup>` (xref/footnote markers) to avoid false matches.
-- `walkAndMark` operates on a detached fragment (not live DOM) and uses `Node.TEXT_NODE` detection to inject marks at the right level.
-- `capped` signals the result was truncated to 500 matches; a note is shown at the bottom.
-- `countLabel` formats the result count with pluralisation.
+**Bible tab:**
+- `query`, `module`, `searchType` — controlled. `module` seeded from `defaultBibleModule` on first load.
+- `results`, `total`, `capped`, `discussions` — from `api.search`.
+- `highlightedResults` — memo: runs `injectHighlights` on verse HTML, wrapping matches in `<mark>` elements.
+- `capped` signals truncation at 500 matches.
+- `discussions` — `StudyPost` results from the user's studies, shown in a section below the verse list.
+
+**Commentary tab:**
+- `commentaryModule` — `''` means "all commentaries"; a code like `"MHC"` or `"md:my-commentary"` searches one module.
+- `commentaryResults`, `commentaryLoading`, `commentaryError`, `commentarySearched` — search lifecycle state.
+- `highlightedCommentaryResults` — memo: runs `injectHighlights` on plain-text snippets.
+- `doCommentarySearch` calls `api.searchCommentary(q, module)`.
+
+**`pendingSearch` effect:** watches `pendingSearch.nonce`; if `tab === 'commentary'` switches to the Commentary tab and fires `doCommentarySearch`; otherwise fires `doSearch` on the Bible tab.
+
+**`injectHighlights(html, query, searchType)`** — uses `DOMParser` + `walkAndMark` to inject `<mark>` wrappers into verse/snippet HTML. Skips `<sup>` elements (xref/footnote markers). Operates on a detached fragment.
 
 ## Dependencies
 
 - `ModulePicker`
-- `api.search`
+- `api.search`, `api.searchCommentary`
 
 ## Notes
 
-- `injectHighlights` uses `DOMParser` + `walkAndMark` rather than a simple `replace` to correctly skip Strong's tags, footnote markers, and other HTML in verse content without corrupting the markup.
-- `verse-content` CSS class on the result span gives the verse the same footnote/xref marker styling as the reading pane.
+- `verse-content` CSS class on Bible result spans gives them the same footnote/xref marker styling as the reading pane.
+- Commentary results show `reference + moduleTitle` as the header and a 3-line-clamp snippet with highlighted matches.
+- The Commentary tab's `ModulePicker` uses `kind="commentary"` and includes a ✕ clear button to reset back to "All commentaries" mode.

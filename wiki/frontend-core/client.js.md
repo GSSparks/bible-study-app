@@ -9,7 +9,7 @@ This is the single centralized API client for all backend communication. It expo
 - `api` — named export object with methods organized by domain:
   - **Modules**: `listInstalledModules`, `listRepositories`, `listAvailableModules`, `installModule`, `removeModule`
   - **Bible text**: `getPassage`, `comparePassage`
-  - **Search**: `search`
+  - **Search**: `search`, `searchCommentary(q, module)` — full-text search across commentary modules; `module` is optional (empty = all commentaries)
   - **Notes / highlights / bookmarks**: `listNotes`, `getNote`, `createNote`, `updateNote`, `deleteNote`, `listHighlights`, `createHighlight`, `deleteHighlight`, `listBookmarks`, `createBookmark`, `updateBookmark`, `deleteBookmark`
   - **PDF library**: `listDocuments`, `getDocument`, `searchDocuments`, `updateDocument`, `deleteDocument`, `ocrDocument`, `documentFileUrl`
   - **Topic / Codex**: `searchTopics`, `getWikipediaEntry`, `getMerriamEntry`, `getCodexSummary`
@@ -18,8 +18,9 @@ This is the single centralized API client for all backend communication. It expo
   - **Books (RawGenBook)**: `listInstalledBooks`, `getBookContent`, `getBookKeys`, `getBookEntry`
   - **Study assistant**: `buildContext`, `askAssistant`, `listRecentSessions`, `getGuideForReference`, `renameSession`, `buildWordStudyContext`, `askWordStudy`, `buildPhraseStudyContext`, `askPhraseStudy`, `savePersonalModule`, `getCommentaryEntry`, `saveCommentaryNote`
   - **User profiles**: `getUserProfile`, `updateMyProfile`
-  - **Auth**: `bootstrapStatus`, `me`, `bootstrap`, `login`, `logout`, `changePassword`, `createUser`, `listUsers`
-  - **Admin**: `getAdminMetrics`, `listModuleVisibility`, `setModuleVisibility`, `listAdminPosts`, `deleteAdminPost`, `listAdminMedia`, `deleteAdminMedia`
+  - **Auth**: `bootstrapStatus`, `me`, `bootstrap`, `login`, `logout`, `changePassword`, `createUser`
+  - **Admin — users**: `listUsers()` → `GET /admin/users`; `updateUser(id, payload)` → `PATCH /admin/users/:id` (role, suspended, aiEnabled); `deleteUser(id)` → `DELETE /admin/users/:id`
+  - **Admin — other**: `getAdminMetrics`, `listModuleVisibility`, `setModuleVisibility`, `listAdminPosts`, `deleteAdminPost`, `listAdminMedia`, `deleteAdminMedia`
   - **Branding**: `getBranding`, `setBranding`
   - **Connections (Fellows)**: `searchConnections`, `listConnections`, `listConnectionRequests`, `listSentConnectionRequests`, `sendConnectionRequest`, `acceptConnectionRequest`, `declineConnectionRequest`, `removeConnection`
   - **Scriptoriums**: `listPublicScriptoriums`, `listMyScriptoriums`, `listScriptoriumInvites`, `getScriptorium`, `listScriptoriumMembers`, `createScriptorium`, `joinScriptorium`, `leaveScriptorium`, `updateScriptorium`, `deleteScriptorium`, `removeScriptoriumMember`, `inviteToScriptorium`, `acceptScriptoriumInvite`, `declineScriptoriumInvite`, `listScriptoriumResources`, `addScriptoriumResource`, `removeScriptoriumResource`
@@ -44,3 +45,4 @@ This is the single centralized API client for all backend communication. It expo
 - The base path is `/api`, which Vite's dev server proxies to `http://localhost:8088` (see `vite.config.js`).
 - Two methods bypass the `request()` wrapper to get raw `Response` objects for blob downloads: `exportCodexModule` and `exportStudy`. Both do their own `res.ok` check and return a `Blob` (or `{ blob, filename }`).
 - `createPost` is the only social/wall method that uses `FormData` (to support optional media file attachments).
+- `listUsers` points to `GET /admin/users` (not the old `GET /auth/users`) so it picks up the `suspended` and `aiEnabled` fields added in the user management overhaul.

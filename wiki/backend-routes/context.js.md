@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Powers the Study Assistant feature. It provides two core operations — building a passage context (assembling Bible text, commentary, notes, and document excerpts) and sending that context plus a conversation history to Claude for an AI response — as well as session persistence (create, retrieve, rename) for saved conversations. Study sessions are scoped per user with ownership checks on every direct-by-ID access to prevent IDOR. The entire router is gated behind login to avoid unmetered AI API usage.
+Powers the Study Assistant feature. It provides two core operations — building a passage context (assembling Bible text, commentary, notes, and document excerpts) and sending that context plus a conversation history to Claude for an AI response — as well as session persistence (create, retrieve, rename) for saved conversations. Study sessions are scoped per user with ownership checks on every direct-by-ID access to prevent IDOR. The entire router is gated behind login and AI-access checks to avoid unmetered AI API usage.
 
 ## Endpoints
 
@@ -17,9 +17,10 @@ Powers the Study Assistant feature. It provides two core operations — building
 
 ## Auth
 
-`contextRouter.use(requireLogin)` is applied at the router level. All endpoints require a valid session. Session update and retrieval by ID additionally check `session.userId === req.user.id`, returning 404 on mismatch to prevent enumeration.
+`contextRouter.use(requireLogin)` and `contextRouter.use(requireAiEnabled)` are both applied at the router level. All endpoints require a valid, non-suspended session. If `req.user.aiEnabled` is `false` (disabled by an admin), all routes return 403. Session update and retrieval by ID additionally check `session.userId === req.user.id`, returning 404 on mismatch to prevent enumeration.
 
 ## Dependencies
 
 - `contextBuilder` — `buildPassageContext`, `askStudyAssistant`
 - `../db/prisma` — direct Prisma queries for `StudySession` CRUD
+- `../middleware/auth` — `requireLogin`, `requireAiEnabled`

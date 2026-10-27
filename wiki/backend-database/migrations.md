@@ -40,6 +40,10 @@ Scriptorium uses Prisma Migrate to manage its PostgreSQL schema. Each migration 
 | `20261022000000_add_scriptorium_research` | 2026-10-22 | Creates `StudyFinding` and `StudyHighlight` tables to track per-study shared annotations and passage highlights. |
 | `20261022000001_study_posts` | 2026-10-22 | Renames `StudyFinding` to `StudyPost`, adds `type` (post/finding) and a self-referential `parentId` column for one-level replies. |
 | `20261022000002_study_post_nullable_reference` | 2026-10-22 | Makes `StudyPost.reference` nullable so free-form posts and replies are not required to anchor to a passage. |
+| `20261022000003_study_post_media_edit` | 2026-10-22 | Adds nullable `mediaUrls` JSONB column to `StudyPost` for image attachments on study posts. |
+| `20261023000000_reflection_shared` | 2026-10-23 | Adds `shared` boolean (default false) to `StudyLessonReflection` so participants can optionally share their reflection with the group. |
+| `20261023000001_resource_suggestions` | 2026-10-23 | Adds `status` (default `'approved'`) and nullable `suggestorId` to `StudyResource` to support participant resource suggestions pending editor review. |
+| `20261027000000_user_suspended_ai_enabled` | 2026-10-27 | Adds `suspended` (boolean, default false) and `aiEnabled` (boolean, default true) columns to `User` for admin-controlled account suspension and per-user AI feature access. |
 
 ---
 
@@ -178,3 +182,23 @@ Renames `StudyFinding` to `StudyPost` (renaming all constraints and indexes in p
 ## 20261022000002_study_post_nullable_reference
 
 Drops the `NOT NULL` constraint on `StudyPost.reference` so that free-form posts (`type='post'`) and reply posts (`parentId` set) are not required to carry a passage anchor, which was only meaningful for findings.
+
+## 20261022000003_study_post_media_edit
+
+Adds a nullable `mediaUrls` JSONB column to `StudyPost` for image attachments. Mirrors the same column pattern on `Post`. Existing rows receive NULL.
+
+## 20261023000000_reflection_shared
+
+Adds a `shared` BOOLEAN column (NOT NULL, default false) to `StudyLessonReflection`. When set to true, a participant's reflection is visible to other study members. Existing reflections default to private.
+
+## 20261023000001_resource_suggestions
+
+Extends `StudyResource` to support participant-suggested resources pending leader review. Adds `status` TEXT (NOT NULL, default `'approved'`) and a nullable `suggestorId` TEXT foreign key referencing `User.id` (ON DELETE SET NULL). An index on `suggestorId` supports filtering suggested resources by author.
+
+## 20261027000000_user_suspended_ai_enabled
+
+Adds two administration columns to `User`:
+- `suspended` BOOLEAN NOT NULL DEFAULT false — when true, `requireLogin` middleware returns 403 on every API request and `verifyLogin` blocks new logins for that account.
+- `aiEnabled` BOOLEAN NOT NULL DEFAULT true — when false, `requireAiEnabled` middleware blocks the Study Assistant (`context.js`) and Word Study (`wordStudy.js`) routes for that user.
+
+Both columns default to safe values so all existing users are unaffected.

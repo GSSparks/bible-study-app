@@ -105,7 +105,7 @@ This wiki contains one summary file per source file in the repository. Each summ
 | File | Wiki |
 |---|---|
 | `backend/prisma/schema.prisma` | [backend-database/schema.prisma.md](backend-database/schema.prisma.md) |
-| `backend/prisma/migrations/` (all 34 migrations) | [backend-database/migrations.md](backend-database/migrations.md) |
+| `backend/prisma/migrations/` (all 38 migrations) | [backend-database/migrations.md](backend-database/migrations.md) |
 
 ---
 

@@ -2,13 +2,14 @@
 
 **Purpose**
 
-Provides all authentication and authorization middleware for the Express app. It handles session-to-user attachment on every request, login gating, admin-role enforcement, and the "setup required" lock that prevents any API access until the first admin account has been bootstrapped.
+Provides all authentication and authorization middleware for the Express app. It handles session-to-user attachment on every request, login gating, admin-role enforcement, AI-feature gating, and the "setup required" lock that prevents any API access until the first admin account has been bootstrapped.
 
 **Key exports / contents**
 
-- `attachUser(req, res, next)` — async middleware, runs on every request. Reads `req.session.userId`, queries Prisma for the user (selecting `id`, `username`, `role`, `displayName`, `bio`, `avatarUrl`, `bannerUrl`), and sets `req.user`. If the session references a deleted user, clears `req.session.userId`. Sets `req.user = null` for unauthenticated visitors.
-- `requireLogin(req, res, next)` — returns `401` if `req.user` is null; otherwise calls `next()`. Used to gate entire routers via `router.use(requireLogin)`.
+- `attachUser(req, res, next)` — async middleware, runs on every request. Reads `req.session.userId`, queries Prisma for the user (selecting `id`, `username`, `role`, `suspended`, `aiEnabled`, `displayName`, `bio`, `avatarUrl`, `bannerUrl`), and sets `req.user`. If the session references a deleted user, clears `req.session.userId`. Sets `req.user = null` for unauthenticated visitors.
+- `requireLogin(req, res, next)` — returns `401` if `req.user` is null; returns `403` if `req.user.suspended` is true (takes effect on the next request after suspension — no need to destroy active sessions). Otherwise calls `next()`. Used to gate entire routers via `router.use(requireLogin)`.
 - `requireAdmin(req, res, next)` — returns `401` if not logged in, `403` if logged in but `req.user.role !== 'admin'`. Used to gate the admin router.
+- `requireAiEnabled(req, res, next)` — returns `403` if `req.user.aiEnabled` is false. Applied at the router level in `context.js` and `wordStudy.js` to block AI features for users whose AI access has been disabled by an admin.
 - `blockUntilBootstrapped(req, res, next)` — async middleware applied to all `/api/*` routes except `/api/auth`. Checks `isBootstrapNeeded()` (from `authService`); returns `503 { setupRequired: true }` if no admin account exists yet. Once bootstrap is confirmed complete, sets a process-level cache (`bootstrapCompletedCache = true`) to avoid re-querying on every subsequent request.
 - `resetBootstrapCache()` — exported for use in tests to reset the cached state between test runs.
 
@@ -17,8 +18,10 @@ Provides all authentication and authorization middleware for the Express app. It
 - Imports `prisma` from `../db/prisma.js` for user lookup.
 - Imports `isBootstrapNeeded` from `../services/authService.js`.
 - `attachUser` and `blockUntilBootstrapped` are imported by `app.js` and applied globally.
-- `requireLogin` and `requireAdmin` are imported by individual route files (e.g. `notesRouter`, `adminRouter`) to gate their handlers.
+- `requireLogin`, `requireAdmin`, and `requireAiEnabled` are imported by individual route files to gate their handlers.
 
 **Notes**
 
 `blockUntilBootstrapped` uses `req.originalUrl` (not `req.path`) to check for bootstrap endpoints — a critical distinction because `req.path` is relative to the mount point (`/api`) and would not match the full `/api/auth/bootstrap` path. The `bootstrapCompletedCache` is a one-way latch: once set `true` it never resets in production, eliminating the per-request database read for the lifetime of the process.
+
+Suspension is enforced in `requireLogin` (not in a separate middleware) so that suspended users are blocked from all login-gated routes simultaneously without having their existing sessions destroyed — the block takes effect on the next request.

@@ -41,7 +41,7 @@ The central wrapper around `node-sword-interface` (NodeSwordInterface), which it
 - **`findStrongsSequenceOccurrences(moduleCode, querySequence)`** — Finds verses containing a consecutive run of Strong's-tagged words in the same order.
 
 **Search**
-- **`search(moduleCode, term, { searchType, searchScope, limit })`** — Calls SWORD's `getModuleSearchResults` and processes each result's content through `processVerseContent`.
+- **`search(moduleCode, term, { searchType, searchScope, limit })`** — Calls SWORD's `getModuleSearchResults` and processes each result's content through `processVerseContent`. Serialized via `_searchLock` (a promise-replacement mutex) to prevent the `"Module search in progress"` error when concurrent callers (e.g., live search preview + commentary fan-out) race.
 
 ## Dependencies
 
@@ -54,6 +54,7 @@ The central wrapper around `node-sword-interface` (NodeSwordInterface), which it
 - **Chapter cache per `getPassage` call:** A `Map` local to each `getPassage` invocation prevents redundant `getChapterText` calls when a range spans multiple verses in the same chapter.
 - **`enableMarkup()` at construction:** Called once in the constructor to enable Strong's word-click HTML output. Failures are warned but not thrown, degrading gracefully.
 - **Full-Bible index deduplication:** `_moduleIndexBuilding` stores in-flight build promises so concurrent requests share one scan; `_moduleIndexCache` stores completed results for the process lifetime.
+- **`_searchLock` mutex:** `node-sword-interface`'s `getModuleSearchResults` is not concurrent-safe and throws `"Module search in progress"` if called while a previous search is running. `_searchLock` uses the promise-replacement pattern: each caller chains a new `Promise` onto the current lock before `await`-ing the previous one, serializing all SWORD searches across the process.
 - **Binary GenBook parsing:** `_parseBntTree` reads the SWORD `TreeKeyIdx` binary format (6 × INT32LE header per record, null-terminated name) by byte-offset navigation. `_concatAllContent` does a DFS traversal reading content from the companion `.bdt` data file. Both `.bnt` (modern) and `.dat` (legacy) formats are handled.
 - **`replaceBalancedSpans`:** A shared utility that finds `<span>` elements by class token and replaces their full content (correctly tracking depth for nested spans), used by title extraction, cross-reference normalization, footnote normalization, and abbreviation expansion.
 - **`wrapVerseReferences` HTML safety:** After locating reference matches with `findReferencesInText`, the method filters out any match whose start or end position falls inside an existing HTML tag, preventing double-wrapping.

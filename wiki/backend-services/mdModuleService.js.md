@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Implements "Markdown modules" — a lightweight alternative to compiled SWORD modules that lets admins add commentaries, dictionaries, Bible texts, and prose books by dropping a directory of Markdown (or CCEL ThML XML) files under `MD_MODULES_PATH`. This service handles discovery, reading, parsing, and installation/removal of those modules. All module codes it produces are prefixed `md:` so every part of the application can route to this service instead of `swordService` when it sees that prefix.
+Implements "Markdown modules" — a lightweight alternative to compiled SWORD modules that lets admins add commentaries, dictionaries, Bible texts, and prose books by dropping a directory of Markdown (or CCEL ThML XML) files under `MD_MODULES_PATH`. This service handles discovery, reading, parsing, searching, and installation/removal of those modules. All module codes it produces are prefixed `md:` so every part of the application can route to this service instead of `swordService` when it sees that prefix.
 
 ## Key exports
 
@@ -17,6 +17,7 @@ Implements "Markdown modules" — a lightweight alternative to compiled SWORD mo
 - **`getMdFullBookContent(dirName)`** — Returns the full HTML of a BOOK module: parses ThML XML via `parseThml` if an `.xml` file exists, otherwise concatenates all `.md` files rendered to HTML.
 - **`getMdModuleType(moduleDirName)`** — Reads `module.json` and returns the `type` field.
 - **`mdVersesToText(verses)`** — Strips HTML tags from verse objects' `content` for plain-text use in AI context.
+- **`searchMdCommentary(dirName, query, limit)`** — Full-text search across all `.md` files in a commentary module. Case-insensitive match against parsed section content. Returns up to `limit` results (default 100) as `[{ reference, snippet }]` where `snippet` is an 80-character excerpt centred on the match with Markdown syntax stripped.
 - **`installMdModuleFromZip(buffer)`** — Extracts a zip buffer into `MD_MODULES_PATH`, accepting both flat and single-wrapper-directory zip layouts. Validates `module.json`, determines the directory name, guards against path traversal, and returns the installed module code.
 - **`removeMdModule(dirName)`** — Deletes a module directory after verifying it is a direct child of `MD_MODULES_PATH`.
 
@@ -31,3 +32,4 @@ Implements "Markdown modules" — a lightweight alternative to compiled SWORD mo
 - **Verse shape consistency:** `getMdPassage` returns objects with the same fields (`bibleBookShortTitle`, `chapter`, `verseNr`, `absoluteVerseNr`, `content`, `titles`) as `swordService.getPassage`, so all downstream consumers work identically.
 - **Path traversal guards:** `installMdModuleFromZip` validates the directory name with a regex and resolves the destination path against `MD_MODULES_PATH` before writing any files. Individual entry paths are also checked.
 - **Book file matching:** `readBookFile` does exact-then-prefix matching between the normalized reference book name and `.md` filenames, tolerating common abbreviation mismatches (e.g. `"Gen"` finds `"genesis.md"`).
+- **Commentary search snippet:** `searchMdCommentary` strips Markdown syntax (headings, bold, links, etc.) from section content before extracting the snippet to produce clean plain-text previews. Book display names in `reference` are derived from the filename by capitalizing the stem.

@@ -32,7 +32,7 @@ Main Bible study workspace. Always-mounted in `AppShell`. Hosts `WorkspaceLayout
 **Cross-pane pending actions:**
 - `pendingDictKey` / `pendingDictFilter` / `pendingDictTabId` — dispatched when `openStrongsInDictionary` wants to navigate a specific Dictionary pane to a Strong's entry.
 - `pendingAiRequest` — nonce object sent to the passageguide pane (StudyAssistant or AIChatPane) to trigger overview/word/phrase study.
-- `pendingSearch` — nonce object sent to the Search pane.
+- `pendingSearch` — nonce object sent to the Search pane. Shape: `{ query, module, tab, nonce }` where `tab` is `'bible'` or `'commentary'`.
 - `commentaryRefreshNonce` / `dictionaryRefreshNonce` — incrementing integers to force specific pane types to reload their content.
 
 **`useWorkspaceLayout()`** — manages the pane grid (columns × rows), pane type assignment, drag-and-drop state. Returns `{ layout, dispatch }` passed to `WorkspaceLayout`.
@@ -42,6 +42,7 @@ Main Bible study workspace. Always-mounted in `AppShell`. Hosts `WorkspaceLayout
 - `openVerseTab(reference, module)` — finds an existing Bible tab and updates it, or opens a new one.
 - `openStrongsInDictionary(strongsKey, module)` — finds the first installed Strong's dictionary module (Hebrew or Greek based on key prefix) and dispatches `pendingDictKey` to target its tab.
 - `routeToAiChat(request)` — finds an existing passageguide pane or creates one, then sets `pendingAiRequest`.
+- `routeToCommentarySearch(query)` — finds an existing Search pane or creates one, then sets `pendingSearch` with `tab: 'commentary'`. Called by `SearchBar`'s `onCommentarySearch` prop.
 
 **Keyboard shortcuts (within Cell):**
 - `/` — focuses the search input.

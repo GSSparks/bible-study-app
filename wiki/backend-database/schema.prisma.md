@@ -8,7 +8,7 @@ Defines the complete PostgreSQL database schema for Scriptorium using Prisma's s
 
 The schema defines the following models:
 
-- **`User`** — core identity record. Fields: `username` (unique), `passwordHash`, `role` (user/admin), `displayName`, `bio`, `avatarUrl`, `bannerUrl`, `lastLoginAt`. Has relations to all user-owned data (notes, highlights, bookmarks, study sessions, personal modules, connections, memberships, posts, comments, reading plan progress, etc.).
+- **`User`** — core identity record. Fields: `username` (unique), `passwordHash`, `role` (user/admin), `suspended` (boolean, default false — blocks login and API access immediately), `aiEnabled` (boolean, default true — gates Study Assistant and Word Study routes), `displayName`, `bio`, `avatarUrl`, `bannerUrl`, `lastLoginAt`. Has relations to all user-owned data (notes, highlights, bookmarks, study sessions, personal modules, connections, memberships, posts, comments, reading plan progress, etc.).
 
 - **`Note`** — user annotations. Anchored to `reference` + `module` or freestanding. `tags` array enables multi-purpose storage: `['book-highlight', color]` marks book prose highlights (stored as notes rather than in `Highlight` because they need the `quote` field for text-based re-application). `fromAssistant` flag tracks AI-generated notes.
 
@@ -46,11 +46,11 @@ The schema defines the following models:
 
 - **`StudyLessonCompletion`** — per-user per-lesson completion marker. `@@unique([lessonId, userId])`.
 
-- **`StudyLessonReflection`** — per-user per-lesson private reflection text. `@@unique([lessonId, userId])`.
+- **`StudyLessonReflection`** — per-user per-lesson private reflection text, with a `shared` boolean (default false) for optionally sharing with the group. `@@unique([lessonId, userId])`.
 
 - **`StudyComment`** / **`StudyCommentLike`** — lesson-level discussion comments and per-user likes. `@@unique([commentId, userId])` on likes.
 
-- **`StudyResource`** — curated resources attached to a study (not a specific lesson). `type` is `"commentary"`, `"module"`, `"link"`, or `"note"`. Commentary/module types reference an installed module by `moduleCode`.
+- **`StudyResource`** — curated resources attached to a study (not a specific lesson). `type` is `"commentary"`, `"module"`, `"link"`, or `"note"`. Commentary/module types reference an installed module by `moduleCode`. `status` (`'approved'`/`'pending'`) and `suggestorId` enable participant resource suggestions pending editor review.
 
 - **`ScriptoriumResource`** — member-submitted links or notes attached to a Scriptorium (not a study).
 
@@ -62,7 +62,7 @@ The schema defines the following models:
 
 - **`MerriamCache`** — caches Merriam-Webster API responses. Same normalised `query` key pattern.
 
-- **`StudyPost`** — unified study-level discussion post (type `'post'` or `'finding'`). `parentId` enables one level of replies. `reference` + `module` anchor "finding" type posts to a passage.
+- **`StudyPost`** — unified study-level discussion post (type `'post'` or `'finding'`). `parentId` enables one level of replies. `reference` + `module` anchor "finding" type posts to a passage. `mediaUrls` (JSONB, nullable) stores image attachments.
 
 - **`StudyHighlight`** — shared verse highlights visible to all study participants, distinct from personal highlights. `@@unique([studyId, authorId, reference, module])`.
 
@@ -78,3 +78,4 @@ The schema defines the following models:
 - `StudySession.kind` is a plain string (not an enum) — valid values are `'guide'` and `'conversation'`; the default is `'conversation'`.
 - `Connection` uses a single-row-per-pair pattern (not two directional rows) to prevent sync issues and simplify "are these two connected?" queries.
 - `FactbookCache` and `MerriamCache` are application-managed caches with no TTL — they accumulate indefinitely. Pruning them requires direct database queries.
+- `User.suspended` takes effect on the very next API request (checked in `requireLogin` middleware); it also blocks re-login via `verifyLogin`. Self-suspension and self-deletion are blocked at the admin route level.
