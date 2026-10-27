@@ -38,6 +38,7 @@ import { codexRouter } from './routes/factbook.js';
 import { bibleMapsRouter } from './routes/bibleMaps.js';
 import { eswordLibraryRouter } from './routes/eswordLibrary.js';
 import { UPLOADS_PATH } from './middleware/upload.js';
+import { calendarRouter } from './routes/calendar.js';
 import { getFrameSrcOrigins } from './services/frameSrcCache.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -181,6 +182,9 @@ export function createApp() {
   // User-uploaded files — served before the SPA static files so the
   // /uploads path doesn't get swallowed by the catch-all.
   app.use('/uploads', express.static(UPLOADS_PATH));
+
+  // This is where I think this goes ~lectric1
+  app.use('/api/calendar', calendarRouter);
 
   // Serve the built React app for everything else (SPA fallback)
   app.use(express.static(FRONTEND_DIST));

@@ -67,3 +67,8 @@ export const uploadLessonVideo = multer({
 export function mimeToType(mimetype) {
   return VIDEO_TYPES.has(mimetype) ? 'video' : 'image';
 }
+export const uploadCalendarImage = multer({
+  storage: makeStorage('calendar'),
+                                          limits: { fileSize: 10 * 1024 * 1024 },
+                                          fileFilter: imageOnly,
+}).single('image');

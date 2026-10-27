@@ -148,6 +148,9 @@ model User {
   studyComments      StudyComment[]
   studyCommentLikes  StudyCommentLike[]
   readingPlanProgress ReadingPlanProgress[]
+  calendarLayers      CalendarLayer[]
+  calendarLayerShares CalendarLayerShare[]
+  calendarPrintConfigs CalendarPrintConfig[]
 }
 
 // Mutual-acceptance connections ("Fellows" in the UI). One row per
@@ -520,4 +523,78 @@ model StudyHighlight {
   @@unique([studyId, authorId, reference, module])
   @@index([studyId])
   @@index([studyId, reference])
+}
+
+model CalendarLayer {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  color          String
+  calendarSystem String   @default("gregorian") // "gregorian" | "hebrew"
+  visible        Boolean  @default(true)
+  isBuiltIn      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  entries    CalendarEntry[]
+  shares     CalendarLayerShare[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model CalendarEntry {
+  id          String        @id @default(cuid())
+  layerId     String
+  layer       CalendarLayer @relation(fields: [layerId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  year        Int
+  month       Int
+  day         Int?
+  recurrence  String?       // RRULE subset, e.g. "FREQ=YEARLY;BYMONTH=4;BYMONTHDAY=15"
+  icon        String?
+  reference   String?       // optional scripture ref
+  module      String?
+  createdAt   DateTime      @default(now())
+
+  @@index([layerId, year, month])
+  @@index([layerId, year])
+}
+
+model CalendarLayerShare {
+  id        String        @id @default(cuid())
+  layerId   String
+  layer     CalendarLayer @relation(fields: [layerId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String        @default("viewer") // "viewer" | "editor"
+  createdAt DateTime      @default(now())
+
+  @@unique([layerId, userId])
+  @@index([userId])
+}
+
+model CalendarPrintConfig {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  year               Int
+  layout             String   @default("single-month") // "single-month" | "2-month" | "quarterly" | "12-month"
+  paper              String   @default("letter")       // "letter" | "a4"
+  orientation        String   @default("portrait")     // "portrait" | "landscape"
+  layerIds           String[]
+  coverImageId       String?
+  coverTitle         String?
+  coverVerseRef      String?
+  coverVerseText     String?
+  dayBgImageIds      Json?    // {"1": "img-cuid", "2": "img-cuid", ...} or per-month
+  overlayOpacity     Float    @default(0.65)
+  showWeekdayHeaders Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId, year])
+
 }
