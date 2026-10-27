@@ -321,6 +321,7 @@ function ModulesTab() {
   const [installing, setInstalling] = useState(null);
   const [availableSearch, setAvailableSearch] = useState('');
   const [langFilter, setLangFilter] = useState('');
+  const [hideInstalled, setHideInstalled] = useState(true);
   const [removing, setRemoving] = useState(null);
   const [toggling, setToggling] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -497,13 +498,27 @@ function ModulesTab() {
               className="mb-2 w-full rounded-md border border-rule bg-ink px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
             />
           )}
+          {available.length > 0 && (
+            <label className="mb-2 flex cursor-pointer items-center gap-2 text-xs text-muted hover:text-parchment">
+              <input
+                type="checkbox"
+                checked={hideInstalled}
+                onChange={(e) => setHideInstalled(e.target.checked)}
+                className="accent-brass"
+              />
+              Hide already installed
+            </label>
+          )}
           <div className="max-h-96 overflow-y-auto overflow-x-hidden rounded-md border border-rule">
             {(() => {
+              const installedNames = new Set(installed.map((m) => m.name));
               const q = availableSearch.toLowerCase();
-              let shown = langFilter ? available.filter((m) => m.language === langFilter) : available;
+              let shown = hideInstalled ? available.filter((m) => !installedNames.has(m.name)) : available;
+              if (langFilter) shown = shown.filter((m) => m.language === langFilter);
               if (q) shown = shown.filter((m) => m.name.toLowerCase().includes(q) || (m.description || '').toLowerCase().includes(q));
               if (!selectedRepo) return <p className="p-3 text-sm text-muted">Pick a repository to browse what's available.</p>;
               if (available.length === 0) return <p className="p-3 text-sm text-muted">No modules of this type found in this repository.</p>;
+              if (shown.length === 0 && hideInstalled && installedNames.size > 0 && !langFilter && !q) return <p className="p-3 text-sm text-muted">All available modules of this type are already installed.</p>;
               if (shown.length === 0) return <p className="p-3 text-sm text-muted">No matches{langFilter ? ` in ${langLabel(langFilter)}` : ''}{q ? ` for "${availableSearch}"` : ''}.</p>;
               return shown.map((m) => (
                 <div key={m.name} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">
