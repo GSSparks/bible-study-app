@@ -459,6 +459,7 @@ model FactbookCache {
   query     String   @unique  // normalized: trimmed lowercase
   title     String            // human-readable display title (original case)
   summaryMd String            // LLM-generated markdown summary
+  tags      String[] @default([])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

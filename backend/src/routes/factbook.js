@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { swordService } from '../services/swordService.js';
 import { isMdModuleCode, mdDirName, getMdDictionaryKeys, getMdDictionaryEntry } from '../services/mdModuleService.js';
 import { filterAvailableModules } from '../services/moduleVisibilityService.js';
-import { getCachedSummary, generateAndCache } from '../services/factbookSummaryService.js';
+import { getCachedSummary, generateAndCache, updateEntry } from '../services/factbookSummaryService.js';
+import { requireLogin } from '../middleware/auth.js';
 
 export const codexRouter = Router();
 
@@ -97,6 +98,20 @@ codexRouter.get('/summary', async (req, res, next) => {
     if (err.message === 'AI not configured') {
       return res.status(503).json({ error: 'AI not configured — set ANTHROPIC_API_KEY to enable summaries' });
     }
+    next(err);
+  }
+});
+
+// PATCH /api/codex/summary/:id — edit markdown or tags; requires login
+codexRouter.patch('/summary/:id', requireLogin, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid id' });
+    const { summaryMd, tags } = req.body;
+    const result = await updateEntry(id, { summaryMd, tags });
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
   }
 });

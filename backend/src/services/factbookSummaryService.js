@@ -108,3 +108,16 @@ export async function listAllCached() {
 export async function deleteById(id) {
   await prisma.factbookCache.delete({ where: { id } });
 }
+
+export async function updateEntry(id, { summaryMd, tags } = {}) {
+  const data = {};
+  if (summaryMd !== undefined) data.summaryMd = summaryMd;
+  if (tags !== undefined) data.tags = tags;
+  if (Object.keys(data).length === 0) {
+    const err = new Error('Nothing to update');
+    err.status = 400;
+    throw err;
+  }
+  const row = await prisma.factbookCache.update({ where: { id }, data });
+  return { ...row, summaryHtml: toHtml(row.summaryMd) };
+}

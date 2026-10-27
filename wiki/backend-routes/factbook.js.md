@@ -6,18 +6,20 @@ The Codex feature: generates AI-powered topic overview summaries by combining di
 
 ## Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/codex/summary?q=<query>` | Returns a cached AI-generated Markdown summary for the topic, or generates and caches one on the first request. The query must be at least 2 characters. Returns `{ ..., cached: bool }`. |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/codex/summary?q=<query>` | None | Returns cached AI-generated Markdown summary for the topic, or generates and caches one on first request. Returns `{ id, title, summaryMd, summaryHtml, tags, cached: bool, ... }`. |
+| PATCH | `/api/codex/summary/:id` | `requireLogin` | Updates `summaryMd` and/or `tags` on an existing cache entry. Returns the updated row with `summaryHtml`. |
 
 ## Auth
 
-No authentication is required. Module visibility filtering is applied based on `req.user?.role`.
+GET requires no authentication; module visibility filtering applies based on `req.user?.role`. PATCH requires `requireLogin` — any authenticated user may edit entries (Codex is instance-wide/shared).
 
 ## Dependencies
 
 - `swordService` — `listInstalledModules`, `getDictionaryKeys`, `getRawEntry`
 - `mdModuleService` — `isMdModuleCode`, `mdDirName`, `getMdDictionaryKeys`, `getMdDictionaryEntry`
 - `moduleVisibilityService` — `filterAvailableModules`
-- `factbookSummaryService` — `getCachedSummary`, `generateAndCache`
+- `factbookSummaryService` — `getCachedSummary`, `generateAndCache`, `updateEntry`
+- `middleware/auth.js` — `requireLogin`
 - Wikipedia REST API (external HTTP) — biased-search OpenSearch + `/page/summary` for contextual enrichment

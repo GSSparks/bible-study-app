@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookText, ChevronLeft, ChevronRight, ExternalLink, List, Search, Sparkles, Volume2, X } from 'lucide-react';
+import { BookText, Check, ChevronLeft, ChevronRight, ExternalLink, List, Pencil, Search, Sparkles, Tag, Volume2, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import FootnotePopup from './FootnotePopup.jsx';
 import VerseHoverCard from './VerseHoverCard.jsx';
@@ -102,7 +102,12 @@ export default function TopicGuidePane({
   const [tocOpen, setTocOpen] = useState(false);
   const contentRef = useRef(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
-  const [summaryState, setSummaryState] = useState(null); // { loading, html, error, cached }
+  const [summaryState, setSummaryState] = useState(null); // { loading, html, error, cached, id, summaryMd, tags }
+  const [editing, setEditing] = useState(false);
+  const [editMd, setEditMd] = useState('');
+  const [editTags, setEditTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
+  const [saving, setSaving] = useState(false);
   const [hoverCard, setHoverCard] = useState(null); // { ref, rect }
   const closeTimer = useRef(null);
   const inputRef = useRef(null);
@@ -167,7 +172,10 @@ export default function TopicGuidePane({
     const q = selected.key;
     setSummaryState({ loading: true, html: null, error: null, cached: false });
     api.getCodexSummary(q)
-      .then((res) => setSummaryState({ loading: false, html: res.summaryHtml, error: null, cached: res.cached }))
+      .then((res) => {
+        setSummaryState({ loading: false, html: res.summaryHtml, error: null, cached: res.cached, id: res.id, summaryMd: res.summaryMd, tags: res.tags ?? [] });
+        setEditing(false);
+      })
       .catch((e) => setSummaryState({ loading: false, html: null, error: e.message, cached: false }));
   }, [selected?.module === SUMMARY_MODULE ? selected.key : null]);
 
@@ -347,6 +355,39 @@ export default function TopicGuidePane({
     navigateTo({ module: MERRIAM_MODULE, description: 'Merriam-Webster', key: merriamResult.headword });
     setEntryHtml('');
     setEntryError(null);
+  }
+
+  function startEdit() {
+    setEditMd(summaryState?.summaryMd ?? '');
+    setEditTags(summaryState?.tags ?? []);
+    setTagInput('');
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+  }
+
+  async function saveEdit() {
+    if (!summaryState?.id) return;
+    setSaving(true);
+    try {
+      const res = await api.updateCodexEntry(summaryState.id, { summaryMd: editMd, tags: editTags });
+      setSummaryState((prev) => ({ ...prev, html: res.summaryHtml, summaryMd: res.summaryMd, tags: res.tags ?? [] }));
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function addTag(value) {
+    const t = value.trim().toLowerCase();
+    if (t && !editTags.includes(t)) setEditTags((prev) => [...prev, t]);
+    setTagInput('');
+  }
+
+  function removeTag(tag) {
+    setEditTags((prev) => prev.filter((t) => t !== tag));
   }
 
   function jumpToSection(id) {
@@ -659,9 +700,20 @@ export default function TopicGuidePane({
                   <ChevronRight size={16} />
                 </button>
               </div>
-              <div className="flex items-center gap-2">
-                <Sparkles size={18} className="shrink-0 text-pageAccent opacity-70" />
-                <h1 className="font-display text-2xl font-normal capitalize text-pageText">{selected.key}</h1>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} className="shrink-0 text-pageAccent opacity-70" />
+                  <h1 className="font-display text-2xl font-normal capitalize text-pageText">{selected.key}</h1>
+                </div>
+                {summaryState?.id && !editing && !summaryState?.loading && (
+                  <button
+                    onClick={startEdit}
+                    title="Edit"
+                    className="shrink-0 rounded p-1.5 text-pageMuted hover:bg-pageBorder/40 hover:text-pageText"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
               </div>
               <p className="mt-1 font-sans text-xs text-pageMuted">
                 AI Overview
@@ -669,7 +721,20 @@ export default function TopicGuidePane({
                   <span className="ml-2 rounded bg-verdigris/15 px-1.5 py-0.5 text-[10px] text-verdigris">just generated</span>
                 )}
               </p>
+
+              {/* Tags display */}
+              {!editing && summaryState?.tags && summaryState.tags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {summaryState.tags.map((tag) => (
+                    <span key={tag} className="flex items-center gap-1 rounded-full bg-verdigris/15 px-2 py-0.5 font-sans text-[11px] text-verdigris">
+                      <Tag size={9} />
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
+
             {summaryState?.loading && (
               <div className="flex items-center gap-2 text-sm text-pageMuted">
                 <Sparkles size={14} className="animate-pulse" />
@@ -679,7 +744,70 @@ export default function TopicGuidePane({
             {summaryState?.error && (
               <p className="text-sm text-red-600">{summaryState.error}</p>
             )}
-            {!summaryState?.loading && !summaryState?.error && summaryState?.html && (
+
+            {/* Edit mode */}
+            {editing && (
+              <div className="max-w-2xl space-y-4">
+                <textarea
+                  value={editMd}
+                  onChange={(e) => setEditMd(e.target.value)}
+                  rows={20}
+                  className="w-full rounded border border-pageBorder bg-page px-3 py-2 font-mono text-sm leading-relaxed text-pageText focus:border-pageAccent focus:outline-none"
+                />
+
+                {/* Tag editor */}
+                <div>
+                  <p className="mb-2 font-sans text-[10px] uppercase tracking-widest text-pageMuted">Tags</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {editTags.map((tag) => (
+                      <span key={tag} className="flex items-center gap-1 rounded-full bg-verdigris/15 px-2 py-0.5 font-sans text-[11px] text-verdigris">
+                        <Tag size={9} />
+                        {tag}
+                        <button
+                          onClick={() => removeTag(tag)}
+                          className="ml-0.5 opacity-60 hover:opacity-100"
+                        >
+                          <X size={9} />
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagInput); }
+                        if (e.key === 'Backspace' && !tagInput && editTags.length > 0) {
+                          setEditTags((prev) => prev.slice(0, -1));
+                        }
+                      }}
+                      placeholder="Add tag…"
+                      className="min-w-24 rounded border border-pageBorder bg-page px-2 py-0.5 font-sans text-[11px] text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveEdit}
+                    disabled={saving}
+                    className="flex items-center gap-1.5 rounded bg-pageAccent px-3 py-1.5 font-sans text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    <Check size={13} />
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={cancelEdit}
+                    disabled={saving}
+                    className="rounded border border-pageBorder px-3 py-1.5 font-sans text-sm text-pageMuted hover:text-pageText disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Read mode */}
+            {!editing && !summaryState?.loading && !summaryState?.error && summaryState?.html && (
               <div
                 className="markdown-body markdown-body-page max-w-2xl font-display text-base leading-relaxed text-pageText"
                 dangerouslySetInnerHTML={{ __html: summaryState.html }}

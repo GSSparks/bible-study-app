@@ -58,7 +58,7 @@ The schema defines the following models:
 
 - **`ReadingPlanProgress`** — per-user per-day completion for a reading plan. `@@unique([userId, planId, dayNumber])`.
 
-- **`FactbookCache`** — caches LLM-generated Codex/Factbook AI overview summaries. `query` is normalised (trimmed lowercase). Avoids repeated API calls for the same term.
+- **`FactbookCache`** — caches LLM-generated Codex/Factbook AI overview summaries. `query` is normalised (trimmed lowercase). `tags` is a `String[]` (default `[]`) for user-applied categorisation tags. Avoids repeated API calls for the same term.
 
 - **`MerriamCache`** — caches Merriam-Webster API responses. Same normalised `query` key pattern.
 
