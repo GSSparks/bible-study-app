@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookText, Check, ChevronLeft, ChevronRight, ExternalLink, List, Pencil, Search, Sparkles, Tag, Volume2, X } from 'lucide-react';
+import { BookText, Check, ChevronLeft, ChevronRight, Download, ExternalLink, List, Pencil, Search, Sparkles, Tag, Volume2, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import FootnotePopup from './FootnotePopup.jsx';
 import VerseHoverCard from './VerseHoverCard.jsx';
@@ -357,6 +357,21 @@ export default function TopicGuidePane({
     setEntryError(null);
   }
 
+  function downloadEntry() {
+    if (!summaryState?.summaryMd) return;
+    const { summaryMd, tags } = summaryState;
+    const title = selected?.key ?? 'entry';
+    const tagLine = tags?.length ? `*Tags: ${tags.join(', ')}*\n\n` : '';
+    const md = `# ${title}\n\n${tagLine}${summaryMd}`;
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/\s+/g, '-').toLowerCase()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function startEdit() {
     setEditMd(summaryState?.summaryMd ?? '');
     setEditTags(summaryState?.tags ?? []);
@@ -706,13 +721,22 @@ export default function TopicGuidePane({
                   <h1 className="font-display text-2xl font-normal capitalize text-pageText">{selected.key}</h1>
                 </div>
                 {summaryState?.id && !editing && !summaryState?.loading && (
-                  <button
-                    onClick={startEdit}
-                    title="Edit"
-                    className="shrink-0 rounded p-1.5 text-pageMuted hover:bg-pageBorder/40 hover:text-pageText"
-                  >
-                    <Pencil size={14} />
-                  </button>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={downloadEntry}
+                      title="Download as Markdown"
+                      className="shrink-0 rounded p-1.5 text-pageMuted hover:bg-pageBorder/40 hover:text-pageText"
+                    >
+                      <Download size={14} />
+                    </button>
+                    <button
+                      onClick={startEdit}
+                      title="Edit"
+                      className="shrink-0 rounded p-1.5 text-pageMuted hover:bg-pageBorder/40 hover:text-pageText"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
                 )}
               </div>
               <p className="mt-1 font-sans text-xs text-pageMuted">
