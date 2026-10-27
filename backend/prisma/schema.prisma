@@ -113,6 +113,8 @@ model User {
   username       String    @unique
   passwordHash   String
   role           String    @default("user")
+  suspended      Boolean   @default(false)
+  aiEnabled      Boolean   @default(true)
   createdAt      DateTime  @default(now())
   lastLoginAt    DateTime?
   displayName    String?

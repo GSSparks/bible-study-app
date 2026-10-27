@@ -12,7 +12,7 @@ export async function attachUser(req, res, next) {
     try {
       const user = await prisma.user.findUnique({
         where: { id: req.session.userId },
-        select: { id: true, username: true, role: true, displayName: true, bio: true, avatarUrl: true, bannerUrl: true },
+        select: { id: true, username: true, role: true, suspended: true, aiEnabled: true, displayName: true, bio: true, avatarUrl: true, bannerUrl: true },
       });
       req.user = user || null;
       if (!user) {
@@ -31,6 +31,16 @@ export async function attachUser(req, res, next) {
 export function requireLogin(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ error: 'Login required.' });
+  }
+  if (req.user.suspended) {
+    return res.status(403).json({ error: 'This account has been suspended.' });
+  }
+  next();
+}
+
+export function requireAiEnabled(req, res, next) {
+  if (req.user && !req.user.aiEnabled) {
+    return res.status(403).json({ error: 'AI features are not enabled for your account.' });
   }
   next();
 }

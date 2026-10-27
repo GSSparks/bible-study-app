@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { buildWordStudyContext, askWordStudy } from '../services/contextBuilder.js';
-import { requireLogin } from '../middleware/auth.js';
+import { requireLogin, requireAiEnabled } from '../middleware/auth.js';
 
 export const wordStudyRouter = Router();
 
@@ -18,6 +18,7 @@ const aiLimiter = process.env.NODE_ENV === 'test' ? noop : rateLimit({
 // Uses the Study Assistant under the hood — real API cost per use,
 // same reasoning as context.js's whole-router gate.
 wordStudyRouter.use(requireLogin);
+wordStudyRouter.use(requireAiEnabled);
 
 // POST /api/word-study  { module, strongsKey }
 // Builds the context (dictionary gloss + every occurrence across the
