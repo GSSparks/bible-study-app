@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { swordService } from '../services/swordService.js';
 import { isMdModuleCode, mdDirName, getMdDictionaryKeys, getMdDictionaryEntry } from '../services/mdModuleService.js';
 import { filterAvailableModules } from '../services/moduleVisibilityService.js';
-import { getCachedSummary, generateAndCache, updateEntry } from '../services/factbookSummaryService.js';
+import { getCachedSummary, generateAndCache, updateEntry, listAllCached } from '../services/factbookSummaryService.js';
 import { requireLogin } from '../middleware/auth.js';
 
 export const codexRouter = Router();
@@ -100,6 +100,14 @@ codexRouter.get('/summary', async (req, res, next) => {
     }
     next(err);
   }
+});
+
+// GET /api/codex/entries — lightweight index of all cached entries for inline annotation
+codexRouter.get('/entries', async (req, res, next) => {
+  try {
+    const rows = await listAllCached();
+    res.json(rows.map(({ id, query, title, tags }) => ({ id, query, title, tags })));
+  } catch (err) { next(err); }
 });
 
 // PATCH /api/codex/summary/:id — edit markdown or tags; requires login

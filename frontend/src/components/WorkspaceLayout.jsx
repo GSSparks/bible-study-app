@@ -289,6 +289,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
                       onAskAboutPassage={onAskAboutPassage}
                       onPhraseStudy={onPhraseStudy}
                       onPersonalCommentarySaved={onPersonalCommentarySaved}
+                      onSearchTopical={openTopicalSearch}
                       isLoggedIn={Boolean(auth?.user)}
                     />
                   </div>

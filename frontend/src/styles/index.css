@@ -189,6 +189,21 @@
   text-decoration: underline;
 }
 
+/* Inline Codex entry marker — small brass superscript * after words/phrases
+   the user has looked up in the Codex. Clicking opens the Codex for that term.
+   The word itself is untouched so Strong's clicks work normally. */
+.codex-ref-marker {
+  cursor: pointer;
+  color: rgba(232, 164, 65, 0.55);
+  font-size: 0.6em;
+  font-weight: 600;
+  margin-left: 0.5px;
+  user-select: none;
+}
+.codex-ref-marker:hover {
+  color: #E8A441;
+}
+
 /* Basic markdown styling for the study assistant's replies — no
    typography plugin installed, so these are the minimal rules needed
    for headings/lists/code/bold to actually look different from

@@ -270,6 +270,7 @@ This wiki contains one summary file per source file in the repository. Each summ
 | `frontend/src/utils/bookHtml.js` | [frontend-utils/bookHtml.js.md](frontend-utils/bookHtml.js.md) |
 | `frontend/src/utils/dictHtml.js` | [frontend-utils/dictHtml.js.md](frontend-utils/dictHtml.js.md) |
 | `frontend/src/utils/osisToHuman.js` | [frontend-utils/osisToHuman.js.md](frontend-utils/osisToHuman.js.md) |
+| `frontend/src/utils/codexAnnotate.js` | *(no wiki page — see ReaderPane.jsx.md)* |
 | `frontend/src/utils/parseInterlinear.js` | [frontend-utils/parseInterlinear.js.md](frontend-utils/parseInterlinear.js.md) |
 | `frontend/src/utils/rehypeVerseRefs.js` | [frontend-utils/rehypeVerseRefs.js.md](frontend-utils/rehypeVerseRefs.js.md) |
 | `frontend/src/utils/robinsonMorphology.js` | [frontend-utils/robinsonMorphology.js.md](frontend-utils/robinsonMorphology.js.md) |

@@ -24,6 +24,7 @@ The core Bible-text reading pane used throughout the application. It fetches ver
 | `onPhraseStudy` | func | `(phrase, module, strongsSequence) => void` |
 | `refreshNonce` | any | Changing this value re-triggers the verse/annotation fetch |
 | `onPersonalCommentarySaved` | func | Called after a note is saved via `VerseCommentaryEditor` |
+| `onSearchTopical` | func | `(query) => void` — called when a `.codex-inline-ref` span is clicked; routes to the Codex view |
 | `isLoggedIn` | bool | Enables group highlight and group finding fetching |
 
 ## State / Key Logic
@@ -35,7 +36,8 @@ The core Bible-text reading pane used throughout the application. It fetches ver
 - **Verse selection** (`selectedRange`): Clicking a verse superscript sets `anchor`/`focus` indices. Shift-click extends the range. A portal toolbar appears at the click point offering highlight swatches, note, share-finding, copy, and "Ask about this" buttons. Highlight operations are optimistic with real IDs backfilled.
 - **Phrase selection** (`phraseSelection`): `handleContentMouseUp` fires on text drag, reads `window.getSelection()`, strips xref/footnote marker characters via `extractCleanSelectionText`, and collects the Strong's keys of all `[data-strong]` words the selection overlaps. A separate portal toolbar offers highlight, note (with pre-filled quote), and phrase study buttons.
 - **Interlinear mode**: When on, calls `collectStrongsKeys` over all verses and batch-fetches transcriptions via `api.getStrongsEntry`, caching results in `strongsCache`. Renders each verse as stacked `(word, strongsKey, transcription)` columns using `parseVerseTokens`.
-- **Content click routing**: Delegates `.footnote-marker` clicks to `FootnotePopup`, `.xref-marker` to `onVerseRefClick`, `.verse-ref` to `onVerseRefClick`, and Strong's extraction to `onStrongsClick` via `extractStrongsData` (walks up to 4 DOM ancestors).
+- **Codex inline annotations**: On mount, fetches `api.listCodexEntries()` (a lightweight list of cached Codex queries and titles). Result is stored in a module-level cache so all `ReaderPane` instances share one request. Before each verse renders, `annotateCodexRefs(v.content, codexEntries)` (from `utils/codexAnnotate.js`) walks text nodes and wraps any matching word/phrase in a `<span class="codex-inline-ref" data-query="...">`. Multi-word queries are matched before single-word ones (longest-first). `<sup>` content (verse numbers, footnote markers) is skipped. Clicking calls `onSearchTopical(query)` which routes to the Codex.
+- **Content click routing**: Delegates `.codex-inline-ref` clicks to `onSearchTopical`, `.footnote-marker` clicks to `FootnotePopup`, `.xref-marker` to `onVerseRefClick`, `.verse-ref` to `onVerseRefClick`, and Strong's extraction to `onStrongsClick` via `extractStrongsData` (walks up to 4 DOM ancestors).
 - **Hover card**: `.xref-marker` and `.verse-ref` mouse-over triggers `VerseHoverCard` with a 150 ms debounced close.
 - **Group findings panel**: Renders a "Study Findings" section below the text when `groupFindings` is non-empty.
 
@@ -48,6 +50,8 @@ The core Bible-text reading pane used throughout the application. It fetches ver
 - `ShareFindingModal` — share a verse finding to a Study group
 - `api.getPassage`, `api.listHighlights`, `api.listNotes`, `api.createHighlight`, `api.deleteHighlight`, `api.listStudyGroupFindings`, `api.listStudyGroupHighlights`, `api.getStrongsEntry`
 - `parseVerseTokens`, `collectStrongsKeys` from `utils/parseInterlinear.js`
+- `annotateCodexRefs` from `utils/codexAnnotate.js`
+- `api.listCodexEntries`
 
 ## Notes
 

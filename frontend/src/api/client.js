@@ -90,6 +90,7 @@ export const api = {
   getMerriamEntry: (q) => request(`/merriam?q=${encodeURIComponent(q)}`),
   getCodexSummary: (q) => request(`/codex/summary?q=${encodeURIComponent(q)}`),
   updateCodexEntry: (id, payload) => request(`/codex/summary/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  listCodexEntries: () => request('/codex/entries'),
 
   // Admin: Codex cache management
   listCodexCache: () => request('/admin/codex'),

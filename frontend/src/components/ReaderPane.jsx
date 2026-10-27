@@ -3,8 +3,14 @@ import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
 import { getAdjacentChapter } from '../utils/bibleBooks.js';
 import { parseVerseTokens, collectStrongsKeys } from '../utils/parseInterlinear.js';
+import { annotateCodexRefs } from '../utils/codexAnnotate.js';
 import VerseCommentaryEditor from './VerseCommentaryEditor.jsx';
 import ShareFindingModal from './ShareFindingModal.jsx';
+
+// Shared across all ReaderPane instances — fetched once, then reused.
+let _codexEntriesCache = null;
+let _codexEntriesFetching = false;
+const _codexEntriesListeners = [];
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -136,6 +142,7 @@ export default function ReaderPane({
   onPersonalCommentarySaved: _opcs,
   interlinearMode: interlinearModeProp,
   onInterlinearToggle,
+  onSearchTopical,
 }) {
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -149,6 +156,7 @@ export default function ReaderPane({
   const [phraseSelection, setPhraseSelection] = useState(null); // { text, strongsSequence, x, y, verseRef }
   const [interlinearInternal, setInterlinearInternal] = useState(false);
   const [strongsCache, setStrongsCache] = useState(new Map()); // strongsKey → transcription string
+  const [codexEntries, setCodexEntries] = useState(_codexEntriesCache ?? []);
   const interlinearMode = interlinearModeProp !== undefined ? interlinearModeProp : interlinearInternal;
 
   // ── continuous-reading refs ──────────────────────────────────────────────
@@ -268,6 +276,27 @@ export default function ReaderPane({
   }, [loadHighlights]);
 
   // ── main navigation effect ───────────────────────────────────────────────
+
+  // ── Codex entries — shared fetch, one request across all instances ─────
+  useEffect(() => {
+    if (_codexEntriesCache) return;
+    if (_codexEntriesFetching) {
+      _codexEntriesListeners.push(setCodexEntries);
+      return () => {
+        const i = _codexEntriesListeners.indexOf(setCodexEntries);
+        if (i !== -1) _codexEntriesListeners.splice(i, 1);
+      };
+    }
+    _codexEntriesFetching = true;
+    api.listCodexEntries()
+      .then((entries) => {
+        _codexEntriesCache = entries;
+        setCodexEntries(entries);
+        _codexEntriesListeners.forEach((fn) => fn(entries));
+        _codexEntriesListeners.length = 0;
+      })
+      .catch(() => { _codexEntriesFetching = false; });
+  }, []);
 
   useEffect(() => {
     if (!module || !reference) return;
@@ -718,6 +747,8 @@ export default function ReaderPane({
       const verseSpan = sup.closest('[data-versekey]');
       if (verseSpan) { onNavigate?.(verseKeyToRef(verseSpan.dataset.versekey)); return; }
     }
+    const codexRef = e.target.closest('.codex-ref-marker');
+    if (codexRef?.dataset.query) { onSearchTopical?.(codexRef.dataset.query); return; }
     const xref = e.target.closest('.xref-marker');
     if (xref) { onVerseRefClick?.(xref.dataset.refs, e); return; }
     const vref = e.target.closest('.verse-ref');
@@ -865,7 +896,7 @@ export default function ReaderPane({
                         ].filter(Boolean).join(' ')}
                       >
                         <sup data-verse-number="true" className="mr-1 cursor-pointer select-none text-xs text-pageAccent hover:text-brass">{v.verseNr}</sup>
-                        <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
+                        <span dangerouslySetInnerHTML={{ __html: annotateCodexRefs(v.content, codexEntries) }} />{' '}
                       </span>
                     );
                   })}
