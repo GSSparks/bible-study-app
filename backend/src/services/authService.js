@@ -104,9 +104,37 @@ export async function bootstrapAdmin({ username, password }) {
  *  anywhere in this file. */
 export async function listUsers() {
   return prisma.user.findMany({
-    select: { id: true, username: true, role: true, createdAt: true, lastLoginAt: true },
+    select: { id: true, username: true, role: true, suspended: true, aiEnabled: true, createdAt: true, lastLoginAt: true },
     orderBy: { createdAt: 'asc' },
   });
+}
+
+export async function updateUser(id, { role, suspended, aiEnabled }) {
+  const data = {};
+  if (role !== undefined) {
+    if (role !== 'admin' && role !== 'user') {
+      const err = new Error('role must be "admin" or "user".');
+      err.status = 400;
+      throw err;
+    }
+    data.role = role;
+  }
+  if (suspended !== undefined) data.suspended = Boolean(suspended);
+  if (aiEnabled !== undefined) data.aiEnabled = Boolean(aiEnabled);
+  if (Object.keys(data).length === 0) {
+    const err = new Error('No valid fields to update.');
+    err.status = 400;
+    throw err;
+  }
+  return prisma.user.update({
+    where: { id },
+    data,
+    select: { id: true, username: true, role: true, suspended: true, aiEnabled: true, createdAt: true, lastLoginAt: true },
+  });
+}
+
+export async function deleteUser(id) {
+  return prisma.user.delete({ where: { id } });
 }
 
 /** Regular user creation, admin-only (enforced by the route, not here).
@@ -157,6 +185,11 @@ export async function verifyLogin({ username, password }) {
   const hashToCheck = user?.passwordHash || DUMMY_HASH;
   const valid = await verifyPassword(hashToCheck, password);
   if (!user || !valid) return null;
+  if (user.suspended) {
+    const err = new Error('This account has been suspended.');
+    err.status = 403;
+    throw err;
+  }
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   return { id: user.id, username: user.username, role: user.role };

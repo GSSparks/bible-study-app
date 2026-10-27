@@ -141,7 +141,9 @@ export const api = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   changePassword: (payload) => request('/auth/change-password', { method: 'POST', body: JSON.stringify(payload) }),
   createUser: (payload) => request('/auth/users', { method: 'POST', body: JSON.stringify(payload) }),
-  listUsers: () => request('/auth/users'),
+  listUsers: () => request('/admin/users'),
+  updateUser: (id, payload) => request(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
 
   // Admin
   getAdminMetrics: () => request('/admin/metrics'),

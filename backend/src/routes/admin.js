@@ -10,6 +10,7 @@ import { listMdModules } from '../services/mdModuleService.js';
 import { UPLOADS_PATH } from '../middleware/upload.js';
 import { prisma } from '../db/prisma.js';
 import { listAllCached, deleteById } from '../services/factbookSummaryService.js';
+import { listUsers, updateUser, deleteUser } from '../services/authService.js';
 
 export const adminRouter = Router();
 
@@ -24,6 +25,41 @@ adminRouter.get('/metrics', async (req, res, next) => {
   try {
     const [dbHealth, users, content] = await Promise.all([getDbHealth(), getUserMetrics(), getContentMetrics()]);
     res.json({ dbHealth, users, content });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/admin/users
+adminRouter.get('/users', async (req, res, next) => {
+  try {
+    res.json(await listUsers());
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/admin/users/:id — update role, suspended, or aiEnabled
+adminRouter.patch('/users/:id', async (req, res, next) => {
+  try {
+    if (req.params.id === req.user.id) {
+      return res.status(403).json({ error: 'You cannot modify your own account.' });
+    }
+    const { role, suspended, aiEnabled } = req.body;
+    res.json(await updateUser(req.params.id, { role, suspended, aiEnabled }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/admin/users/:id — hard delete with cascade
+adminRouter.delete('/users/:id', async (req, res, next) => {
+  try {
+    if (req.params.id === req.user.id) {
+      return res.status(403).json({ error: 'You cannot delete your own account.' });
+    }
+    await deleteUser(req.params.id);
+    res.status(204).end();
   } catch (err) {
     next(err);
   }

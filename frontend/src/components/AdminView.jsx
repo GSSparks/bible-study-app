@@ -48,20 +48,25 @@ export default function AdminView() {
 
 function UsersTab() {
   const [users, setUsers] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('user');
+  const [newRole, setNewRole] = useState('user');
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [updating, setUpdating] = useState(new Set()); // "${userId}:field"
+  const [confirmDelete, setConfirmDelete] = useState(null); // userId
 
   function refresh() {
     setLoading(true);
-    api
-      .listUsers()
-      .then(setUsers)
+    Promise.all([api.listUsers(), api.me()])
+      .then(([userList, me]) => {
+        setUsers(userList);
+        setCurrentUserId(me.user?.id ?? null);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }
@@ -77,10 +82,10 @@ function UsersTab() {
     setCreating(true);
     setFormError(null);
     try {
-      await api.createUser({ username, password, role });
+      await api.createUser({ username, password, role: newRole });
       setUsername('');
       setPassword('');
-      setRole('user');
+      setNewRole('user');
       setShowForm(false);
       refresh();
     } catch (e) {
@@ -90,8 +95,32 @@ function UsersTab() {
     }
   }
 
+  async function handleUpdate(userId, field, value) {
+    const key = `${userId}:${field}`;
+    setUpdating((prev) => new Set([...prev, key]));
+    setError(null);
+    try {
+      const updated = await api.updateUser(userId, { [field]: value });
+      setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setUpdating((prev) => { const next = new Set(prev); next.delete(key); return next; });
+    }
+  }
+
+  async function handleDelete(userId) {
+    setConfirmDelete(null);
+    setError(null);
+    try {
+      await api.deleteUser(userId);
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   if (loading) return <p className="text-sm text-muted">Loading…</p>;
-  if (error) return <p className="text-sm text-red-400">{error}</p>;
 
   return (
     <div>
@@ -104,6 +133,8 @@ function UsersTab() {
           {showForm ? 'cancel' : '+ create user'}
         </button>
       </div>
+
+      {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
 
       {showForm && (
         <form onSubmit={handleCreate} className="mb-4 space-y-2 rounded-md border border-rule p-3">
@@ -121,8 +152,8 @@ function UsersTab() {
             className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted"
           />
           <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value)}
             className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment"
           >
             <option value="user">user</option>
@@ -145,19 +176,102 @@ function UsersTab() {
             <tr className="border-b border-rule text-xs uppercase tracking-wide text-muted">
               <th className="px-3 py-2">Username</th>
               <th className="px-3 py-2">Role</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">AI</th>
               <th className="px-3 py-2">Created</th>
               <th className="px-3 py-2">Last login</th>
+              <th className="px-3 py-2" />
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="border-b border-rule last:border-0">
-                <td className="px-3 py-2 text-parchment">{u.username}</td>
-                <td className="px-3 py-2 text-muted">{u.role}</td>
-                <td className="px-3 py-2 text-muted">{formatDate(u.createdAt)}</td>
-                <td className="px-3 py-2 text-muted">{formatDate(u.lastLoginAt)}</td>
-              </tr>
-            ))}
+            {users.map((u) => {
+              const isSelf = u.id === currentUserId;
+              return (
+                <tr key={u.id} className={`border-b border-rule last:border-0 ${u.suspended ? 'opacity-60' : ''}`}>
+                  <td className="px-3 py-2 text-parchment">
+                    {u.username}
+                    {isSelf && <span className="ml-1.5 text-xs text-muted">(you)</span>}
+                  </td>
+
+                  <td className="px-3 py-2">
+                    <button
+                      disabled={isSelf || updating.has(`${u.id}:role`)}
+                      onClick={() => handleUpdate(u.id, 'role', u.role === 'admin' ? 'user' : 'admin')}
+                      title={isSelf ? 'Cannot modify your own role' : u.role === 'admin' ? 'Admin — click to demote to user' : 'User — click to promote to admin'}
+                      className={`rounded border px-2 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                        u.role === 'admin'
+                          ? 'border-brass text-brass hover:border-rule hover:text-muted'
+                          : 'border-rule text-muted hover:border-brass hover:text-brass'
+                      }`}
+                    >
+                      {updating.has(`${u.id}:role`) ? '…' : u.role}
+                    </button>
+                  </td>
+
+                  <td className="px-3 py-2">
+                    <button
+                      disabled={isSelf || updating.has(`${u.id}:suspended`)}
+                      onClick={() => handleUpdate(u.id, 'suspended', !u.suspended)}
+                      title={isSelf ? 'Cannot suspend your own account' : u.suspended ? 'Suspended — click to reinstate' : 'Active — click to suspend'}
+                      className={`rounded border px-2 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                        u.suspended
+                          ? 'border-red-500/60 text-red-400 hover:border-verdigris hover:text-verdigris'
+                          : 'border-verdigris/60 text-verdigris hover:border-red-500/60 hover:text-red-400'
+                      }`}
+                    >
+                      {updating.has(`${u.id}:suspended`) ? '…' : u.suspended ? 'suspended' : 'active'}
+                    </button>
+                  </td>
+
+                  <td className="px-3 py-2">
+                    <button
+                      disabled={isSelf || updating.has(`${u.id}:aiEnabled`)}
+                      onClick={() => handleUpdate(u.id, 'aiEnabled', !u.aiEnabled)}
+                      title={isSelf ? 'Cannot modify your own AI access' : u.aiEnabled ? 'AI enabled — click to disable' : 'AI disabled — click to enable'}
+                      className={`rounded border px-2 py-0.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                        u.aiEnabled
+                          ? 'border-verdigris/60 text-verdigris hover:border-rule hover:text-muted'
+                          : 'border-rule text-muted hover:border-verdigris/60 hover:text-verdigris'
+                      }`}
+                    >
+                      {updating.has(`${u.id}:aiEnabled`) ? '…' : u.aiEnabled ? 'on' : 'off'}
+                    </button>
+                  </td>
+
+                  <td className="px-3 py-2 text-muted">{formatDate(u.createdAt)}</td>
+                  <td className="px-3 py-2 text-muted">{formatDate(u.lastLoginAt)}</td>
+
+                  <td className="px-3 py-2 text-right">
+                    {confirmDelete === u.id ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="text-xs text-muted">Delete?</span>
+                        <button
+                          onClick={() => handleDelete(u.id)}
+                          className="rounded border border-red-500/60 px-2 py-0.5 text-xs text-red-400 hover:bg-red-500/10"
+                        >
+                          yes
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(null)}
+                          className="rounded border border-rule px-2 py-0.5 text-xs text-muted hover:text-parchment"
+                        >
+                          no
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        disabled={isSelf}
+                        onClick={() => setConfirmDelete(u.id)}
+                        title={isSelf ? 'Cannot delete your own account' : 'Delete user and all their data'}
+                        className="rounded border border-rule px-2 py-0.5 text-xs text-muted hover:border-red-400 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
