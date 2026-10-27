@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookText, Check, ChevronLeft, ChevronRight, Download, ExternalLink, List, Pencil, Search, Sparkles, Tag, Volume2, X } from 'lucide-react';
+import { BookText, Check, ChevronLeft, ChevronRight, Download, ExternalLink, List, MessageSquare, Pencil, Search, Sparkles, StickyNote, Tag, Volume2, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import FootnotePopup from './FootnotePopup.jsx';
 import VerseHoverCard from './VerseHoverCard.jsx';
@@ -103,6 +103,8 @@ export default function TopicGuidePane({
   const contentRef = useRef(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
   const [summaryState, setSummaryState] = useState(null); // { loading, html, error, cached, id, summaryMd, tags }
+  const [relatedNotes, setRelatedNotes] = useState([]);
+  const [relatedSessions, setRelatedSessions] = useState([]);
   const [editing, setEditing] = useState(false);
   const [editMd, setEditMd] = useState('');
   const [editTags, setEditTags] = useState([]);
@@ -171,12 +173,24 @@ export default function TopicGuidePane({
     if (selected?.module !== SUMMARY_MODULE) return;
     const q = selected.key;
     setSummaryState({ loading: true, html: null, error: null, cached: false });
+    setRelatedNotes([]);
+    setRelatedSessions([]);
     api.getCodexSummary(q)
       .then((res) => {
         setSummaryState({ loading: false, html: res.summaryHtml, error: null, cached: res.cached, id: res.id, summaryMd: res.summaryMd, tags: res.tags ?? [] });
         setEditing(false);
       })
       .catch((e) => setSummaryState({ loading: false, html: null, error: e.message, cached: false }));
+    if (isLoggedIn) {
+      api.listNotes({ q })
+        .then((notes) => setRelatedNotes(
+          notes.filter((n) => n.body && !n.tags?.includes('book-highlight'))
+        ))
+        .catch(() => {});
+      api.searchSessions(q)
+        .then(setRelatedSessions)
+        .catch(() => {});
+    }
   }, [selected?.module === SUMMARY_MODULE ? selected.key : null]);
 
   // ── Reset TOC when navigating to any entry ────────────────────────────────
@@ -837,6 +851,76 @@ export default function TopicGuidePane({
                 dangerouslySetInnerHTML={{ __html: summaryState.html }}
                 onClick={handleContentClick}
               />
+            )}
+
+            {/* In Your Study */}
+            {!editing && (relatedNotes.length > 0 || relatedSessions.length > 0) && (
+              <div className="mt-8 max-w-2xl border-t border-pageBorder pt-6">
+                <p className="mb-4 font-ui text-[10px] uppercase tracking-widest text-pageMuted">In Your Study</p>
+
+                {relatedNotes.length > 0 && (
+                  <div className="mb-5">
+                    <p className="mb-2 flex items-center gap-1.5 font-ui text-xs font-medium text-pageText/70">
+                      <StickyNote size={12} />
+                      Notes
+                    </p>
+                    <div className="space-y-2">
+                      {relatedNotes.map((note) => (
+                        <div
+                          key={note.id}
+                          className="group rounded border border-pageBorder bg-page/60 px-3 py-2.5"
+                        >
+                          {note.reference && (
+                            <button
+                              onClick={() => onOpenInCell?.(note.reference)}
+                              className="mb-1 font-ui text-xs font-medium text-pageAccent hover:underline"
+                            >
+                              {note.reference.replace(/\./g, ' ')}
+                            </button>
+                          )}
+                          <p className="line-clamp-2 font-display text-sm leading-snug text-pageText/80">
+                            {note.title || note.body}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {relatedSessions.length > 0 && (
+                  <div>
+                    <p className="mb-2 flex items-center gap-1.5 font-ui text-xs font-medium text-pageText/70">
+                      <MessageSquare size={12} />
+                      Study Sessions
+                    </p>
+                    <div className="space-y-2">
+                      {relatedSessions.map((session) => (
+                        <div
+                          key={session.id}
+                          className="rounded border border-pageBorder bg-page/60 px-3 py-2.5"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-display text-sm text-pageText/80">
+                              {session.title || session.reference || 'Untitled session'}
+                            </p>
+                            <span className="shrink-0 rounded-full bg-pageBorder px-1.5 py-0.5 font-ui text-[10px] text-pageMuted">
+                              {session.kind === 'guide' ? 'guide' : 'chat'}
+                            </span>
+                          </div>
+                          {session.reference && session.title && (
+                            <button
+                              onClick={() => onOpenInCell?.(session.reference)}
+                              className="mt-0.5 font-ui text-xs text-pageAccent hover:underline"
+                            >
+                              {session.reference.replace(/\./g, ' ')}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </>
         )}

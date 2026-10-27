@@ -128,11 +128,20 @@ contextRouter.get('/guide/:reference', async (req, res, next) => {
 // of registration order.
 contextRouter.get('/sessions', async (req, res, next) => {
   try {
+    const q = (req.query.q || '').trim();
+    const where = { userId: req.user.id };
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { reference: { contains: q, mode: 'insensitive' } },
+      ];
+    }
     res.json(
       await prisma.studySession.findMany({
-        where: { userId: req.user.id },
+        where,
         orderBy: { updatedAt: 'desc' },
-        take: 20,
+        take: q ? 10 : 20,
+        select: { id: true, title: true, reference: true, kind: true, updatedAt: true },
       })
     );
   } catch (err) {
