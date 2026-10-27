@@ -102,11 +102,16 @@ export default function SearchResultsPane({ pendingSearch, onNavigate, defaultBi
   useEffect(() => {
     if (!pendingSearch) return;
     const q = pendingSearch.query;
-    const mod = pendingSearch.module || module || defaultBibleModule || '';
     setQuery(q);
-    if (mod) setModule(mod);
-    setActiveTab('bible');
-    doSearch(q, mod, searchType);
+    if (pendingSearch.tab === 'commentary') {
+      setActiveTab('commentary');
+      doCommentarySearch(q, commentaryModule);
+    } else {
+      const mod = pendingSearch.module || module || defaultBibleModule || '';
+      if (mod) setModule(mod);
+      setActiveTab('bible');
+      doSearch(q, mod, searchType);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingSearch?.nonce]);
 

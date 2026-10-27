@@ -49,6 +49,9 @@ class SwordService {
     // phrase-study requests for the same not-yet-indexed module share
     // one scan instead of each starting their own full pass.
     this._moduleIndexBuilding = new Map();
+    // Serializes all SWORD search calls — node-sword-interface throws if
+    // getModuleSearchResults() is called concurrently.
+    this._searchLock = Promise.resolve();
     try {
       this.sword.enableMarkup();
     } catch (err) {
@@ -634,17 +637,26 @@ class SwordService {
    *  so stripHtml (plain text) rather than the full processVerseContent
    *  pipeline is the right level of processing here. */
   async search(moduleCode, term, { searchType = 'multiWord', searchScope = 'BIBLE', limit = 500 } = {}) {
-    const results = await this.sword.getModuleSearchResults(moduleCode, term, () => {}, searchType, searchScope);
-    const total = results.length;
-    const slice = limit > 0 ? results.slice(0, limit) : results;
-    return {
-      total,
-      capped: total > slice.length,
-      verses: slice.map((r) => {
-        const { content } = this.processVerseContent(r.content);
-        return { ...r, content };
-      }),
-    };
+    let releaseLock;
+    const nextLock = new Promise((r) => { releaseLock = r; });
+    const currentLock = this._searchLock;
+    this._searchLock = nextLock;
+    await currentLock;
+    try {
+      const results = await this.sword.getModuleSearchResults(moduleCode, term, () => {}, searchType, searchScope);
+      const total = results.length;
+      const slice = limit > 0 ? results.slice(0, limit) : results;
+      return {
+        total,
+        capped: total > slice.length,
+        verses: slice.map((r) => {
+          const { content } = this.processVerseContent(r.content);
+          return { ...r, content };
+        }),
+      };
+    } finally {
+      releaseLock();
+    }
   }
 
   getStrongsEntry(strongsKey) {
