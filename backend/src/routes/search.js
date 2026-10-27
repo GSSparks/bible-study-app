@@ -3,6 +3,7 @@ import { swordService } from '../services/swordService.js';
 import { searchDocuments } from '../services/pdfService.js';
 import { parseReferenceInfo } from '../services/referenceParser.js';
 import { prisma } from '../db/prisma.js';
+import { listMdModules, searchMdCommentary } from '../services/mdModuleService.js';
 
 export const searchRouter = Router();
 
@@ -72,6 +73,63 @@ searchRouter.get('/', async (req, res, next) => {
       notes: noteResults,
       discussions: discussionResults,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/search/commentary?q=TERM[&module=CODE]
+// Searches installed commentary modules (SWORD + MD). If no module is given,
+// fans out across all installed commentaries and aggregates results.
+searchRouter.get('/commentary', async (req, res, next) => {
+  try {
+    const { q, module: moduleCode } = req.query;
+    if (!q?.trim()) return res.json([]);
+
+    const LIMIT_PER = 50;
+
+    async function searchOne(code, title) {
+      try {
+        if (code.startsWith('md:')) {
+          const hits = await searchMdCommentary(code.slice(3), q, LIMIT_PER);
+          return hits.map((h) => ({ module: code, moduleTitle: title, ...h }));
+        }
+        const { verses } = await swordService.search(code, q, { searchType: 'multiWord', limit: LIMIT_PER });
+        return verses.map((v) => ({
+          module: code,
+          moduleTitle: title,
+          reference: `${v.bibleBookShortTitle} ${v.chapter}:${v.verseNr}`,
+          snippet: v.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+        }));
+      } catch {
+        return [];
+      }
+    }
+
+    let results;
+    if (moduleCode) {
+      let title = moduleCode;
+      if (moduleCode.startsWith('md:')) {
+        const mdMods = await listMdModules('COMMENTARY');
+        title = mdMods.find((m) => m.name === moduleCode)?.description || moduleCode;
+      } else {
+        const mods = await swordService.listInstalledModules('COMMENTARY');
+        title = mods.find((m) => m.name === moduleCode)?.description || moduleCode;
+      }
+      results = await searchOne(moduleCode, title);
+    } else {
+      const [swordMods, mdMods] = await Promise.all([
+        swordService.listInstalledModules('COMMENTARY'),
+        listMdModules('COMMENTARY'),
+      ]);
+      const settled = await Promise.allSettled([
+        ...swordMods.map((m) => searchOne(m.name, m.description || m.name)),
+        ...mdMods.map((m) => searchOne(m.name, m.description || m.name)),
+      ]);
+      results = settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+    }
+
+    res.json(results.slice(0, 200));
   } catch (err) {
     next(err);
   }

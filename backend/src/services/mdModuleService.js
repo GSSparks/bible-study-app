@@ -421,6 +421,64 @@ export function mdVersesToText(verses) {
     .join('\n');
 }
 
+/**
+ * Full-text search across all .md files in a commentary (or Bible) MD module.
+ * Returns up to `limit` results: { reference, snippet } where reference is a
+ * navigable Bible ref ("John 3:16") and snippet is plain text around the match.
+ */
+export async function searchMdCommentary(dirName, query, limit = 100) {
+  const modulePath = join(MD_MODULES_PATH, dirName);
+  let files;
+  try {
+    files = await readdir(modulePath);
+  } catch {
+    return [];
+  }
+
+  const mdFiles = files.filter((f) => f.endsWith('.md') && f !== 'module.json');
+  const queryLower = query.trim().toLowerCase();
+  if (!queryLower) return [];
+
+  const results = [];
+
+  for (const file of mdFiles) {
+    if (results.length >= limit) break;
+    const stem = basename(file, '.md');
+    // Capitalize for a readable book name: "genesis" → "Genesis", "1corinthians" → "1Corinthians"
+    const bookDisplay = stem.replace(/^(\d*)(.*)/, (_, n, rest) => n + rest.charAt(0).toUpperCase() + rest.slice(1));
+
+    let markdown;
+    try {
+      markdown = await readFile(join(modulePath, file), 'utf8');
+    } catch {
+      continue;
+    }
+
+    for (const { key, content } of parseSections(markdown)) {
+      if (results.length >= limit) break;
+      const contentLower = content.toLowerCase();
+      if (!contentLower.includes(queryLower)) continue;
+
+      // Extract a short snippet centred on the first match
+      const idx = contentLower.indexOf(queryLower);
+      const start = Math.max(0, idx - 80);
+      const end = Math.min(content.length, idx + query.length + 160);
+      const raw = (start > 0 ? '…' : '') + content.slice(start, end).trim() + (end < content.length ? '…' : '');
+      // Strip Markdown syntax for plain-text display
+      const snippet = raw
+        .replace(/```[\s\S]*?```/g, '').replace(/`([^`]+)`/g, '$1')
+        .replace(/^#{1,6}\s+/gm, '').replace(/^\s*[-*+>]\s+/gm, '')
+        .replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1')
+        .replace(/__([^_]+)__/g, '$1').replace(/_([^_]+)_/g, '$1')
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\n/g, ' ').replace(/\s{2,}/g, ' ').trim();
+
+      results.push({ reference: `${bookDisplay} ${key}`, snippet });
+    }
+  }
+
+  return results;
+}
+
 // ─── Install / remove ─────────────────────────────────────────────────────────
 
 /**

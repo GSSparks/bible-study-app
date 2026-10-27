@@ -37,6 +37,12 @@ export const api = {
     return request(`/search?${params}`);
   },
 
+  searchCommentary: (q, module = '') => {
+    const params = new URLSearchParams({ q });
+    if (module) params.set('module', module);
+    return request(`/search/commentary?${params}`);
+  },
+
   // Notes / highlights / bookmarks
   listNotes: ({ reference, prefix, q } = {}) => {
     const params = new URLSearchParams();
