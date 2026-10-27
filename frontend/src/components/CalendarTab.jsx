@@ -3,12 +3,126 @@
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Eye, EyeOff, Plus, Printer, Share2 } from 'lucide-react';
 import { api } from '../api/client.js';
-import NewLayerDialog from './NewLayerDialog';
-import AddEntryDialog from './AddEntryDialog';
+// import NewLayerDialog from './NewLayerDialog';
+// import AddEntryDialog from './AddEntryDialog';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// ── Print helpers (pure, module-level) ──────────────────────────────
+
+function escapeHtml(str) {
+    return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function buildCoverHTML(config) {
+    return `<div class="page cover">
+    <div class="cover-overlay">
+    <div class="cover-title">${escapeHtml(config.coverTitle || String(config.year))}</div>
+    ${config.coverVerseText ? `<div class="cover-verse">${escapeHtml(config.coverVerseText)}</div>` : ''}
+    ${config.coverVerseRef ? `<div class="cover-ref">${escapeHtml(config.coverVerseRef)}</div>` : ''}
+    </div>
+    </div>`;
+}
+
+function buildMonthHTML({ monthNum, year, config, activeLayers, entries }) {
+    const firstDay = new Date(year, monthNum - 1, 1).getDay();
+    const daysInMonth = new Date(year, monthNum, 1).getDate();
+    const monthName = MONTH_NAMES[monthNum - 1];
+
+    // Index entries by day
+    const entriesByDay = {};
+    for (const e of entries) {
+        if (!e.day) continue;
+        (entriesByDay[e.day] ??= []).push(e);
+    }
+
+    let cellsHTML = '';
+    for (let i = 0; i < 35; i++) {
+        const dayNum = i - firstDay + 1;
+        const isOverflow = i >= 28 && dayNum >= 1 && dayNum <= daysInMonth;
+        if (dayNum >= 1 && dayNum <= daysInMonth) {
+            const cls = isOverflow ? 'cell cell-overflow' : 'cell';
+            const dots = (entriesByDay[dayNum] || [])
+            .filter((e) => activeLayers.some((l) => l.id === e.layerId))
+            .map((e) => `<span class="dot" style="background:${escapeHtml(e.layer?.color || '#888')}"></span>`)
+            .join('');
+            cellsHTML += `<div class="${cls}"><span class="cell-day">${dayNum}</span><div class="cell-entries">${dots}</div></div>`;
+        } else {
+            cellsHTML += `<div class="cell cell-empty"></div>`;
+        }
+    }
+
+    const dayHeaders = config.showWeekdayHeaders
+    ? DAY_LABELS.map((d) => `<div class="day-header">${d}</div>`).join('')
+    : '';
+
+    const gridStyle = 'display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#ccc;flex:1;';
+    const gridHTML = `<div style="${gridStyle}">${dayHeaders}${cellsHTML}</div>`;
+
+    return `<div class="page month-page">
+    <div class="month-header">
+    <span class="month-title">${monthName} ${year}</span>
+    <span class="hebrew-date"></span>
+    </div>
+    ${gridHTML}
+    </div>`;
+}
+
+function buildPrintHTML({ config, activeLayers, monthNum, entries }) {
+    const coverHTML = (config.coverTitle || config.coverVerseRef)
+    ? buildCoverHTML(config)
+    : '';
+    const monthHTML = buildMonthHTML({ monthNum, year: config.year, config, activeLayers, entries });
+
+    return `<!DOCTYPE html>
+    <html>
+    <head>
+    <title>Gssparks ${config.year} Calendar</title>
+    <style>
+    @page { size: ${config.paper} ${config.orientation}; margin: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important; }
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .page { width: 100%; height: 100vh; page-break-after: always; overflow: hidden; }
+        .page:last-child { page-break-after: avoid; }
+        .cover { position: relative; width: 100%; height: 100vh; background: #1a1a2e; }
+        .cover-overlay { position: absolute; inset: 0; display: flex;
+            flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.4); }
+            .cover-title { font-size: 64px; color: #fff; font-weight: 700; letter-spacing: 2px; }
+            .cover-verse { font-size: 18px; color: #e0e0e0; margin-top: 24px;
+                max-width: 70%; text-align: center; font-style: italic; line-height: 1.6; }
+                .cover-ref { font-size: 14px; color: #aaa; margin-top: 12px; }
+                .month-page { display: flex; flex-direction: column; height: 100vh; padding: 16px; }
+                .month-header { display: flex; justify-content: space-between; align-items: baseline;
+                    padding-bottom: 8px; border-bottom: 2px solid #333; margin-bottom: 8px; }
+                    .month-title { font-size: 22px; font-weight: 700; color: #222; }
+                    .hebrew-date { font-size: 12px; color: #666; }
+                    .day-header { text-align: center; font-size: 10px; font-weight: 700;
+                        padding: 4px 2px; background: #f0f0f0; color: #444; }
+                        .cell { position: relative; background: #fff; padding: 3px; display: flex;
+                            flex-direction: column; min-height: 0; }
+                            .cell-empty { background: #f7f7f7; }
+                            .cell-day { font-size: 10px; text-align: right; color: #555; font-weight: 500; }
+                            .cell-entries { margin-top: auto; display: flex; flex-wrap: wrap; gap: 2px; }
+                            .dot { width: 5px; height: 5px; border-radius: 50%; }
+                            .cell-overflow { overflow: hidden; }
+                            .cell-overflow::after { content: ''; position: absolute; inset: 0;
+                                background: linear-gradient(to bottom right, transparent calc(50% - 0.5px),
+                                                            #ccc calc(50% - 0.5px), #ccc calc(50% + 0.5px), transparent calc(50% + 0.5px)); }
+                                                            </style>
+                                                            </head>
+                                                            <body>
+                                                            ${coverHTML}
+                                                            ${monthHTML}
+                                                            </body>
+                                                            </html>`;
+}
+
+// ── Component ────────────────────────────────────────────────────────
 
 export default function CalendarTab({ isLoggedIn }) {
     const now = new Date();
@@ -22,6 +136,7 @@ export default function CalendarTab({ isLoggedIn }) {
     const [showPrintConfig, setShowPrintConfig] = useState(false);
     const [showNewLayer, setShowNewLayer] = useState(false);
     const [selectedDay, setSelectedDay] = useState(null);
+    console.log('selectedDay scope check:', typeof selectedDay);
 
     useEffect(() => { loadLayers(); }, []);
     useEffect(() => { loadEntries(); }, [year, month, layers]);
@@ -85,15 +200,17 @@ export default function CalendarTab({ isLoggedIn }) {
     async function handleGeneratePrint() {
         try { await api.savePrintConfig(year, printConfig); } catch {}
         setShowPrintConfig(false);
-        generatePrintDocument(printConfig);
-    }
 
-    function generatePrintDocument(config) {
-        const activeLayers = layers.filter((l) => config.layerIds.includes(l.id));
+        const activeLayers = layers.filter((l) => printConfig.layerIds.includes(l.id));
+        const html = buildPrintHTML({
+            config: printConfig,
+            activeLayers,
+            monthNum: month,
+            entries,
+        });
         const win = window.open('', '_blank', 'width=800,height=600');
-        win.document.write(buildPrintHTML(config, activeLayers, month));
+        win.document.write(html);
         win.document.close();
-        win.onload = () => { win.print(); };
     }
 
     const firstDay = new Date(year, month - 1, 1).getDay();
@@ -259,119 +376,20 @@ export default function CalendarTab({ isLoggedIn }) {
             </div>
         )}
 
-        {showNewLayer && (
+        {/* {showNewLayer && (
             <NewLayerDialog onClose={() => setShowNewLayer(false)} onCreated={() => loadLayers()} />
-        )}
+    )} */}
 
-        {selectedDay !== null && (
-            <AddEntryDialog
-            year={year}
-            month={month}
-            day={selectedDay}
-            layers={layers.filter((l) => !l.shared || l.myShareRole === 'editor')}
-            onClose={() => setSelectedDay(null)}
-            onSaved={loadEntries}
-            />
-        )}
+    {/* {selectedDay !== null && (
+        <AddEntryDialog
+        year={year}
+        month={month}
+        day={selectedDay}
+        layers={layers.filter((l) => !l.shared || l.myShareRole === 'editor')}
+        onClose={() => setSelectedDay(null)}
+        onSaved={loadEntries}
+        />
+    )} */}
         </div>
     );
-}
-
-function buildPrintHTML(config, activeLayers, monthNum) {
-    const monthHTML = buildMonthHTML(monthNum, config.year, config, activeLayers);
-    const coverHTML = (config.coverTitle || config.coverVerseRef)
-    ? buildCoverHTML(config)
-    : '';
-
-    return `<!DOCTYPE html>
-    <html>
-    <head>
-    <title>Gssparks ${config.year} Calendar</title>
-    <style>
-    @page { size: ${config.paper} ${config.orientation}; margin: 0; }
-    * { margin: 0; padding: 0; box-sizing: border-box;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important; }
-        body { font-family: system-ui, -apple-system, sans-serif; }
-        .page { width: 100%; height: 100vh; page-break-after: always; overflow: hidden; }
-        .page:last-child { page-break-after: avoid; }
-        .cover { position: relative; width: 100%; height: 100vh; background: #1a1a2e; }
-        .cover-overlay { position: absolute; inset: 0; display: flex;
-            flex-direction: column; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.4); }
-            .cover-title { font-size: 64px; color: #fff; font-weight: 700; letter-spacing: 2px; }
-            .cover-verse { font-size: 18px; color: #e0e0e0; margin-top: 24px;
-                max-width: 70%; text-align: center; font-style: italic; line-height: 1.6; }
-                .cover-ref { font-size: 14px; color: #aaa; margin-top: 12px; }
-                .month-page { display: flex; flex-direction: column; height: 100vh; padding: 16px; }
-                .month-header { display: flex; justify-content: space-between; align-items: baseline;
-                    padding-bottom: 8px; border-bottom: 2px solid #333; margin-bottom: 8px; }
-                    .month-title { font-size: 22px; font-weight: 700; color: #222; }
-                    .hebrew-date { font-size: 12px; color: #666; }
-                    .day-header { text-align: center; font-size: 10px; font-weight: 700;
-                        padding: 4px 2px; background: #f0f0f0; color: #444; }
-                        .cell { position: relative; background: #fff; padding: 3px; display: flex;
-                            flex-direction: column; min-height: 0; }
-                            .cell-empty { background: #f7f7f7; }
-                            .cell-day { font-size: 10px; text-align: right; color: #555; font-weight: 500; }
-                            .cell-entries { margin-top: auto; display: flex; flex-wrap: wrap; gap: 2px; }
-                            .dot { width: 5px; height: 5px; border-radius: 50%; }
-                            .cell-overflow { overflow: hidden; }
-                            .cell-overflow::after { content: ''; position: absolute; inset: 0;
-                                background: linear-gradient(to bottom right, transparent calc(50% - 0.5px),
-                                                            #ccc calc(50% - 0.5px), #ccc calc(50% + 0.5px), transparent calc(50% + 0.5px)); }
-                                                            </style>
-                                                            </head>
-                                                            <body>
-                                                            ${coverHTML}
-                                                            ${monthHTML}
-                                                            </body>
-                                                            </html>`;
-}
-
-function buildCoverHTML(config) {
-    return `<div class="page cover">
-    <div class="cover-overlay">
-    <div class="cover-title">${escapeHtml(config.coverTitle || String(config.year))}</div>
-    ${config.coverVerseText ? `<div class="cover-verse">${escapeHtml(config.coverVerseText)}</div>` : ''}
-    ${config.coverVerseRef ? `<div class="cover-ref">${escapeHtml(config.coverVerseRef)}</div>` : ''}
-    </div>
-    </div>`;
-}
-
-function buildMonthHTML(monthNum, year, config, activeLayers) {
-    const firstDay = new Date(year, monthNum - 1, 1).getDay();
-    const daysInMonth = new Date(year, monthNum, 1).getDate();
-    const monthName = MONTH_NAMES[monthNum - 1];
-
-    let cellsHTML = '';
-    for (let i = 0; i < 35; i++) {
-        const dayNum = i - firstDay + 1;
-        const isOverflow = i >= 28 && dayNum >= 1 && dayNum <= daysInMonth;
-        if (dayNum >= 1 && dayNum <= daysInMonth) {
-            const cls = isOverflow ? 'cell cell-overflow' : 'cell';
-            cellsHTML += `<div class="${cls}"><span class="cell-day">${dayNum}</span></div>`;
-        } else {
-            cellsHTML += `<div class="cell cell-empty"></div>`;
-        }
-    }
-
-    const dayHeaders = config.showWeekdayHeaders
-    ? DAY_LABELS.map((d) => `<div class="day-header">${d}</div>`).join('')
-    : '';
-
-    const gridStyle = 'display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#ccc;flex:1;';
-    const gridHTML = `<div style="${gridStyle}">${dayHeaders}${cellsHTML}</div>`;
-
-    return `<div class="page month-page">
-    <div class="month-header">
-    <span class="month-title">${monthName} ${year}</span>
-    <span class="hebrew-date"></span>
-    </div>
-    ${gridHTML}
-    </div>`;
-}
-
-function escapeHtml(str) {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

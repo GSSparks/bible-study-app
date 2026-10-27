@@ -128,6 +128,15 @@ export async function listLayers(userId) {
     })),
   ];
 }
+export async function ensureBuiltInLayers(userId) {
+  for (const b of BUILT_IN_LAYERS) {
+    await prisma.calendarLayer.upsert({
+      where: { userId_name: { userId, name: b.name } },
+      update: {},
+      create: { userId, ...b, isBuiltIn: true },
+    });
+  }
+}
 
 export async function createLayer(userId, { name, color, calendarSystem = 'gregorian' }) {
   validateLayer({ name, color, calendarSystem });
@@ -202,8 +211,8 @@ export async function listEntriesForMonth(userId, year, month) {
   const [ownedLayers, sharedShares] = await Promise.all([
     prisma.calendarLayer.findMany({ where: { userId, visible: true } }),
     prisma.calendarLayerShare.findMany({
-      where: { userId },
-      include: { layer: { where: { visible: true } } },
+      where: { userId, layer: { visible: true } },
+      include: { layer: true },
     }),
   ]);
 
