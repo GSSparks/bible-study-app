@@ -514,15 +514,44 @@ class SwordService {
   }
 
   wrapVerseReferences(html, currentBookOsis = null) {
-    const tagSpans = [];
-    const tagRe = /<[^>]*>/g;
-    let tagMatch;
-    while ((tagMatch = tagRe.exec(html))) {
-      tagSpans.push([tagMatch.index, tagMatch.index + tagMatch[0].length]);
-    }
-    const insideExistingTag = (pos) => tagSpans.some(([s, e]) => pos >= s && pos < e);
+    if (!html) return html;
 
-    const matches = findReferencesInText(html, currentBookOsis).filter((m) => !insideExistingTag(m.start) && !insideExistingTag(m.end - 1));
+    // Strip HTML tags before passing to the BCV parser. Tag text (e.g. "span"
+    // inside </span>) can break the parser's book-context propagation, causing
+    // bare refs like "3:22" that follow "Prov. 1:9" in separate spans to go
+    // unresolved. Build a position map so clean-text offsets map back to the
+    // original HTML offsets for accurate span insertion.
+    const posMap = []; // posMap[cleanIndex] = htmlIndex
+    let cleanText = '';
+    let i = 0;
+    while (i < html.length) {
+      if (html[i] === '<') {
+        const tagEnd = html.indexOf('>', i);
+        i = tagEnd === -1 ? html.length : tagEnd + 1;
+      } else {
+        posMap.push(i);
+        cleanText += html[i];
+        i++;
+      }
+    }
+
+    const rawMatches = findReferencesInText(cleanText, currentBookOsis);
+    if (rawMatches.length === 0) return html;
+
+    // Map clean-text positions back to HTML positions, dropping any match
+    // whose endpoints fall outside the map (shouldn't happen) or that
+    // overlaps a previously accepted match.
+    const matches = [];
+    let prevHtmlEnd = 0;
+    for (const m of rawMatches) {
+      if (m.start >= posMap.length || m.end - 1 >= posMap.length) continue;
+      const htmlStart = posMap[m.start];
+      const htmlEnd = posMap[m.end - 1] + 1;
+      if (htmlStart < prevHtmlEnd) continue;
+      matches.push({ osis: m.osis, start: htmlStart, end: htmlEnd });
+      prevHtmlEnd = htmlEnd;
+    }
+
     if (matches.length === 0) return html;
     let out = '';
     let cursor = 0;
