@@ -29,6 +29,8 @@ export default function CellNotePane({ isLoggedIn = false, focusedReference = nu
   const bodyRef = useRef('');
   const dirtyRef = useRef(false);
   const debounceTimer = useRef(null);
+  const lastGeneralIdRef = useRef(null);
+  const lastPassageIdRef = useRef(null);
 
   // ── Data loading ───────────────────────────────────────────────────────────
 
@@ -100,14 +102,21 @@ export default function CellNotePane({ isLoggedIn = false, focusedReference = nu
   function handleModeSwitch(newMode) {
     if (newMode === mode) return;
     flushIfDirty();
+    // Remember what was open before switching away
+    if (mode === 'notes') lastGeneralIdRef.current = selectedIdRef.current;
+    if (mode === 'passage') lastPassageIdRef.current = selectedIdRef.current;
     setMode(newMode);
     if (newMode === 'passage') {
-      const match = focusedReference
-        ? passageNotes.find((n) => n.reference === focusedReference)
-        : null;
-      match ? applyNote(match) : clearNote();
+      // Prefer the note for the current passage; fall back to last selected passage note
+      const byRef = focusedReference ? passageNotes.find((n) => n.reference === focusedReference) : null;
+      const byLast = lastPassageIdRef.current ? passageNotes.find((n) => n.id === lastPassageIdRef.current) : null;
+      const target = byRef || byLast;
+      target ? applyNote(target) : clearNote();
     } else {
-      generalNotes.length > 0 ? applyNote(generalNotes[0]) : clearNote();
+      // Restore the last open general note, or fall back to most recent
+      const byLast = lastGeneralIdRef.current ? generalNotes.find((n) => n.id === lastGeneralIdRef.current) : null;
+      const target = byLast || (generalNotes.length > 0 ? generalNotes[0] : null);
+      target ? applyNote(target) : clearNote();
     }
   }
 
@@ -156,8 +165,8 @@ export default function CellNotePane({ isLoggedIn = false, focusedReference = nu
       const updated = await api.updateNote(noteId, { title: saveTitle || null, body: saveBody });
       dirtyRef.current = false;
       setDirty(false);
-      setGeneralNotes((prev) => prev.map((n) => n.id === noteId ? { ...n, ...updated } : n));
-      setPassageNotes((prev) => prev.map((n) => n.id === noteId ? { ...n, ...updated } : n));
+      setGeneralNotes((prev) => prev.some((n) => n.id === noteId) ? prev.map((n) => n.id === noteId ? { ...n, ...updated } : n) : prev);
+      setPassageNotes((prev) => prev.some((n) => n.id === noteId) ? prev.map((n) => n.id === noteId ? { ...n, ...updated } : n) : prev);
     } catch (e) {
       setError(e.message);
     } finally {
