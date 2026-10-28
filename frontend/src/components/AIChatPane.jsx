@@ -10,6 +10,7 @@ export default function AIChatPane({
   pendingAiRequest,
 }) {
   const [sessions, setSessions] = useState([]);
+  const [sessionsByRef, setSessionsByRef] = useState([]);
   const [sessionSearch, setSessionSearch] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -49,6 +50,11 @@ export default function AIChatPane({
     refreshSessions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !focusedReference) { setSessionsByRef([]); return; }
+    api.getSessionsByReference(focusedReference).then(setSessionsByRef).catch(() => {});
+  }, [focusedReference, isLoggedIn]);
 
   useEffect(() => {
     if (!pendingAiRequest?.nonce) return;
@@ -325,8 +331,31 @@ export default function AIChatPane({
                   >
                     + New Chat
                   </button>
+                  {!sessionSearch && sessionsByRef.length > 0 && (
+                    <div className="border-t border-pageBorder">
+                      <p className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-widest text-pageMuted">
+                        This Passage
+                      </p>
+                      {sessionsByRef.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => resumeSession(s)}
+                          className={`block w-full px-3 py-2 text-left text-xs ${
+                            s.id === activeSessionId ? 'text-brass' : 'text-pageText hover:bg-pageBorder/40'
+                          }`}
+                        >
+                          <div className="truncate">{s.title || s.reference || 'Untitled'}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {filteredSessions.length > 0 && (
                     <div className="border-t border-pageBorder">
+                      {!sessionSearch && sessionsByRef.length > 0 && (
+                        <p className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-widest text-pageMuted">
+                          Recent
+                        </p>
+                      )}
                       {filteredSessions.map((s) => (
                         <button
                           key={s.id}
