@@ -20,7 +20,9 @@ The "Codex" topical reference pane — a two-panel browse/read layout for lookin
 - **Search/query**: `inputValue` tracks the text box; `query` is the committed search term (set on Enter). The two are separate to avoid triggering searches on every keystroke.
 - **Parallel fetches**: On `query` commit, fires `api.searchTopics` (SWORD dicts/books), `api.getWikipediaEntry`, and `api.getMerriamEntry` concurrently. Each has its own loading/result state.
 - **Navigation history**: `nav = { stack: [entry], index }`. `navigateTo` appends to truncated history. `goBack`/`goForward` step through. `entry.module` is one of `SUMMARY_MODULE`, `WIKIPEDIA_MODULE`, `MERRIAM_MODULE`, or a real SWORD module code.
-- **AI summary**: When results arrive, the first nav entry is `{ module: SUMMARY_MODULE, key: normalizedQuery }`. Fetches `api.getCodexSummary(q)` — returns `{ summaryHtml, cached }`.
+- **AI summary**: When results arrive, the first nav entry is `{ module: SUMMARY_MODULE, key: normalizedQuery }`. Fetches `api.getCodexSummary(q)` — returns `{ id, summaryHtml, summaryMd, tags, cached }`. `summaryState` carries all these fields so the edit UI can pre-populate correctly.
+- **Inline editing**: A pencil icon appears on the AI Overview header when a cached entry is loaded (`summaryState.id` is set). Clicking it enters edit mode: a `<textarea>` pre-filled with `summaryMd` and a tag editor. Saving calls `api.updateCodexEntry(id, { summaryMd, tags })` and updates `summaryState` in-place without a re-fetch.
+- **Tag management**: `editTags` array; pressing Enter or comma in the tag input calls `addTag`. Backspace on empty input removes the last tag. Tags are stored lowercase. Display tags appear as teal rounded chips with a `Tag` icon.
 - **Entry fetch**: For SWORD DICT/BOOK entries, fetches via `api.getDictionaryEntry` or `api.getBookEntry`. `injectTocLinks` and `wrapSeeReferences` post-process the HTML: `wrapSeeReferences` converts `"See CAPS-TERM"` patterns to clickable `.codex-topic-ref` spans.
 - **TOC**: Produced by `injectTocLinks` from `utils/dictHtml.js`. Desktop: sliding 208px side panel. Mobile: collapsible panel from top.
 - **Content click routing**: `handleContentClick` handles TOC anchor `#` links, Strongs `strong:` href, Vines-style dict hrefs, `.codex-topic-ref`, `.dict-entry-ref`, footnote markers, xref markers, and verse ref spans.
@@ -31,7 +33,7 @@ The "Codex" topical reference pane — a two-panel browse/read layout for lookin
 ## Dependencies
 
 - `FootnotePopup`, `VerseHoverCard`
-- `api.searchTopics`, `api.getWikipediaEntry`, `api.getMerriamEntry`, `api.getDictionaryEntry`, `api.getBookEntry`, `api.getCodexSummary`
+- `api.searchTopics`, `api.getWikipediaEntry`, `api.getMerriamEntry`, `api.getDictionaryEntry`, `api.getBookEntry`, `api.getCodexSummary`, `api.updateCodexEntry`
 - `injectTocLinks` from `utils/dictHtml.js`
 - `osisToHuman` from `utils/osisToHuman.js`
 

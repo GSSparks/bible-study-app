@@ -8,6 +8,7 @@ Powers the Codex (Factbook) feature, which generates and caches AI-written summa
 
 - **`getCachedSummary(normalizedQuery)`** — Looks up a normalized query string in `FactbookCache`. If found, runs the stored Markdown through `toHtml` (Markdown → HTML + verse-ref span injection + topic-link conversion) and returns the augmented row.
 - **`generateAndCache(title, normalizedQuery, { dictEntries, wikipediaExtract })`** — Calls the Anthropic API with a structured system prompt instructing it to write a 3–5 paragraph biblical reference summary with a `## Related Topics` section. Upserts the result into `FactbookCache` and returns the augmented row with `summaryHtml`.
+- **`updateEntry(id, { summaryMd, tags })`** — Patches an existing cache entry. At least one field must be provided (throws HTTP 400 otherwise). Returns the updated row augmented with `summaryHtml`.
 - **`listAllCached()`** — Returns all `FactbookCache` rows ordered by creation date, for an admin cache-management view.
 - **`deleteById(id)`** — Deletes a single cached entry so it can be regenerated on the next request.
 

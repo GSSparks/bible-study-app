@@ -44,6 +44,7 @@ Scriptorium uses Prisma Migrate to manage its PostgreSQL schema. Each migration 
 | `20261023000000_reflection_shared` | 2026-10-23 | Adds `shared` boolean (default false) to `StudyLessonReflection` so participants can optionally share their reflection with the group. |
 | `20261023000001_resource_suggestions` | 2026-10-23 | Adds `status` (default `'approved'`) and nullable `suggestorId` to `StudyResource` to support participant resource suggestions pending editor review. |
 | `20261027000000_user_suspended_ai_enabled` | 2026-10-27 | Adds `suspended` (boolean, default false) and `aiEnabled` (boolean, default true) columns to `User` for admin-controlled account suspension and per-user AI feature access. |
+| `20261027010000_factbook_cache_tags` | 2026-10-27 | Adds `tags` TEXT[] (NOT NULL, default `'{}'`) to `FactbookCache` for user-applied categorisation of Codex entries. |
 
 ---
 
@@ -202,3 +203,7 @@ Adds two administration columns to `User`:
 - `aiEnabled` BOOLEAN NOT NULL DEFAULT true — when false, `requireAiEnabled` middleware blocks the Study Assistant (`context.js`) and Word Study (`wordStudy.js`) routes for that user.
 
 Both columns default to safe values so all existing users are unaffected.
+
+## 20261027010000_factbook_cache_tags
+
+Adds `tags` TEXT[] NOT NULL DEFAULT `'{}'` to `FactbookCache`. Enables users to categorise Codex entries with free-form tags via the inline editor in `TopicGuidePane`. Existing rows receive an empty array default.

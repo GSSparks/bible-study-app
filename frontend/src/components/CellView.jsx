@@ -367,6 +367,12 @@ export default function CellView({
     onOpenCodex?.(searchTerm);
   }
 
+  function handleStudyInCodex(phrase, studyType, strongsSequence) {
+    if (!phrase) return;
+    const searchTerm = simplifyForTopicalSearch(phrase);
+    onOpenCodex?.(searchTerm, { wordStudy: true, studyType, strongsSequence: strongsSequence || [], originalPhrase: phrase });
+  }
+
   function routeToSearch(query) {
     const hasSearch = layout.columns.some((c) => c.rows.some((r) => r.type === 'search'));
     if (!hasSearch) {
@@ -421,6 +427,7 @@ export default function CellView({
     onAnnotate: onNavigateToLibrary,
     onAskAboutPassage: handleAskAboutPassage,
     onPhraseStudy: handlePhraseStudy,
+    onStudyInCodex: handleStudyInCodex,
     openStrongsInDictionary,
     openTopicalSearch,
     pendingDictKey,

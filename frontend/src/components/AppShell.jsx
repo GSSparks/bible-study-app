@@ -185,8 +185,8 @@ export default function AppShell({ auth }) {
     navigate('cell');
   }
 
-  function openCodex(term) {
-    setPendingCodexQuery({ term, nonce: Date.now() });
+  function openCodex(term, wordStudyOptions = null) {
+    setPendingCodexQuery({ term, nonce: Date.now(), wordStudy: wordStudyOptions });
     navigate('codex');
   }
 

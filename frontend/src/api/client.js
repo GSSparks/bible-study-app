@@ -89,6 +89,11 @@ export const api = {
   getWikipediaEntry: (q) => request(`/wikipedia?q=${encodeURIComponent(q)}`),
   getMerriamEntry: (q) => request(`/merriam?q=${encodeURIComponent(q)}`),
   getCodexSummary: (q) => request(`/codex/summary?q=${encodeURIComponent(q)}`),
+  updateCodexEntry: (id, payload) => request(`/codex/summary/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  listCodexEntries: () => request('/codex/entries'),
+  codexWordStudy: (payload) => request('/codex/word-study', { method: 'POST', body: JSON.stringify(payload) }),
+  getCodexSettings: () => request('/codex/settings'),
+  setCodexSettings: (payload) => request('/codex/settings', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Admin: Codex cache management
   listCodexCache: () => request('/admin/codex'),
@@ -116,6 +121,7 @@ export const api = {
   buildContext: (payload) => request('/context/build', { method: 'POST', body: JSON.stringify(payload) }),
   askAssistant: (payload) => request('/context/ask', { method: 'POST', body: JSON.stringify(payload) }),
   listRecentSessions: () => request('/context/sessions'),
+  searchSessions: (q) => request(`/context/sessions?q=${encodeURIComponent(q)}`),
   getGuideForReference: (reference) => request(`/context/guide/${encodeURIComponent(reference)}`),
   renameSession: (id, title) => request(`/context/sessions/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
   buildWordStudyContext: (payload) => request('/word-study', { method: 'POST', body: JSON.stringify(payload) }),

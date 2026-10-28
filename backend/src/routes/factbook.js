@@ -2,7 +2,17 @@ import { Router } from 'express';
 import { swordService } from '../services/swordService.js';
 import { isMdModuleCode, mdDirName, getMdDictionaryKeys, getMdDictionaryEntry } from '../services/mdModuleService.js';
 import { filterAvailableModules } from '../services/moduleVisibilityService.js';
-import { getCachedSummary, generateAndCache } from '../services/factbookSummaryService.js';
+import { getCachedSummary, generateAndCache, generateWordStudyEntry, updateEntry, listAllCached } from '../services/factbookSummaryService.js';
+import { buildWordStudyContext, buildPhraseStudyContext } from '../services/contextBuilder.js';
+import { requireLogin, requireAdmin } from '../middleware/auth.js';
+import { prisma } from '../db/prisma.js';
+
+const CODEX_DEFAULT_MODULE_KEY = 'codex_default_module';
+
+async function getCodexDefaultModule() {
+  const setting = await prisma.appSetting.findUnique({ where: { key: CODEX_DEFAULT_MODULE_KEY } });
+  return setting?.value || 'KJV';
+}
 
 export const codexRouter = Router();
 
@@ -90,6 +100,143 @@ codexRouter.get('/summary', async (req, res, next) => {
     const result = await generateAndCache(q, normalized, {
       dictEntries,
       wikipediaExtract,
+    });
+
+    res.json({ ...result, cached: false });
+  } catch (err) {
+    if (err.message === 'AI not configured') {
+      return res.status(503).json({ error: 'AI not configured — set ANTHROPIC_API_KEY to enable summaries' });
+    }
+    next(err);
+  }
+});
+
+// GET /api/codex/entries — lightweight index of all cached entries for inline annotation
+codexRouter.get('/entries', async (req, res, next) => {
+  try {
+    const rows = await listAllCached();
+    res.json(rows.map(({ id, query, title, tags }) => ({ id, query, title, tags })));
+  } catch (err) { next(err); }
+});
+
+// PATCH /api/codex/summary/:id — edit markdown or tags; requires login
+codexRouter.patch('/summary/:id', requireLogin, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid id' });
+    const { summaryMd, tags } = req.body;
+    const result = await updateEntry(id, { summaryMd, tags });
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    next(err);
+  }
+});
+
+// GET /api/codex/settings — admin: current word-study module setting
+codexRouter.get('/settings', requireAdmin, async (req, res, next) => {
+  try {
+    res.json({ defaultModule: await getCodexDefaultModule() });
+  } catch (err) { next(err); }
+});
+
+// POST /api/codex/settings — admin: set word-study default module
+codexRouter.post('/settings', requireAdmin, async (req, res, next) => {
+  try {
+    const { defaultModule } = req.body;
+    if (!defaultModule || typeof defaultModule !== 'string') {
+      return res.status(400).json({ error: 'defaultModule is required' });
+    }
+    await prisma.appSetting.upsert({
+      where: { key: CODEX_DEFAULT_MODULE_KEY },
+      update: { value: defaultModule },
+      create: { key: CODEX_DEFAULT_MODULE_KEY, value: defaultModule },
+    });
+    res.json({ defaultModule });
+  } catch (err) { next(err); }
+});
+
+// POST /api/codex/word-study
+// Scans the canonical module for all occurrences of a phrase or Strong's key,
+// then generates (or returns a cached) occurrence-driven Codex entry.
+// { query, studyType: 'english'|'original', strongsSequence?: string[], force?: bool }
+codexRouter.post('/word-study', requireLogin, async (req, res, next) => {
+  try {
+    const { query, studyType, strongsSequence, force } = req.body;
+    if (!query || !studyType) {
+      return res.status(400).json({ error: 'query and studyType are required' });
+    }
+
+    const normalized = query.trim().toLowerCase();
+
+    // Return cached entry if it already has occurrence data and force is not set.
+    if (!force) {
+      const existing = await prisma.factbookCache.findUnique({ where: { query: normalized } });
+      if (existing?.occurrences && existing?.studyType) {
+        return res.json({ ...existing, summaryHtml: null, cached: true });
+      }
+    }
+
+    const module = await getCodexDefaultModule();
+
+    // Run the appropriate occurrence scan.
+    let context;
+    if (studyType === 'original' && Array.isArray(strongsSequence) && strongsSequence.length > 0) {
+      if (strongsSequence.length === 1) {
+        context = await buildWordStudyContext({ module, strongsKey: strongsSequence[0] });
+      } else {
+        context = await buildPhraseStudyContext({ module, strongsSequence, displayText: query });
+      }
+    } else {
+      context = await buildPhraseStudyContext({ module, phrase: query, displayText: query });
+    }
+
+    const occurrences = context.occurrences || [];
+    const strongsKeys = studyType === 'original' && Array.isArray(strongsSequence) ? strongsSequence : [];
+
+    // Gather dict context for a richer summary (same as the topic-only path).
+    let swordModules = swordService.listInstalledModules('DICT');
+    if (req.user?.role !== 'admin') swordModules = await filterAvailableModules(swordModules);
+    const seen = new Set();
+    const candidates = swordModules
+      .slice(0, 6)
+      .flatMap((mod) => {
+        try {
+          const keys = isMdModuleCode(mod.name)
+            ? []  // skip async md modules for simplicity here
+            : swordService.getDictionaryKeys(mod.name)
+                .filter((k) => k.toLowerCase().includes(normalized))
+                .slice(0, 3);
+          return keys.filter((k) => {
+            if (!/^\d+$/.test(k) && !seen.has(k.toLowerCase())) { seen.add(k.toLowerCase()); return true; }
+            return false;
+          }).map((key) => ({ mod, key }));
+        } catch { return []; }
+      })
+      .slice(0, 5);
+
+    const MAX_ENTRY_CHARS = 1200;
+    const stripHtml = (html) => (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const dictEntries = (await Promise.allSettled(
+      candidates.map(async ({ mod, key }) => {
+        try {
+          const html = swordService.getRawEntry(mod.name, key);
+          const text = stripHtml(html).slice(0, MAX_ENTRY_CHARS);
+          return text.length >= 30 ? { source: mod.description || mod.name, key, text } : null;
+        } catch { return null; }
+      })
+    ))
+      .filter((r) => r.status === 'fulfilled' && r.value)
+      .map((r) => r.value);
+
+    const result = await generateWordStudyEntry(query, normalized, {
+      occurrences,
+      studyType,
+      strongsKeys,
+      dictionaryEntry: context.dictionaryEntry || null,
+      truncated: context.truncated || false,
+      totalOccurrenceCount: context.totalOccurrenceCount ?? occurrences.length,
+      dictEntries,
     });
 
     res.json({ ...result, cached: false });

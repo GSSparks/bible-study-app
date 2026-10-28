@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BookText, ChevronLeft, ChevronRight, ExternalLink, List, Search, Sparkles, Volume2, X } from 'lucide-react';
+import { BookText, Check, ChevronLeft, ChevronRight, Download, ExternalLink, List, MessageSquare, Pencil, Search, Sparkles, StickyNote, Tag, Volume2, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import FootnotePopup from './FootnotePopup.jsx';
 import VerseHoverCard from './VerseHoverCard.jsx';
@@ -102,7 +102,18 @@ export default function TopicGuidePane({
   const [tocOpen, setTocOpen] = useState(false);
   const contentRef = useRef(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
-  const [summaryState, setSummaryState] = useState(null); // { loading, html, error, cached }
+  const [summaryState, setSummaryState] = useState(null); // { loading, html, error, cached, id, summaryMd, tags, occurrences, studyType }
+  const [relatedNotes, setRelatedNotes] = useState([]);
+  const [relatedSessions, setRelatedSessions] = useState([]);
+  const [pendingWordStudy, setPendingWordStudy] = useState(null); // { studyType, strongsSequence, originalPhrase } from Bible reader
+  const [wordStudyLoading, setWordStudyLoading] = useState(false);
+  const [wordStudyError, setWordStudyError] = useState(null);
+  const [findStudyType, setFindStudyType] = useState('english'); // toggle for the "Find in Scripture" button
+  const [editing, setEditing] = useState(false);
+  const [editMd, setEditMd] = useState('');
+  const [editTags, setEditTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
+  const [saving, setSaving] = useState(false);
   const [hoverCard, setHoverCard] = useState(null); // { ref, rect }
   const closeTimer = useRef(null);
   const inputRef = useRef(null);
@@ -142,33 +153,93 @@ export default function TopicGuidePane({
     return () => { cancelled = true; };
   }, [query]);
 
-  // ── Respond to external triggers (e.g. opening Codex from StrongsDrawer) ──
+  // ── Respond to external triggers (e.g. opening Codex from Bible reader) ──
   useEffect(() => {
     if (initialQuery?.term) {
-      setInputValue(initialQuery.term);
-      setQuery(initialQuery.term);
+      const term = initialQuery.wordStudy?.originalPhrase || initialQuery.term;
+      setInputValue(term);
+      setQuery(term);
+      if (initialQuery.wordStudy) {
+        setPendingWordStudy(initialQuery.wordStudy);
+        setFindStudyType(initialQuery.wordStudy.studyType || 'english');
+      }
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [initialQuery?.nonce]);
 
   // ── When results arrive, open the AI Summary home page ────────────────────
+  // Open the AI Overview whenever the committed query changes — independent of
+  // whether any dictionary keys matched. Multi-word phrases ("children of light")
+  // typically have no dictionary hits but still deserve a Codex summary.
   useEffect(() => {
-    if (results.length === 0) {
+    const q = query.trim();
+    if (!q || q.length < 2) {
       setNav({ stack: [], index: -1 });
       return;
     }
-    const normalizedQ = query.trim().toLowerCase();
-    setNav({ stack: [{ module: SUMMARY_MODULE, description: 'AI Overview', key: normalizedQ }], index: 0 });
-  }, [results]);
+    setNav({ stack: [{ module: SUMMARY_MODULE, description: 'AI Overview', key: q.toLowerCase() }], index: 0 });
+  }, [query]);
 
   // ── Fetch AI summary when summary entry is selected ────────────────────────
   useEffect(() => {
     if (selected?.module !== SUMMARY_MODULE) return;
     const q = selected.key;
+
+    // Consume any pending word study trigger from the Bible reader.
+    const wordStudyOpts = pendingWordStudy;
+    setPendingWordStudy(null);
+
     setSummaryState({ loading: true, html: null, error: null, cached: false });
-    api.getCodexSummary(q)
-      .then((res) => setSummaryState({ loading: false, html: res.summaryHtml, error: null, cached: res.cached }))
-      .catch((e) => setSummaryState({ loading: false, html: null, error: e.message, cached: false }));
+    setRelatedNotes([]);
+    setRelatedSessions([]);
+    setWordStudyError(null);
+
+    if (wordStudyOpts?.wordStudy) {
+      // Word study path: run occurrence scan + occurrence-driven summary.
+      setWordStudyLoading(true);
+      api.codexWordStudy({
+        query: wordStudyOpts.originalPhrase || q,
+        studyType: wordStudyOpts.studyType || 'english',
+        strongsSequence: wordStudyOpts.strongsSequence || [],
+      })
+        .then((res) => {
+          setSummaryState({
+            loading: false, html: res.summaryHtml, error: null, cached: res.cached,
+            id: res.id, summaryMd: res.summaryMd, tags: res.tags ?? [],
+            occurrences: res.occurrences || null, studyType: res.studyType || null,
+            strongsKeys: res.strongsKeys || [],
+          });
+          setEditing(false);
+        })
+        .catch((e) => {
+          setSummaryState({ loading: false, html: null, error: e.message, cached: false });
+          setWordStudyError(e.message);
+        })
+        .finally(() => setWordStudyLoading(false));
+    } else {
+      api.getCodexSummary(q)
+        .then((res) => {
+          setSummaryState({
+            loading: false, html: res.summaryHtml, error: null, cached: res.cached,
+            id: res.id, summaryMd: res.summaryMd, tags: res.tags ?? [],
+            occurrences: res.occurrences || null, studyType: res.studyType || null,
+            strongsKeys: res.strongsKeys || [],
+          });
+          setEditing(false);
+        })
+        .catch((e) => setSummaryState({ loading: false, html: null, error: e.message, cached: false }));
+    }
+
+    if (isLoggedIn) {
+      api.listNotes({ q })
+        .then((notes) => setRelatedNotes(
+          notes.filter((n) => n.body && !n.tags?.includes('book-highlight'))
+        ))
+        .catch(() => {});
+      api.searchSessions(q)
+        .then(setRelatedSessions)
+        .catch(() => {});
+    }
   }, [selected?.module === SUMMARY_MODULE ? selected.key : null]);
 
   // ── Reset TOC when navigating to any entry ────────────────────────────────
@@ -347,6 +418,83 @@ export default function TopicGuidePane({
     navigateTo({ module: MERRIAM_MODULE, description: 'Merriam-Webster', key: merriamResult.headword });
     setEntryHtml('');
     setEntryError(null);
+  }
+
+  async function triggerWordStudy(studyType, force = false) {
+    if (!summaryState?.id && !query) return;
+    const q = selected?.module === SUMMARY_MODULE ? selected.key : query.trim().toLowerCase();
+    const originalPhrase = query.trim();
+    setWordStudyLoading(true);
+    setWordStudyError(null);
+    try {
+      const seq = studyType === 'original'
+        ? (pendingWordStudy?.strongsSequence?.length ? pendingWordStudy.strongsSequence : summaryState?.strongsKeys || [])
+        : [];
+      const res = await api.codexWordStudy({ query: originalPhrase, studyType, strongsSequence: seq, force });
+      setSummaryState((prev) => ({
+        ...prev,
+        html: res.summaryHtml,
+        summaryMd: res.summaryMd,
+        tags: res.tags ?? prev?.tags ?? [],
+        id: res.id,
+        occurrences: res.occurrences || null,
+        studyType: res.studyType || studyType,
+        strongsKeys: res.strongsKeys || prev?.strongsKeys || [],
+        cached: res.cached,
+      }));
+    } catch (e) {
+      setWordStudyError(e.message);
+    } finally {
+      setWordStudyLoading(false);
+    }
+  }
+
+  function downloadEntry() {
+    if (!summaryState?.summaryMd) return;
+    const { summaryMd, tags } = summaryState;
+    const title = selected?.key ?? 'entry';
+    const tagLine = tags?.length ? `*Tags: ${tags.join(', ')}*\n\n` : '';
+    const md = `# ${title}\n\n${tagLine}${summaryMd}`;
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/\s+/g, '-').toLowerCase()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function startEdit() {
+    setEditMd(summaryState?.summaryMd ?? '');
+    setEditTags(summaryState?.tags ?? []);
+    setTagInput('');
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+  }
+
+  async function saveEdit() {
+    if (!summaryState?.id) return;
+    setSaving(true);
+    try {
+      const res = await api.updateCodexEntry(summaryState.id, { summaryMd: editMd, tags: editTags });
+      setSummaryState((prev) => ({ ...prev, html: res.summaryHtml, summaryMd: res.summaryMd, tags: res.tags ?? [] }));
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function addTag(value) {
+    const t = value.trim().toLowerCase();
+    if (t && !editTags.includes(t)) setEditTags((prev) => [...prev, t]);
+    setTagInput('');
+  }
+
+  function removeTag(tag) {
+    setEditTags((prev) => prev.filter((t) => t !== tag));
   }
 
   function jumpToSection(id) {
@@ -659,9 +807,29 @@ export default function TopicGuidePane({
                   <ChevronRight size={16} />
                 </button>
               </div>
-              <div className="flex items-center gap-2">
-                <Sparkles size={18} className="shrink-0 text-pageAccent opacity-70" />
-                <h1 className="font-display text-2xl font-normal capitalize text-pageText">{selected.key}</h1>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} className="shrink-0 text-pageAccent opacity-70" />
+                  <h1 className="font-display text-2xl font-normal capitalize text-pageText">{selected.key}</h1>
+                </div>
+                {summaryState?.id && !editing && !summaryState?.loading && (
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={downloadEntry}
+                      title="Download as Markdown"
+                      className="shrink-0 rounded p-1.5 text-pageMuted hover:bg-pageBorder/40 hover:text-pageText"
+                    >
+                      <Download size={14} />
+                    </button>
+                    <button
+                      onClick={startEdit}
+                      title="Edit"
+                      className="shrink-0 rounded p-1.5 text-pageMuted hover:bg-pageBorder/40 hover:text-pageText"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
               <p className="mt-1 font-sans text-xs text-pageMuted">
                 AI Overview
@@ -669,7 +837,20 @@ export default function TopicGuidePane({
                   <span className="ml-2 rounded bg-verdigris/15 px-1.5 py-0.5 text-[10px] text-verdigris">just generated</span>
                 )}
               </p>
+
+              {/* Tags display */}
+              {!editing && summaryState?.tags && summaryState.tags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {summaryState.tags.map((tag) => (
+                    <span key={tag} className="flex items-center gap-1 rounded-full bg-verdigris/15 px-2 py-0.5 font-sans text-[11px] text-verdigris">
+                      <Tag size={9} />
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
+
             {summaryState?.loading && (
               <div className="flex items-center gap-2 text-sm text-pageMuted">
                 <Sparkles size={14} className="animate-pulse" />
@@ -679,12 +860,231 @@ export default function TopicGuidePane({
             {summaryState?.error && (
               <p className="text-sm text-red-600">{summaryState.error}</p>
             )}
-            {!summaryState?.loading && !summaryState?.error && summaryState?.html && (
+
+            {/* Edit mode */}
+            {editing && (
+              <div className="max-w-2xl space-y-4">
+                <textarea
+                  value={editMd}
+                  onChange={(e) => setEditMd(e.target.value)}
+                  rows={20}
+                  className="w-full rounded border border-pageBorder bg-page px-3 py-2 font-mono text-sm leading-relaxed text-pageText focus:border-pageAccent focus:outline-none"
+                />
+
+                {/* Tag editor */}
+                <div>
+                  <p className="mb-2 font-sans text-[10px] uppercase tracking-widest text-pageMuted">Tags</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {editTags.map((tag) => (
+                      <span key={tag} className="flex items-center gap-1 rounded-full bg-verdigris/15 px-2 py-0.5 font-sans text-[11px] text-verdigris">
+                        <Tag size={9} />
+                        {tag}
+                        <button
+                          onClick={() => removeTag(tag)}
+                          className="ml-0.5 opacity-60 hover:opacity-100"
+                        >
+                          <X size={9} />
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagInput); }
+                        if (e.key === 'Backspace' && !tagInput && editTags.length > 0) {
+                          setEditTags((prev) => prev.slice(0, -1));
+                        }
+                      }}
+                      placeholder="Add tag…"
+                      className="min-w-24 rounded border border-pageBorder bg-page px-2 py-0.5 font-sans text-[11px] text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveEdit}
+                    disabled={saving}
+                    className="flex items-center gap-1.5 rounded bg-pageAccent px-3 py-1.5 font-sans text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    <Check size={13} />
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={cancelEdit}
+                    disabled={saving}
+                    className="rounded border border-pageBorder px-3 py-1.5 font-sans text-sm text-pageMuted hover:text-pageText disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Read mode */}
+            {!editing && !summaryState?.loading && !summaryState?.error && summaryState?.html && (
               <div
                 className="markdown-body markdown-body-page max-w-2xl font-display text-base leading-relaxed text-pageText"
                 dangerouslySetInnerHTML={{ __html: summaryState.html }}
                 onClick={handleContentClick}
               />
+            )}
+
+            {/* Scripture Uses */}
+            {!editing && !summaryState?.loading && !summaryState?.error && selected?.module === SUMMARY_MODULE && (
+              <div className="mt-8 max-w-2xl border-t border-pageBorder pt-6">
+                <p className="mb-3 font-ui text-[10px] uppercase tracking-widest text-pageMuted">Scripture Uses</p>
+
+                {summaryState?.occurrences && summaryState.occurrences.length > 0 ? (
+                  <>
+                    <div className="mb-3 flex items-center gap-3">
+                      <span className="font-ui text-xs text-pageMuted">
+                        {summaryState.occurrences.length} occurrence{summaryState.occurrences.length === 1 ? '' : 's'}
+                        {summaryState.studyType === 'original' ? ' · original language' : ' · English'}
+                      </span>
+                      {isLoggedIn && (
+                        <button
+                          onClick={() => triggerWordStudy(summaryState.studyType || 'english', true)}
+                          disabled={wordStudyLoading}
+                          className="font-ui text-xs text-pageMuted underline-offset-2 hover:text-pageAccent hover:underline disabled:opacity-50"
+                        >
+                          {wordStudyLoading ? 'Regenerating…' : 'Regenerate with Scripture Search'}
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {summaryState.occurrences.slice(0, 50).map((occ, i) => (
+                        <button
+                          key={i}
+                          onClick={() => onOpenInBible?.(occ.reference)}
+                          className="group flex w-full items-baseline gap-3 rounded px-2 py-1.5 text-left hover:bg-page/60"
+                        >
+                          <span className="w-24 shrink-0 font-ui text-xs font-medium text-pageAccent">
+                            {occ.reference}
+                          </span>
+                          <span className="line-clamp-1 font-display text-sm text-pageText/80 group-hover:text-pageText">
+                            {occ.snippet}
+                          </span>
+                        </button>
+                      ))}
+                      {summaryState.occurrences.length > 50 && (
+                        <p className="px-2 pt-1 font-ui text-xs text-pageMuted">
+                          …and {summaryState.occurrences.length - 50} more
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <p className="font-display text-sm text-pageText/60">
+                      Find every place this term appears in Scripture to generate a usage-driven study.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex rounded border border-pageBorder text-[10px]">
+                        <button
+                          onClick={() => setFindStudyType('english')}
+                          className={`px-2.5 py-1 ${findStudyType === 'english' ? 'bg-pageAccent/20 text-pageAccent' : 'text-pageMuted hover:text-pageText'}`}
+                        >
+                          English
+                        </button>
+                        <button
+                          onClick={() => setFindStudyType('original')}
+                          disabled={!pendingWordStudy?.strongsSequence?.length}
+                          className={`px-2.5 py-1 disabled:opacity-30 ${findStudyType === 'original' ? 'bg-pageAccent/20 text-pageAccent' : 'text-pageMuted hover:text-pageText'}`}
+                          title={!pendingWordStudy?.strongsSequence?.length ? 'Open from a Bible passage to enable original language search' : ''}
+                        >
+                          Original language
+                        </button>
+                      </div>
+                      {isLoggedIn ? (
+                        <button
+                          onClick={() => triggerWordStudy(findStudyType)}
+                          disabled={wordStudyLoading}
+                          className="rounded bg-pageAccent px-3 py-1 font-ui text-xs font-medium text-ink hover:bg-pageAccent/90 disabled:opacity-50"
+                        >
+                          {wordStudyLoading ? 'Scanning…' : 'Find in Scripture'}
+                        </button>
+                      ) : (
+                        <span className="font-ui text-xs text-pageMuted">Log in to run a Scripture search</span>
+                      )}
+                    </div>
+                    {wordStudyError && (
+                      <p className="font-ui text-xs text-red-500">{wordStudyError}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* In Your Study */}
+            {!editing && (relatedNotes.length > 0 || relatedSessions.length > 0) && (
+              <div className="mt-8 max-w-2xl border-t border-pageBorder pt-6">
+                <p className="mb-4 font-ui text-[10px] uppercase tracking-widest text-pageMuted">In Your Study</p>
+
+                {relatedNotes.length > 0 && (
+                  <div className="mb-5">
+                    <p className="mb-2 flex items-center gap-1.5 font-ui text-xs font-medium text-pageText/70">
+                      <StickyNote size={12} />
+                      Notes
+                    </p>
+                    <div className="space-y-2">
+                      {relatedNotes.map((note) => (
+                        <div
+                          key={note.id}
+                          className="group rounded border border-pageBorder bg-page/60 px-3 py-2.5"
+                        >
+                          {note.reference && (
+                            <button
+                              onClick={() => onOpenInCell?.(note.reference)}
+                              className="mb-1 font-ui text-xs font-medium text-pageAccent hover:underline"
+                            >
+                              {note.reference.replace(/\./g, ' ')}
+                            </button>
+                          )}
+                          <p className="line-clamp-2 font-display text-sm leading-snug text-pageText/80">
+                            {note.title || note.body}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {relatedSessions.length > 0 && (
+                  <div>
+                    <p className="mb-2 flex items-center gap-1.5 font-ui text-xs font-medium text-pageText/70">
+                      <MessageSquare size={12} />
+                      Study Sessions
+                    </p>
+                    <div className="space-y-2">
+                      {relatedSessions.map((session) => (
+                        <div
+                          key={session.id}
+                          className="rounded border border-pageBorder bg-page/60 px-3 py-2.5"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-display text-sm text-pageText/80">
+                              {session.title || session.reference || 'Untitled session'}
+                            </p>
+                            <span className="shrink-0 rounded-full bg-pageBorder px-1.5 py-0.5 font-ui text-[10px] text-pageMuted">
+                              {session.kind === 'guide' ? 'guide' : 'chat'}
+                            </span>
+                          </div>
+                          {session.reference && session.title && (
+                            <button
+                              onClick={() => onOpenInCell?.(session.reference)}
+                              className="mt-0.5 font-ui text-xs text-pageAccent hover:underline"
+                            >
+                              {session.reference.replace(/\./g, ' ')}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </>
         )}

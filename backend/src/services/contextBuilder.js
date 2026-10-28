@@ -296,9 +296,7 @@ export async function buildWordStudyContext({ module, strongsKey }) {
     // dictionary lookup failing shouldn't block the occurrence list itself
   }
 
-  const allOccurrences = await swordService.getStrongsOccurrences(module, strongsKey);
-  const CAP = 200;
-  const occurrences = allOccurrences.slice(0, CAP);
+  const occurrences = await swordService.getStrongsOccurrences(module, strongsKey);
 
   return {
     module,
@@ -306,8 +304,8 @@ export async function buildWordStudyContext({ module, strongsKey }) {
     dictionaryEntry,
     occurrences,
     occurrenceCount: occurrences.length,
-    totalOccurrenceCount: allOccurrences.length,
-    truncated: allOccurrences.length > CAP,
+    totalOccurrenceCount: occurrences.length,
+    truncated: false,
   };
 }
 
@@ -423,8 +421,7 @@ export async function buildPhraseStudyContext({ module, phrase, strongsSequence,
     ? await swordService.findStrongsSequenceOccurrences(module, strongsSequence)
     : await swordService.findPhraseOccurrences(module, phrase);
 
-  const CAP = 200;
-  const occurrences = allOccurrences.slice(0, CAP);
+  const occurrences = allOccurrences;
 
   return {
     module,
@@ -432,8 +429,8 @@ export async function buildPhraseStudyContext({ module, phrase, strongsSequence,
     matchType,
     occurrences,
     occurrenceCount: occurrences.length,
-    totalOccurrenceCount: allOccurrences.length,
-    truncated: allOccurrences.length > CAP,
+    totalOccurrenceCount: occurrences.length,
+    truncated: false,
   };
 }
 

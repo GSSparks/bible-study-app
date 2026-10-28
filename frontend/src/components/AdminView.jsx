@@ -874,6 +874,12 @@ function CodexTab() {
   const [exporting, setExporting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
+  // Word study settings
+  const [bibleModules, setBibleModules] = useState([]);
+  const [defaultModule, setDefaultModule] = useState('KJV');
+  const [savingModule, setSavingModule] = useState(false);
+  const [moduleSettingMsg, setModuleSettingMsg] = useState(null);
+
   function refresh() {
     setLoading(true);
     api.listCodexCache()
@@ -883,6 +889,24 @@ function CodexTab() {
   }
 
   useEffect(() => { refresh(); }, []);
+
+  useEffect(() => {
+    api.listInstalledModules('BIBLE').then((mods) => setBibleModules(mods || [])).catch(() => {});
+    api.getCodexSettings().then((s) => setDefaultModule(s.defaultModule || 'KJV')).catch(() => {});
+  }, []);
+
+  async function saveDefaultModule() {
+    setSavingModule(true);
+    setModuleSettingMsg(null);
+    try {
+      await api.setCodexSettings({ defaultModule });
+      setModuleSettingMsg('Saved.');
+    } catch (e) {
+      setModuleSettingMsg(`Error: ${e.message}`);
+    } finally {
+      setSavingModule(false);
+    }
+  }
 
   async function handleExport() {
     setExporting(true);
@@ -915,6 +939,41 @@ function CodexTab() {
 
   return (
     <div>
+      {/* ── Word Study Settings ─────────────────────────────────── */}
+      <div className="mb-6 rounded border border-rule p-4">
+        <h3 className="mb-1 text-sm text-parchment">Word Study Settings</h3>
+        <p className="mb-3 text-xs text-muted">
+          When a word study is triggered from the Bible reader, occurrences are scanned from this
+          module. All users share one canonical result, so it must be a standardized translation.
+        </p>
+        <div className="flex items-center gap-3">
+          <label className="text-xs text-muted">Default module</label>
+          <select
+            value={defaultModule}
+            onChange={(e) => setDefaultModule(e.target.value)}
+            className="rounded border border-rule bg-ink px-2 py-1 text-xs text-parchment focus:border-brass focus:outline-none"
+          >
+            {bibleModules.length === 0 && (
+              <option value="KJV">KJV (default)</option>
+            )}
+            {bibleModules.map((m) => (
+              <option key={m.name} value={m.name}>{m.description || m.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={saveDefaultModule}
+            disabled={savingModule}
+            className="rounded border border-rule px-3 py-1 text-xs text-muted hover:border-brass hover:text-parchment disabled:opacity-40"
+          >
+            {savingModule ? 'Saving…' : 'Save'}
+          </button>
+          {moduleSettingMsg && (
+            <span className="text-xs text-muted">{moduleSettingMsg}</span>
+          )}
+        </div>
+      </div>
+
+      {/* ── AI Overview Cache ────────────────────────────────────── */}
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="text-sm text-parchment">AI Overview Cache</h3>
@@ -943,6 +1002,7 @@ function CodexTab() {
             <tr className="border-b border-rule text-left text-xs uppercase tracking-wide text-muted">
               <th className="pb-2 pr-4">Topic</th>
               <th className="pb-2 pr-4">Query</th>
+              <th className="pb-2 pr-4">Type</th>
               <th className="pb-2 pr-4">Generated</th>
               <th className="pb-2" />
             </tr>
@@ -952,6 +1012,15 @@ function CodexTab() {
               <tr key={entry.id} className="border-b border-rule/40">
                 <td className="py-2 pr-4 text-parchment">{entry.title}</td>
                 <td className="py-2 pr-4 font-mono text-xs text-muted">{entry.query}</td>
+                <td className="py-2 pr-4">
+                  {entry.studyType ? (
+                    <span className="rounded bg-brass/20 px-1.5 py-0.5 text-xs text-brass">
+                      {entry.studyType === 'original' ? 'original lang' : 'word study'}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted/50">topic</span>
+                  )}
+                </td>
                 <td className="py-2 pr-4 text-muted">{formatDate(entry.createdAt)}</td>
                 <td className="py-2 text-right">
                   <button

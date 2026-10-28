@@ -1,0 +1,1 @@
+ALTER TABLE "FactbookCache" ADD COLUMN "tags" TEXT[] NOT NULL DEFAULT '{}';
