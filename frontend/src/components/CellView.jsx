@@ -144,6 +144,14 @@ export default function CellView({
     function onKey(e) {
       const active = document.activeElement;
       const inInput = active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA' || active?.isContentEditable;
+
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === 'f') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       if (e.key === '/' && !inInput) {
