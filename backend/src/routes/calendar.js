@@ -8,7 +8,9 @@ import {
   createLayer,
   updateLayer,
   deleteLayer,
+  getHebrewDatesForMonth,
   listEntriesForMonth,
+  listEntriesForLayerInRange,
   createEntry,
   updateEntry,
   deleteEntry,
@@ -94,12 +96,11 @@ calendarRouter.delete('/layers/:id/share/:userId', async (req, res, next) => {
 
 calendarRouter.get('/entries/:year/:month', async (req, res, next) => {
   try {
-    const year = parseInt(req.params.year, 10);
-    const month = parseInt(req.params.month, 10);
-    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
-      return res.status(400).json({ error: 'Valid year and month (1–12) required.' });
-    }
-    res.json(await listEntriesForMonth(req.user.id, year, month));
+    const { year, month } = req.params;
+    const userId = req.user.id;
+    const entries = await listEntriesForMonth(userId, +year, +month);
+    const hebrewDates = getHebrewDatesForMonth(+year, +month);
+    res.json({ entries, hebrewDates });
   } catch (err) {
     next(err);
   }
@@ -181,6 +182,22 @@ calendarRouter.post('/images/:subdir', uploadCalendarImage, (req, res, next) => 
     const subdir = req.params.subdir === 'day-bg' ? 'day-bg' : 'cover';
     const url = `/uploads/calendar/${subdir}/${req.file.filename}`;
     res.status(201).json({ url });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// calendar.js routes
+calendarRouter.get('/layers/:id/entries', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { startYear, startMonth, endYear, endMonth } = req.query;
+    const entries = await listEntriesForLayerInRange(
+      id,
+      parseInt(startYear, 10), parseInt(startMonth, 10),
+                                                     parseInt(endYear, 10), parseInt(endMonth, 10),
+    );
+    res.json(entries);
   } catch (err) {
     next(err);
   }

@@ -240,7 +240,6 @@ export async function listEntriesForMonth(userId, year, month) {
   const recurringEntries = await prisma.calendarEntry.findMany({
     where: {
       layerId: { in: layerIds },
-      year,
       recurrence: { not: null },
     },
     include: { layer: { select: { id: true, name: true, color: true } } },
@@ -262,21 +261,29 @@ export async function listEntriesForMonth(userId, year, month) {
 function expandRecurrence(entry, year, month) {
   if (!entry.recurrence) return [];
   try {
-    const rrule = RRule.parseString(entry.recurrence);
+    const dtstart = new Date(Date.UTC(entry.year, entry.month - 1, entry.day || 1));
+    const options = RRule.parseString(entry.recurrence);
+    const rule = new RRule({ ...options, dtstart });
     const start = new Date(Date.UTC(year, month - 1, 1));
-    const end = new Date(Date.UTC(year, month, 1)); // first day of next month
-    const occurrences = rrule.all();
-    // RRule.all() can be infinite — cap it by filtering to our range
-    const days = [];
-    for (const occ of occurrences) {
-      if (occ >= end) break;
-      if (occ >= start) {
-        days.push(occ.getUTCDate());
-      }
-    }
-    return days;
+    const end = new Date(Date.UTC(year, month, 1));
+    return rule.between(start, end, true).map(occ => occ.getUTCDate());
   } catch {
-    return []; // malformed RRULE — skip silently
+    return [];
+  }
+}
+
+/** Expands an RRULE entry across a date range. Returns an array of Date objects. */
+function expandRecurrenceInRange(entry, startYear, startMonth, endYear, endMonth) {
+  if (!entry.recurrence) return [];
+  try {
+    const dtstart = new Date(Date.UTC(entry.year, entry.month - 1, entry.day || 1));
+    const options = RRule.parseString(entry.recurrence);
+    const rule = new RRule({ ...options, dtstart });
+    const start = new Date(Date.UTC(startYear, startMonth - 1, 1));
+    const end = new Date(Date.UTC(endYear, endMonth, 1)); // exclusive
+    return rule.between(start, end, true);
+  } catch {
+    return [];
   }
 }
 
@@ -565,4 +572,70 @@ export function getHebrewHolidaysForYear(hebrewYear) {
  *  (similar to uploadBanner) and call this to persist the URL. */
 export function getCalendarImageUrl(subdir, filename) {
   return `/uploads/calendar/${subdir}/${filename}`;
+}
+// calendarService.js
+export async function listEntriesForLayerInRange(layerId, startYear, startMonth, endYear, endMonth) {
+  // Build a set of (year, month) pairs in range
+  const monthsInRange = [];
+  let y = startYear, m = startMonth;
+  while (y < endYear || (y === endYear && m < endMonth)) {
+    monthsInRange.push({ year: y, month: m });
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+
+  // Fetch all entries for this layer
+  const all = await prisma.calendarEntry.findMany({
+    where: { layerId },
+    include: { layer: true },
+  });
+
+  const inRange = [];
+  for (const e of all) {
+    if (e.recurrence) {
+      const occurrences = expandRecurrenceInRange(e, startYear, startMonth, endYear, endMonth);
+      for (const date of occurrences) {
+        inRange.push({
+          ...e,
+          year: date.getUTCFullYear(),
+                     month: date.getUTCMonth() + 1,
+                     day: date.getUTCDate(),
+                     _isRecurring: true,
+        });
+      }
+    } else {
+      if (monthsInRange.some(({ year, month }) => year === e.year && month === e.month)) {
+        inRange.push(e);
+      }
+    }
+  }
+
+  // Sort by year, month, day
+  inRange.sort((a, b) =>
+  (a.year - b.year) || (a.month - b.month) || ((a.day || 0) - (b.day || 0))
+  );
+
+  return inRange.map(e => ({
+    id: e.id,
+    title: e.title,
+    year: e.year,
+    month: e.month,
+    day: e.day,
+    layerId: e.layerId,
+    layerColor: e.layer?.color || '#888',
+    recurrence: e.recurrence || null,
+    _isRecurring: e._isRecurring || false,
+  }));
+}
+
+
+export function getHebrewDatesForMonth(year, month) {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const result = {};
+  for (let d = 1; d <= daysInMonth; d++) {
+    const hd = new HDate(new Date(year, month - 1, d));
+    // "Cheshvan 15, 5784" — American month-day-year
+    result[d] = `${hd.getMonthName()} ${hd.getDate()}, ${hd.getFullYear()}`;
+  }
+  return result;
 }
