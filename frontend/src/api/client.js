@@ -91,6 +91,9 @@ export const api = {
   getCodexSummary: (q) => request(`/codex/summary?q=${encodeURIComponent(q)}`),
   updateCodexEntry: (id, payload) => request(`/codex/summary/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   listCodexEntries: () => request('/codex/entries'),
+  codexWordStudy: (payload) => request('/codex/word-study', { method: 'POST', body: JSON.stringify(payload) }),
+  getCodexSettings: () => request('/codex/settings'),
+  setCodexSettings: (payload) => request('/codex/settings', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Admin: Codex cache management
   listCodexCache: () => request('/admin/codex'),

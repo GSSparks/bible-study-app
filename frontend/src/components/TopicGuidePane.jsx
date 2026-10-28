@@ -102,9 +102,13 @@ export default function TopicGuidePane({
   const [tocOpen, setTocOpen] = useState(false);
   const contentRef = useRef(null);
   const [footnotePopup, setFootnotePopup] = useState(null);
-  const [summaryState, setSummaryState] = useState(null); // { loading, html, error, cached, id, summaryMd, tags }
+  const [summaryState, setSummaryState] = useState(null); // { loading, html, error, cached, id, summaryMd, tags, occurrences, studyType }
   const [relatedNotes, setRelatedNotes] = useState([]);
   const [relatedSessions, setRelatedSessions] = useState([]);
+  const [pendingWordStudy, setPendingWordStudy] = useState(null); // { studyType, strongsSequence, originalPhrase } from Bible reader
+  const [wordStudyLoading, setWordStudyLoading] = useState(false);
+  const [wordStudyError, setWordStudyError] = useState(null);
+  const [findStudyType, setFindStudyType] = useState('english'); // toggle for the "Find in Scripture" button
   const [editing, setEditing] = useState(false);
   const [editMd, setEditMd] = useState('');
   const [editTags, setEditTags] = useState([]);
@@ -149,38 +153,83 @@ export default function TopicGuidePane({
     return () => { cancelled = true; };
   }, [query]);
 
-  // ── Respond to external triggers (e.g. opening Codex from StrongsDrawer) ──
+  // ── Respond to external triggers (e.g. opening Codex from Bible reader) ──
   useEffect(() => {
     if (initialQuery?.term) {
-      setInputValue(initialQuery.term);
-      setQuery(initialQuery.term);
+      const term = initialQuery.wordStudy?.originalPhrase || initialQuery.term;
+      setInputValue(term);
+      setQuery(term);
+      if (initialQuery.wordStudy) {
+        setPendingWordStudy(initialQuery.wordStudy);
+        setFindStudyType(initialQuery.wordStudy.studyType || 'english');
+      }
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [initialQuery?.nonce]);
 
   // ── When results arrive, open the AI Summary home page ────────────────────
+  // Open the AI Overview whenever the committed query changes — independent of
+  // whether any dictionary keys matched. Multi-word phrases ("children of light")
+  // typically have no dictionary hits but still deserve a Codex summary.
   useEffect(() => {
-    if (results.length === 0) {
+    const q = query.trim();
+    if (!q || q.length < 2) {
       setNav({ stack: [], index: -1 });
       return;
     }
-    const normalizedQ = query.trim().toLowerCase();
-    setNav({ stack: [{ module: SUMMARY_MODULE, description: 'AI Overview', key: normalizedQ }], index: 0 });
-  }, [results]);
+    setNav({ stack: [{ module: SUMMARY_MODULE, description: 'AI Overview', key: q.toLowerCase() }], index: 0 });
+  }, [query]);
 
   // ── Fetch AI summary when summary entry is selected ────────────────────────
   useEffect(() => {
     if (selected?.module !== SUMMARY_MODULE) return;
     const q = selected.key;
+
+    // Consume any pending word study trigger from the Bible reader.
+    const wordStudyOpts = pendingWordStudy;
+    setPendingWordStudy(null);
+
     setSummaryState({ loading: true, html: null, error: null, cached: false });
     setRelatedNotes([]);
     setRelatedSessions([]);
-    api.getCodexSummary(q)
-      .then((res) => {
-        setSummaryState({ loading: false, html: res.summaryHtml, error: null, cached: res.cached, id: res.id, summaryMd: res.summaryMd, tags: res.tags ?? [] });
-        setEditing(false);
+    setWordStudyError(null);
+
+    if (wordStudyOpts?.wordStudy) {
+      // Word study path: run occurrence scan + occurrence-driven summary.
+      setWordStudyLoading(true);
+      api.codexWordStudy({
+        query: wordStudyOpts.originalPhrase || q,
+        studyType: wordStudyOpts.studyType || 'english',
+        strongsSequence: wordStudyOpts.strongsSequence || [],
       })
-      .catch((e) => setSummaryState({ loading: false, html: null, error: e.message, cached: false }));
+        .then((res) => {
+          setSummaryState({
+            loading: false, html: res.summaryHtml, error: null, cached: res.cached,
+            id: res.id, summaryMd: res.summaryMd, tags: res.tags ?? [],
+            occurrences: res.occurrences || null, studyType: res.studyType || null,
+            strongsKeys: res.strongsKeys || [],
+          });
+          setEditing(false);
+        })
+        .catch((e) => {
+          setSummaryState({ loading: false, html: null, error: e.message, cached: false });
+          setWordStudyError(e.message);
+        })
+        .finally(() => setWordStudyLoading(false));
+    } else {
+      api.getCodexSummary(q)
+        .then((res) => {
+          setSummaryState({
+            loading: false, html: res.summaryHtml, error: null, cached: res.cached,
+            id: res.id, summaryMd: res.summaryMd, tags: res.tags ?? [],
+            occurrences: res.occurrences || null, studyType: res.studyType || null,
+            strongsKeys: res.strongsKeys || [],
+          });
+          setEditing(false);
+        })
+        .catch((e) => setSummaryState({ loading: false, html: null, error: e.message, cached: false }));
+    }
+
     if (isLoggedIn) {
       api.listNotes({ q })
         .then((notes) => setRelatedNotes(
@@ -369,6 +418,35 @@ export default function TopicGuidePane({
     navigateTo({ module: MERRIAM_MODULE, description: 'Merriam-Webster', key: merriamResult.headword });
     setEntryHtml('');
     setEntryError(null);
+  }
+
+  async function triggerWordStudy(studyType, force = false) {
+    if (!summaryState?.id && !query) return;
+    const q = selected?.module === SUMMARY_MODULE ? selected.key : query.trim().toLowerCase();
+    const originalPhrase = query.trim();
+    setWordStudyLoading(true);
+    setWordStudyError(null);
+    try {
+      const seq = studyType === 'original'
+        ? (pendingWordStudy?.strongsSequence?.length ? pendingWordStudy.strongsSequence : summaryState?.strongsKeys || [])
+        : [];
+      const res = await api.codexWordStudy({ query: originalPhrase, studyType, strongsSequence: seq, force });
+      setSummaryState((prev) => ({
+        ...prev,
+        html: res.summaryHtml,
+        summaryMd: res.summaryMd,
+        tags: res.tags ?? prev?.tags ?? [],
+        id: res.id,
+        occurrences: res.occurrences || null,
+        studyType: res.studyType || studyType,
+        strongsKeys: res.strongsKeys || prev?.strongsKeys || [],
+        cached: res.cached,
+      }));
+    } catch (e) {
+      setWordStudyError(e.message);
+    } finally {
+      setWordStudyLoading(false);
+    }
   }
 
   function downloadEntry() {
@@ -851,6 +929,92 @@ export default function TopicGuidePane({
                 dangerouslySetInnerHTML={{ __html: summaryState.html }}
                 onClick={handleContentClick}
               />
+            )}
+
+            {/* Scripture Uses */}
+            {!editing && !summaryState?.loading && !summaryState?.error && selected?.module === SUMMARY_MODULE && (
+              <div className="mt-8 max-w-2xl border-t border-pageBorder pt-6">
+                <p className="mb-3 font-ui text-[10px] uppercase tracking-widest text-pageMuted">Scripture Uses</p>
+
+                {summaryState?.occurrences && summaryState.occurrences.length > 0 ? (
+                  <>
+                    <div className="mb-3 flex items-center gap-3">
+                      <span className="font-ui text-xs text-pageMuted">
+                        {summaryState.occurrences.length} occurrence{summaryState.occurrences.length === 1 ? '' : 's'}
+                        {summaryState.studyType === 'original' ? ' · original language' : ' · English'}
+                      </span>
+                      {isLoggedIn && (
+                        <button
+                          onClick={() => triggerWordStudy(summaryState.studyType || 'english', true)}
+                          disabled={wordStudyLoading}
+                          className="font-ui text-xs text-pageMuted underline-offset-2 hover:text-pageAccent hover:underline disabled:opacity-50"
+                        >
+                          {wordStudyLoading ? 'Regenerating…' : 'Regenerate with Scripture Search'}
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      {summaryState.occurrences.slice(0, 50).map((occ, i) => (
+                        <button
+                          key={i}
+                          onClick={() => occ.osis ? onOpenInCell?.(occ.reference) : null}
+                          className="group flex w-full items-baseline gap-3 rounded px-2 py-1.5 text-left hover:bg-page/60"
+                        >
+                          <span className="w-24 shrink-0 font-ui text-xs font-medium text-pageAccent">
+                            {occ.reference}
+                          </span>
+                          <span className="line-clamp-1 font-display text-sm text-pageText/80 group-hover:text-pageText">
+                            {occ.snippet}
+                          </span>
+                        </button>
+                      ))}
+                      {summaryState.occurrences.length > 50 && (
+                        <p className="px-2 pt-1 font-ui text-xs text-pageMuted">
+                          …and {summaryState.occurrences.length - 50} more
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <p className="font-display text-sm text-pageText/60">
+                      Find every place this term appears in Scripture to generate a usage-driven study.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex rounded border border-pageBorder text-[10px]">
+                        <button
+                          onClick={() => setFindStudyType('english')}
+                          className={`px-2.5 py-1 ${findStudyType === 'english' ? 'bg-pageAccent/20 text-pageAccent' : 'text-pageMuted hover:text-pageText'}`}
+                        >
+                          English
+                        </button>
+                        <button
+                          onClick={() => setFindStudyType('original')}
+                          disabled={!pendingWordStudy?.strongsSequence?.length}
+                          className={`px-2.5 py-1 disabled:opacity-30 ${findStudyType === 'original' ? 'bg-pageAccent/20 text-pageAccent' : 'text-pageMuted hover:text-pageText'}`}
+                          title={!pendingWordStudy?.strongsSequence?.length ? 'Open from a Bible passage to enable original language search' : ''}
+                        >
+                          Original language
+                        </button>
+                      </div>
+                      {isLoggedIn ? (
+                        <button
+                          onClick={() => triggerWordStudy(findStudyType)}
+                          disabled={wordStudyLoading}
+                          className="rounded bg-pageAccent px-3 py-1 font-ui text-xs font-medium text-ink hover:bg-pageAccent/90 disabled:opacity-50"
+                        >
+                          {wordStudyLoading ? 'Scanning…' : 'Find in Scripture'}
+                        </button>
+                      ) : (
+                        <span className="font-ui text-xs text-pageMuted">Log in to run a Scripture search</span>
+                      )}
+                    </div>
+                    {wordStudyError && (
+                      <p className="font-ui text-xs text-red-500">{wordStudyError}</p>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* In Your Study */}

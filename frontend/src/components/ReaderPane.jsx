@@ -138,7 +138,7 @@ export default function ReaderPane({
   isLoggedIn: _il,
   showMarginalia = false,
   onOpenInTab: _ooit, onAnnotate: _oa,
-  onAskAboutPassage, onPhraseStudy,
+  onAskAboutPassage, onPhraseStudy, onStudyInCodex,
   onPersonalCommentarySaved: _opcs,
   interlinearMode: interlinearModeProp,
   onInterlinearToggle,
@@ -154,6 +154,7 @@ export default function ReaderPane({
   const [noteEditor, setNoteEditor] = useState(null);     // { verseRef, x, y }
   const [shareFinding, setShareFinding] = useState(null);   // { verseRef, verseText, x, y }
   const [phraseSelection, setPhraseSelection] = useState(null); // { text, strongsSequence, x, y, verseRef }
+  const [codexStudyType, setCodexStudyType] = useState('english'); // 'english' | 'original'
   const [interlinearInternal, setInterlinearInternal] = useState(false);
   const [strongsCache, setStrongsCache] = useState(new Map()); // strongsKey → transcription string
   const [codexEntries, setCodexEntries] = useState(_codexEntriesCache ?? []);
@@ -1012,22 +1013,38 @@ export default function ReaderPane({
               "{phraseSelection.text}"
             </span>
             <div className="h-4 w-px bg-rule" />
-            <button
-              onClick={() => handlePhraseStudy(false)}
-              className="rounded bg-brass px-2 py-1 text-xs font-medium text-ink hover:bg-brass/90"
-              title="Search this exact wording across the whole Bible in this translation"
-            >
-              Study wording →
-            </button>
             {phraseSelection.strongsSequence.length > 0 && (
-              <button
-                onClick={() => handlePhraseStudy(true)}
-                className="rounded bg-verdigris px-2 py-1 text-xs font-medium text-ink hover:bg-verdigris/90"
-                title="Search for the same underlying original-language words, regardless of English wording"
-              >
-                Study original words →
-              </button>
+              <div className="flex rounded border border-rule text-[10px]">
+                <button
+                  onClick={() => setCodexStudyType('english')}
+                  className={`px-2 py-0.5 ${codexStudyType === 'english' ? 'bg-brass text-ink' : 'text-muted hover:text-parchment'}`}
+                >
+                  English
+                </button>
+                <button
+                  onClick={() => setCodexStudyType('original')}
+                  className={`px-2 py-0.5 ${codexStudyType === 'original' ? 'bg-verdigris text-ink' : 'text-muted hover:text-parchment'}`}
+                >
+                  Original
+                </button>
+              </div>
             )}
+            <button
+              onClick={() => {
+                if (onStudyInCodex) {
+                  const useOriginal = codexStudyType === 'original' && phraseSelection.strongsSequence.length > 0;
+                  onStudyInCodex(phraseSelection.text, useOriginal ? 'original' : 'english', phraseSelection.strongsSequence);
+                } else {
+                  handlePhraseStudy(codexStudyType === 'original');
+                }
+                setPhraseSelection(null);
+                window.getSelection()?.removeAllRanges();
+              }}
+              className="rounded bg-brass px-2 py-1 text-xs font-medium text-ink hover:bg-brass/90"
+              title="Open this term in Codex with usage analysis across Scripture"
+            >
+              Study in Codex →
+            </button>
             {phraseSelection.verseRef && (
               <button
                 onClick={() => {

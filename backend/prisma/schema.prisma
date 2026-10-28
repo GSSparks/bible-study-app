@@ -455,13 +455,16 @@ model ReadingPlanProgress {
 }
 
 model FactbookCache {
-  id        Int      @id @default(autoincrement())
-  query     String   @unique  // normalized: trimmed lowercase
-  title     String            // human-readable display title (original case)
-  summaryMd String            // LLM-generated markdown summary
-  tags      String[] @default([])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  query       String   @unique  // normalized: trimmed lowercase
+  title       String            // human-readable display title (original case)
+  summaryMd   String            // LLM-generated markdown summary
+  tags        String[] @default([])
+  occurrences Json?             // [{reference, osis, snippet}] from word/phrase scan
+  studyType   String?           // 'english' | 'original' — set when entry was built from a word study scan
+  strongsKeys String[] @default([]) // Strong's keys used in an original-language word study
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model MerriamCache {
