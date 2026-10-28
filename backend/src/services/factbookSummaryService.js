@@ -199,7 +199,7 @@ Use ## subheadings for sections. Aim for 4-6 paragraphs. Cite specific passages 
 
   const storedOccurrences = occurrences.map((o) => ({
     reference: `${o.book} ${o.chapter}:${o.verse}`,
-    osis: null,
+    osis: o.osis || null,
     snippet: o.text,
   }));
 

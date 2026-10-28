@@ -957,7 +957,7 @@ export default function TopicGuidePane({
                       {summaryState.occurrences.slice(0, 50).map((occ, i) => (
                         <button
                           key={i}
-                          onClick={() => occ.osis ? onOpenInCell?.(occ.reference) : null}
+                          onClick={() => onOpenInBible?.(occ.reference)}
                           className="group flex w-full items-baseline gap-3 rounded px-2 py-1.5 text-left hover:bg-page/60"
                         >
                           <span className="w-24 shrink-0 font-ui text-xs font-medium text-pageAccent">
