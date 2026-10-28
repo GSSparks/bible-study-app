@@ -136,6 +136,20 @@ export const api = {
   getCommentaryEntry: (reference) => request(`/personal-modules/commentary-entry?reference=${encodeURIComponent(reference)}`),
   saveCommentaryNote: ({ reference, title, bodyMd }) =>
     request('/personal-modules/commentary-entry', { method: 'PUT', body: JSON.stringify({ reference, title, bodyMd }) }),
+  listAllCommentaryEntries: () => request('/personal-modules/entries'),
+  exportCommentary: async () => {
+    const res = await fetch('/api/personal-modules/export');
+    if (!res.ok) throw new Error('Export failed');
+    return res.blob();
+  },
+  importCommentary: async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/personal-modules/import', { method: 'POST', body: form });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'Import failed');
+    return body;
+  },
 
   // User profiles
   getUserProfile: (username) => request(`/users/${encodeURIComponent(username)}`),

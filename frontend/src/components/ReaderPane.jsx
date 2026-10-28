@@ -135,11 +135,11 @@ export default function ReaderPane({
   onStrongsClick,
   onVerseRefClick,
   refreshNonce,
-  isLoggedIn: _il,
+  isLoggedIn,
   showMarginalia = false,
   onOpenInTab: _ooit, onAnnotate: _oa,
   onAskAboutPassage, onPhraseStudy, onStudyInCodex,
-  onPersonalCommentarySaved: _opcs,
+  onPersonalCommentarySaved,
   interlinearMode: interlinearModeProp,
   onInterlinearToggle,
   onSearchTopical,
@@ -150,6 +150,7 @@ export default function ReaderPane({
   const [focusedVerseKey, setFocusedVerseKey] = useState(null);
   const [loadingAdjacent, setLoadingAdjacent] = useState(false);
   const [highlightMap, setHighlightMap] = useState({}); // verseKey → { id, color }
+  const [commentaryMap, setCommentaryMap] = useState(new Set()); // Set of verse refs with personal entries
   const [contextMenu, setContextMenu] = useState(null);   // { verseKey, verseRef, x, y }
   const [noteEditor, setNoteEditor] = useState(null);     // { verseRef, x, y }
   const [shareFinding, setShareFinding] = useState(null);   // { verseRef, verseText, x, y }
@@ -198,6 +199,20 @@ export default function ReaderPane({
       // Not logged in or network error — silently ignore
     }
   }, []);
+
+  const loadCommentaryIndicators = useCallback(async (book, chapter) => {
+    if (!isLoggedIn) return;
+    try {
+      const refs = await api.listPersonalCommentaryRefs(`${book} ${chapter}:`);
+      setCommentaryMap((prev) => {
+        const prefix = `${book} ${chapter}:`;
+        const next = new Set(prev);
+        for (const ref of prev) { if (ref.startsWith(prefix)) next.delete(ref); }
+        for (const ref of refs) next.add(ref);
+        return next;
+      });
+    } catch { /* not logged in or network error */ }
+  }, [isLoggedIn]);
 
   // ── chapter loader ───────────────────────────────────────────────────────
 
@@ -268,13 +283,14 @@ export default function ReaderPane({
         });
       }
 
-      // Load highlights for the new chapter (non-blocking)
+      // Load highlights and personal commentary indicators for the new chapter (non-blocking)
       loadHighlights(book, chapter, mod);
+      loadCommentaryIndicators(book, chapter);
     } finally {
       loadingSlotKeys.current.delete(key);
       setLoadingAdjacent(false);
     }
-  }, [loadHighlights]);
+  }, [loadHighlights, loadCommentaryIndicators]);
 
   // ── main navigation effect ───────────────────────────────────────────────
 
@@ -367,13 +383,16 @@ export default function ReaderPane({
         if (cancelled) return;
         setVerses(res.verses || []);
         const parsed = parseRefToChapter(reference);
-        if (parsed) loadHighlights(parsed.book, parsed.chapter, module);
+        if (parsed) {
+          loadHighlights(parsed.book, parsed.chapter, module);
+          loadCommentaryIndicators(parsed.book, parsed.chapter);
+        }
       })
       .catch((e)  => { if (!cancelled) setError(e.message); })
       .finally(()  => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [module, reference, focusMode, refreshNonce, loadSlot, loadHighlights]);
+  }, [module, reference, focusMode, refreshNonce, loadSlot, loadHighlights, loadCommentaryIndicators]);
 
   // ── scroll to pending verse ──────────────────────────────────────────────
 
@@ -897,6 +916,13 @@ export default function ReaderPane({
                         ].filter(Boolean).join(' ')}
                       >
                         <sup data-verse-number="true" className="mr-1 cursor-pointer select-none text-xs text-pageAccent hover:text-brass">{v.verseNr}</sup>
+                        {commentaryMap.has(verseKeyToRef(verseKey)) && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setNoteEditor({ verseRef: verseKeyToRef(verseKey), x: e.clientX, y: e.clientY }); }}
+                            title="View / edit personal commentary"
+                            className="mr-0.5 inline-block h-1.5 w-1.5 -translate-y-0.5 cursor-pointer rounded-full bg-amber-400/70 align-middle hover:bg-amber-400"
+                          />
+                        )}
                         <span dangerouslySetInnerHTML={{ __html: annotateCodexRefs(v.content, codexEntries) }} />{' '}
                       </span>
                     );
@@ -990,7 +1016,14 @@ export default function ReaderPane({
           x={noteEditor.x}
           y={noteEditor.y}
           onClose={() => setNoteEditor(null)}
-          onSaved={() => setNoteEditor(null)}
+          onSaved={() => {
+            onPersonalCommentarySaved?.();
+            const ref = noteEditor?.verseRef;
+            if (ref) {
+              const m = ref.match(/^(.+?)\s+(\d+):/);
+              if (m) loadCommentaryIndicators(m[1], parseInt(m[2], 10));
+            }
+          }}
         />
       )}
 

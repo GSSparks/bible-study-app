@@ -208,6 +208,86 @@ export async function upsertPersonalCommentaryEntry({ reference, title, bodyMd, 
   });
 }
 
+/** Returns id/reference/title/createdAt for every entry in the user's
+ *  "My Studies" module, ordered by reference. Used by the personal
+ *  commentary pane's "all entries" list. */
+export async function listAllPersonalCommentaryEntries(userId) {
+  if (!userId) return [];
+  const mod = await prisma.personalModule.findFirst({
+    where: { type: 'COMMENTARY', name: 'My Studies', userId },
+  });
+  if (!mod) return [];
+  return prisma.personalEntry.findMany({
+    where: { moduleId: mod.id, reference: { not: null } },
+    select: { id: true, reference: true, title: true, createdAt: true },
+    orderBy: { reference: 'asc' },
+  });
+}
+
+/** Serialises all entries in the user's "My Studies" module to a
+ *  Markdown string.  Round-trips cleanly with
+ *  importPersonalCommentaryFromMarkdown — the two functions share the
+ *  same `## Reference — Title` section format. */
+export async function exportPersonalCommentary(userId) {
+  if (!userId) return '# My Commentary\n';
+  const mod = await prisma.personalModule.findFirst({
+    where: { type: 'COMMENTARY', name: 'My Studies', userId },
+  });
+  if (!mod) return '# My Commentary\n\n*(No entries yet)*\n';
+  const entries = await prisma.personalEntry.findMany({
+    where: { moduleId: mod.id, reference: { not: null } },
+    orderBy: { reference: 'asc' },
+  });
+  if (entries.length === 0) return '# My Commentary\n\n*(No entries yet)*\n';
+  const sections = entries.map((e) => {
+    const heading =
+      e.title && e.title !== `Note on ${e.reference}`
+        ? `## ${e.reference} — ${e.title}`
+        : `## ${e.reference}`;
+    return `${heading}\n\n${e.bodyMd || ''}\n`;
+  });
+  return `# My Commentary\n\n${sections.join('\n---\n\n')}`;
+}
+
+/** Parses a Markdown string exported by exportPersonalCommentary (or
+ *  written manually in the same format) and upserts each section into
+ *  the user's "My Studies" module.  Returns the count of imported
+ *  entries. */
+export async function importPersonalCommentaryFromMarkdown(markdown, userId) {
+  const lines = markdown.split('\n');
+  const sections = [];
+  let current = null;
+  for (const line of lines) {
+    const m = line.match(/^## (.+?)(?:\s+—\s+(.+))?$/);
+    if (m) {
+      if (current) sections.push(current);
+      current = { reference: m[1].trim(), title: m[2]?.trim() || null, bodyLines: [] };
+    } else if (current) {
+      if (line.trim() === '---') {
+        sections.push(current);
+        current = null;
+      } else {
+        current.bodyLines.push(line);
+      }
+    }
+  }
+  if (current) sections.push(current);
+
+  let imported = 0;
+  for (const s of sections) {
+    const bodyMd = s.bodyLines.join('\n').trim();
+    if (!bodyMd) continue;
+    await upsertPersonalCommentaryEntry({
+      reference: s.reference,
+      title: s.title || `Note on ${s.reference}`,
+      bodyMd,
+      userId,
+    });
+    imported++;
+  }
+  return imported;
+}
+
 /** COMMENTARY-type: every saved entry whose own reference overlaps the
  *  queried one — not an exact string match, since a conversation saved
  *  about "John 3:16-18" should still surface when focus lands on just
