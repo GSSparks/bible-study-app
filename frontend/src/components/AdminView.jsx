@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 
-const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding', 'Devotionals', 'Codex'];
+const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding', 'Devotionals', 'Reading Plans', 'Codex'];
 const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT', 'BOOK'];
 
 function formatBytes(bytes) {
@@ -41,6 +41,7 @@ export default function AdminView() {
         {tab === 'Metrics' && <MetricsTab />}
         {tab === 'Branding' && <BrandingTab />}
         {tab === 'Devotionals' && <DevotionalsTab />}
+        {tab === 'Reading Plans' && <ReadingPlansTab />}
         {tab === 'Codex' && <CodexTab />}
       </div>
     </div>
@@ -864,6 +865,289 @@ function Stat({ label, value }) {
     <div className="flex items-baseline justify-between">
       <span className="text-sm text-muted">{label}</span>
       <span className="font-display text-lg text-parchment">{value}</span>
+    </div>
+  );
+}
+
+const SCHEDULE_PLACEHOLDER = `[
+  { "day": 1, "label": "Genesis 1–2", "passages": ["Gen 1", "Gen 2"] },
+  { "day": 2, "label": "Genesis 3–5", "passages": ["Gen 3", "Gen 4", "Gen 5"] }
+]`;
+
+function parseSchedule(raw) {
+  const parsed = JSON.parse(raw.trim());
+  if (!Array.isArray(parsed)) throw new Error('Schedule must be a JSON array');
+  for (const entry of parsed) {
+    if (typeof entry.day !== 'number') throw new Error('Each entry needs a numeric "day" field');
+    if (!Array.isArray(entry.passages)) throw new Error('Each entry needs a "passages" array');
+  }
+  return parsed;
+}
+
+function ReadingPlansTab() {
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // create
+  const [showCreate, setShowCreate] = useState(false);
+  const [cName, setCName] = useState('');
+  const [cDesc, setCDesc] = useState('');
+  const [cSchedule, setCSchedule] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
+
+  // edit
+  const [editId, setEditId] = useState(null);
+  const [eName, setEName] = useState('');
+  const [eDesc, setEDesc] = useState('');
+  const [eSchedule, setESchedule] = useState('');
+  const [eOrigSchedule, setEOrigSchedule] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState(null);
+
+  // delete
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+
+  function refresh() {
+    setLoading(true);
+    api.listReadingPlans()
+      .then(setPlans)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }
+  useEffect(refresh, []);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setCreateError(null);
+    let schedule;
+    try {
+      schedule = parseSchedule(cSchedule);
+    } catch (err) {
+      setCreateError(`Invalid schedule JSON: ${err.message}`);
+      return;
+    }
+    setCreating(true);
+    try {
+      await api.createReadingPlan({ name: cName, description: cDesc || undefined, schedule });
+      setCName(''); setCDesc(''); setCSchedule('');
+      setShowCreate(false);
+      refresh();
+    } catch (err) {
+      setCreateError(err.message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function startEdit(plan) {
+    setEditId(plan.id);
+    setEName(plan.name);
+    setEDesc(plan.description || '');
+    setESchedule('');
+    setEOrigSchedule('');
+    setEditError(null);
+    try {
+      const full = await api.getReadingPlan(plan.id);
+      const pretty = JSON.stringify(full.schedule, null, 2);
+      setESchedule(pretty);
+      setEOrigSchedule(pretty);
+    } catch {
+      // non-fatal — schedule textarea just stays empty
+    }
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setEditError(null);
+    const data = { name: eName, description: eDesc || null };
+    if (eSchedule.trim() && eSchedule !== eOrigSchedule) {
+      try {
+        data.schedule = parseSchedule(eSchedule);
+      } catch (err) {
+        setEditError(`Invalid schedule JSON: ${err.message}`);
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      await api.updateReadingPlan(editId, data);
+      setEditId(null);
+      refresh();
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id) {
+    setConfirmDelete(null);
+    setDeleting(id);
+    try {
+      await api.deleteReadingPlan(id);
+      setPlans((prev) => prev.filter((p) => p.id !== id));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  if (loading) return <p className="text-sm text-muted">Loading…</p>;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-xs text-muted">{plans.length} plan{plans.length === 1 ? '' : 's'}</p>
+        <button
+          onClick={() => { setShowCreate((v) => !v); setCreateError(null); }}
+          className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
+        >
+          {showCreate ? 'cancel' : '+ create plan'}
+        </button>
+      </div>
+
+      {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
+
+      {showCreate && (
+        <form onSubmit={handleCreate} className="mb-4 space-y-2 rounded-md border border-rule p-3">
+          <input
+            value={cName}
+            onChange={(e) => setCName(e.target.value)}
+            placeholder="Plan name"
+            required
+            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+          />
+          <input
+            value={cDesc}
+            onChange={(e) => setCDesc(e.target.value)}
+            placeholder="Description (optional)"
+            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+          />
+          <div>
+            <label className="mb-1 block text-xs text-muted">
+              Schedule (JSON array of <code className="font-mono">{`{ day, label, passages[] }`}</code>)
+            </label>
+            <textarea
+              value={cSchedule}
+              onChange={(e) => setCSchedule(e.target.value)}
+              placeholder={SCHEDULE_PLACEHOLDER}
+              rows={6}
+              required
+              className="w-full rounded border border-rule bg-ink px-3 py-2 font-mono text-xs text-parchment placeholder:text-muted/50 focus:border-brass focus:outline-none"
+            />
+          </div>
+          {createError && <p className="text-sm text-red-400">{createError}</p>}
+          <button
+            type="submit"
+            disabled={creating}
+            className="rounded bg-verdigris/80 px-3 py-1.5 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
+          >
+            {creating ? 'creating…' : 'create'}
+          </button>
+        </form>
+      )}
+
+      <div className="overflow-hidden rounded-md border border-rule">
+        {plans.length === 0 && <p className="p-4 text-sm text-muted">No reading plans yet.</p>}
+        {plans.map((plan) => (
+          <div key={plan.id} className="border-b border-rule last:border-0">
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-parchment">{plan.name}</span>
+                  {plan.isBuiltIn && (
+                    <span className="rounded border border-brass/40 px-1.5 py-px text-[10px] uppercase tracking-wide text-brass">
+                      built-in
+                    </span>
+                  )}
+                  <span className="text-xs text-muted">{plan.dayCount} days</span>
+                </div>
+                {plan.description && (
+                  <p className="mt-0.5 text-xs text-muted">{plan.description}</p>
+                )}
+              </div>
+              <div className="flex shrink-0 gap-1">
+                {!plan.isBuiltIn && (
+                  <button
+                    onClick={() => editId === plan.id ? setEditId(null) : startEdit(plan)}
+                    className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
+                  >
+                    {editId === plan.id ? 'cancel' : 'edit'}
+                  </button>
+                )}
+                {!plan.isBuiltIn && (
+                  confirmDelete === plan.id ? (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="text-xs text-muted">Delete?</span>
+                      <button
+                        onClick={() => handleDelete(plan.id)}
+                        disabled={deleting === plan.id}
+                        className="rounded border border-red-500/60 px-2 py-0.5 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                      >
+                        {deleting === plan.id ? '…' : 'yes'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(null)}
+                        className="rounded border border-rule px-2 py-0.5 text-xs text-muted hover:text-parchment"
+                      >
+                        no
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(plan.id)}
+                      className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400"
+                    >
+                      delete
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+
+            {editId === plan.id && (
+              <form onSubmit={handleSave} className="border-t border-rule bg-panel/30 px-4 py-3 space-y-2">
+                <input
+                  value={eName}
+                  onChange={(e) => setEName(e.target.value)}
+                  placeholder="Plan name"
+                  required
+                  className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+                />
+                <input
+                  value={eDesc}
+                  onChange={(e) => setEDesc(e.target.value)}
+                  placeholder="Description (optional)"
+                  className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+                />
+                <div>
+                  <label className="mb-1 block text-xs text-muted">
+                    Schedule JSON — edit to change, leave unmodified to keep as-is
+                  </label>
+                  <textarea
+                    value={eSchedule}
+                    onChange={(e) => setESchedule(e.target.value)}
+                    rows={8}
+                    className="w-full rounded border border-rule bg-ink px-3 py-2 font-mono text-xs text-parchment placeholder:text-muted/50 focus:border-brass focus:outline-none"
+                  />
+                </div>
+                {editError && <p className="text-sm text-red-400">{editError}</p>}
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
+                >
+                  {saving ? 'saving…' : 'save'}
+                </button>
+              </form>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

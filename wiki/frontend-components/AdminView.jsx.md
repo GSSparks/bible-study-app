@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Admin control panel. Only rendered for users with `role === 'admin'`. Provides 8 tabs covering user management, module installation/visibility, content moderation, media management, system metrics, branding, devotional module selection, and the AI overview cache (Codex).
+Admin control panel. Only rendered for users with `role === 'admin'`. Provides 9 tabs covering user management, module installation/visibility, content moderation, media management, system metrics, branding, devotional module selection, reading plan management, and the AI overview cache (Codex).
 
 ## Props
 
@@ -10,7 +10,7 @@ None — AdminView is rendered unconditionally; access control is handled at the
 
 ## State / key logic
 
-**Tab system:** `tab` state selects among: `Users`, `Modules`, `Posts`, `Media`, `Metrics`, `Branding`, `Devotionals`, `Codex`. Each tab is a self-contained sub-component.
+**Tab system:** `tab` state selects among: `Users`, `Modules`, `Posts`, `Media`, `Metrics`, `Branding`, `Devotionals`, `Reading Plans`, `Codex`. Each tab is a self-contained sub-component.
 
 **UsersTab:**
 - Fetches all users via `api.listUsers()` and the current admin via `api.me()` in parallel on mount.
@@ -44,6 +44,14 @@ None — AdminView is rendered unconditionally; access control is handled at the
 **BrandingTab:**
 - App name and site URL fields. Saved via `api.saveBrandingSettings({ name, siteUrl })`.
 
+**ReadingPlansTab:**
+- Lists all plans via `api.listReadingPlans()`. Each row shows name, description, day count, and a "built-in" badge for seeded plans.
+- Built-in plans are read-only (no edit/delete buttons).
+- **Create:** inline form with name, description, and a JSON textarea for the schedule array (`[{ day, label, passages[] }, …]`); calls `api.createReadingPlan`.
+- **Edit:** inline form expands below the row; fetches full plan via `api.getReadingPlan(id)` to pre-populate the schedule textarea. Schedule is only sent in the PATCH if the textarea was modified from the original. Calls `api.updateReadingPlan`.
+- **Delete:** inline yes/no confirmation; calls `api.deleteReadingPlan`.
+- A module-level `parseSchedule(raw)` helper validates the JSON and throws a readable error if the structure is wrong.
+
 **DevotionalsTab:**
 - Loads available devotional modules via `api.listDevotionalModules()` and the currently active selection via `api.getDevotionalSettings()` in parallel on mount.
 - Dropdown to select a module; saved via `api.setDevotionalModule(moduleCode)` (POST `/api/devotionals/settings`).
@@ -56,7 +64,7 @@ None — AdminView is rendered unconditionally; access control is handled at the
 
 ## Dependencies
 
-- `api` (`../api/client.js`) — `listUsers`, `updateUser`, `deleteUser`, `me`, `createUser`, `listModuleVisibility`, `setModuleVisibility`, `listAvailableModules`, `installModule`, `removeModule`, `listAdminPosts`, `deleteAdminPost`, `listAdminMedia`, `deleteAdminMedia`, `getAdminMetrics`, `getBrandingSettings`, `saveBrandingSettings`, `listDevotionalModules`, `getDevotionalSettings`, `setDevotionalModule`, `listCodexCache`, `deleteCodexEntry`, `exportCodexModule`, `listRepositories`
+- `api` (`../api/client.js`) — `listUsers`, `updateUser`, `deleteUser`, `me`, `createUser`, `listModuleVisibility`, `setModuleVisibility`, `listAvailableModules`, `installModule`, `removeModule`, `listAdminPosts`, `deleteAdminPost`, `listAdminMedia`, `deleteAdminMedia`, `getAdminMetrics`, `getBrandingSettings`, `saveBrandingSettings`, `listDevotionalModules`, `getDevotionalSettings`, `setDevotionalModule`, `listReadingPlans`, `getReadingPlan`, `createReadingPlan`, `updateReadingPlan`, `deleteReadingPlan`, `listCodexCache`, `deleteCodexEntry`, `exportCodexModule`, `listRepositories`
 
 ## Notes
 
