@@ -527,19 +527,22 @@ export default function TopicGuidePane({
 
         {/* Search input */}
         <div className="shrink-0 border-b border-rule px-4 py-3">
-          <div className="flex items-center gap-1.5 rounded border border-rule bg-ink/60 px-2 py-1.5">
-            <Search size={12} className="shrink-0 text-muted" />
+          <div className="relative">
+            <Search size={12} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
             <input
               ref={inputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') setQuery(inputValue.trim()); }}
               placeholder="Search, press Enter…"
-              className="min-w-0 flex-1 bg-transparent text-sm text-parchment placeholder:text-muted focus:outline-none"
+              className="w-full rounded border border-rule bg-ink/60 py-1.5 pl-7 pr-6 text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
               autoFocus
             />
             {inputValue && (
-              <button onClick={clearSearch} className="shrink-0 text-muted hover:text-parchment">
+              <button
+                onClick={clearSearch}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-parchment"
+              >
                 <X size={11} />
               </button>
             )}
