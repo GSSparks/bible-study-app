@@ -51,3 +51,4 @@ A workspace pane (type `personal_commentary`) that surfaces the user's personal 
 
 - Registered as pane type `personal_commentary` in `useWorkspaceLayout.js` and handled in `WorkspaceLayout.jsx`.
 - This pane requires login; all API calls are auth-gated on the backend.
+- **Data store**: commentary entries are stored as `Note` records with `tags: ['personal-commentary']` — not as `PersonalEntry`. This means the same entries appear in `CellNotePane`'s passage note section and in `NotesView` (which queries all notes).

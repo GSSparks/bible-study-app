@@ -512,7 +512,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
       case 'notes':
         return (
           <div className="min-h-0 flex-1 overflow-hidden">
-          <CellNotePane isLoggedIn={Boolean(auth?.user)} />
+            <CellNotePane isLoggedIn={Boolean(auth?.user)} focusedReference={focusedReference} />
           </div>
         );
 

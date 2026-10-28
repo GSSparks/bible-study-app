@@ -44,9 +44,10 @@ export const api = {
   },
 
   // Notes / highlights / bookmarks
-  listNotes: ({ reference, prefix, q } = {}) => {
+  listNotes: ({ reference, prefix, q, freestanding } = {}) => {
     const params = new URLSearchParams();
-    if (reference) params.set('reference', reference);
+    if (freestanding) params.set('freestanding', 'true');
+    else if (reference) params.set('reference', reference);
     else if (prefix) params.set('prefix', prefix);
     if (q) params.set('q', q);
     const qs = params.toString();
