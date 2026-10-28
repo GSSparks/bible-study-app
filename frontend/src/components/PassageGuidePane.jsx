@@ -115,6 +115,7 @@ function formatAge(isoDate) {
 
 export default function PassageGuidePane({ reference, module, isLoggedIn, pendingAiRequest, onPersonalDictionarySaved }) {
   const [sessions, setSessions] = useState([]);
+  const [sessionsByRef, setSessionsByRef] = useState([]);
   const [sessionSearch, setSessionSearch] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -160,6 +161,11 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
   }, [isLoggedIn]);
 
   useEffect(() => {
+    if (!isLoggedIn || !reference) { setSessionsByRef([]); return; }
+    api.getSessionsByReference(reference).then(setSessionsByRef).catch(() => {});
+  }, [reference, isLoggedIn]);
+
+  useEffect(() => {
     if (!pendingAiRequest?.nonce) return;
     if (pendingAiRequest.nonce === handledNonceRef.current) return;
     handledNonceRef.current = pendingAiRequest.nonce;
@@ -195,6 +201,15 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
     setError(null);
     setAttachedNotes([]);
     setDropdownOpen(false);
+  }
+
+  async function loadAndResume(session) {
+    setDropdownOpen(false);
+    if (session.messages) { resumeSession(session); return; }
+    try {
+      const full = await api.getSession(session.id);
+      resumeSession(full);
+    } catch { resumeSession(session); }
   }
 
   // Auto-load the most recent cached guide whenever the reference changes.
@@ -543,12 +558,35 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
                   >
                     + New Guide
                   </button>
+                  {!sessionSearch && sessionsByRef.length > 0 && (
+                    <div className="border-t border-pageBorder">
+                      <p className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-widest text-pageMuted">
+                        This Passage
+                      </p>
+                      {sessionsByRef.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => loadAndResume(s)}
+                          className={`block w-full px-3 py-2 text-left text-xs ${
+                            s.id === activeSessionId ? 'text-brass' : 'text-pageText hover:bg-[#E5DCC8]'
+                          }`}
+                        >
+                          <div className="truncate">{s.title || s.reference || 'Untitled'}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {filteredSessions.length > 0 && (
                     <div className="border-t border-pageBorder">
+                      {!sessionSearch && sessionsByRef.length > 0 && (
+                        <p className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-widest text-pageMuted">
+                          Recent
+                        </p>
+                      )}
                       {filteredSessions.map((s) => (
                         <button
                           key={s.id}
-                          onClick={() => resumeSession(s)}
+                          onClick={() => loadAndResume(s)}
                           className={`block w-full px-3 py-2 text-left text-xs ${
                             s.id === activeSessionId ? 'text-brass' : 'text-pageText hover:bg-[#E5DCC8]'
                           }`}

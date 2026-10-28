@@ -123,6 +123,7 @@ export const api = {
   listRecentSessions: () => request('/context/sessions'),
   searchSessions: (q) => request(`/context/sessions?q=${encodeURIComponent(q)}`),
   getSessionsByReference: (reference) => request(`/context/sessions/${encodeURIComponent(reference)}`),
+  getSession: (id) => request(`/context/session/${encodeURIComponent(id)}`),
   getGuideForReference: (reference) => request(`/context/guide/${encodeURIComponent(reference)}`),
   renameSession: (id, title) => request(`/context/sessions/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
   buildWordStudyContext: (payload) => request('/word-study', { method: 'POST', body: JSON.stringify(payload) }),

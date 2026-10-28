@@ -173,7 +173,6 @@ This wiki contains one summary file per source file in the repository. Each summ
 | `frontend/src/components/StudyMode.jsx` | [frontend-components/StudyMode.jsx.md](frontend-components/StudyMode.jsx.md) |
 | `frontend/src/components/StudyBuilder.jsx` | [frontend-components/StudyBuilder.jsx.md](frontend-components/StudyBuilder.jsx.md) |
 | `frontend/src/components/StudyAssistant.jsx` | [frontend-components/StudyAssistant.jsx.md](frontend-components/StudyAssistant.jsx.md) |
-| `frontend/src/components/AIChatPane.jsx` | [frontend-components/AIChatPane.jsx.md](frontend-components/AIChatPane.jsx.md) |
 | `frontend/src/components/ScriptoriumStudiesTab.jsx` | [frontend-components/ScriptoriumStudiesTab.jsx.md](frontend-components/ScriptoriumStudiesTab.jsx.md) |
 
 ### Components — Scripture & Reading

@@ -149,6 +149,17 @@ contextRouter.get('/sessions', async (req, res, next) => {
   }
 });
 
+// GET /api/context/session/:id — fetch a single session with full messages
+contextRouter.get('/session/:id', async (req, res, next) => {
+  try {
+    const session = await prisma.studySession.findUnique({ where: { id: req.params.id } });
+    if (!session || session.userId !== req.user.id) return res.status(404).json({ error: 'Not found.' });
+    res.json(session);
+  } catch (err) {
+    next(err);
+  }
+});
+
 contextRouter.get('/sessions/:reference', async (req, res, next) => {
   try {
     res.json(
