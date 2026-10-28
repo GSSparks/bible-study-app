@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Admin control panel. Only rendered for users with `role === 'admin'`. Provides 7 tabs covering user management, module installation/visibility, content moderation, media management, system metrics, branding, and the AI overview cache (Codex).
+Admin control panel. Only rendered for users with `role === 'admin'`. Provides 8 tabs covering user management, module installation/visibility, content moderation, media management, system metrics, branding, devotional module selection, and the AI overview cache (Codex).
 
 ## Props
 
@@ -10,7 +10,7 @@ None — AdminView is rendered unconditionally; access control is handled at the
 
 ## State / key logic
 
-**Tab system:** `tab` state selects among: `Users`, `Modules`, `Posts`, `Media`, `Metrics`, `Branding`, `Codex`. Each tab is a self-contained sub-component.
+**Tab system:** `tab` state selects among: `Users`, `Modules`, `Posts`, `Media`, `Metrics`, `Branding`, `Devotionals`, `Codex`. Each tab is a self-contained sub-component.
 
 **UsersTab:**
 - Fetches all users via `api.listUsers()` and the current admin via `api.me()` in parallel on mount.
@@ -44,6 +44,11 @@ None — AdminView is rendered unconditionally; access control is handled at the
 **BrandingTab:**
 - App name and site URL fields. Saved via `api.saveBrandingSettings({ name, siteUrl })`.
 
+**DevotionalsTab:**
+- Loads available devotional modules via `api.listDevotionalModules()` and the currently active selection via `api.getDevotionalSettings()` in parallel on mount.
+- Dropdown to select a module; saved via `api.setDevotionalModule(moduleCode)` (POST `/api/devotionals/settings`).
+- If no devotional modules are installed, shows a prompt to install one from the Modules tab.
+
 **CodexTab:**
 - AI overview cache management. Lists cached Factbook summaries.
 - **Export as .zip Markdown module:** `api.exportCodexModule()` → downloads a `.zip` ready to drop into `MD_MODULES_PATH`.
@@ -51,7 +56,7 @@ None — AdminView is rendered unconditionally; access control is handled at the
 
 ## Dependencies
 
-- `api` (`../api/client.js`) — `listUsers`, `updateUser`, `deleteUser`, `me`, `createUser`, `listModuleVisibility`, `setModuleVisibility`, `listAvailableModules`, `installModule`, `removeModule`, `listAdminPosts`, `deleteAdminPost`, `listAdminMedia`, `deleteAdminMedia`, `getAdminMetrics`, `getBrandingSettings`, `saveBrandingSettings`, `listCodexCache`, `deleteCodexEntry`, `exportCodexModule`, `listRepositories`
+- `api` (`../api/client.js`) — `listUsers`, `updateUser`, `deleteUser`, `me`, `createUser`, `listModuleVisibility`, `setModuleVisibility`, `listAvailableModules`, `installModule`, `removeModule`, `listAdminPosts`, `deleteAdminPost`, `listAdminMedia`, `deleteAdminMedia`, `getAdminMetrics`, `getBrandingSettings`, `saveBrandingSettings`, `listDevotionalModules`, `getDevotionalSettings`, `setDevotionalModule`, `listCodexCache`, `deleteCodexEntry`, `exportCodexModule`, `listRepositories`
 
 ## Notes
 

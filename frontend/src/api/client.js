@@ -306,6 +306,7 @@ export const api = {
   // Devotionals
   getTodaysDevotional: () => request('/devotionals/today'),
   listDevotionalModules: () => request('/devotionals/modules'),
+  getDevotionalSettings: () => request('/devotionals/settings'),
   setDevotionalModule: (moduleCode) => request('/devotionals/settings', { method: 'POST', body: JSON.stringify({ moduleCode }) }),
   debugDevotional: (moduleCode) => request(`/devotionals/debug${moduleCode ? `?module=${encodeURIComponent(moduleCode)}` : ''}`),
 

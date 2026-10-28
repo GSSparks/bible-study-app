@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.js';
 
-const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding', 'Codex'];
+const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding', 'Devotionals', 'Codex'];
 const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT', 'BOOK'];
 
 function formatBytes(bytes) {
@@ -40,6 +40,7 @@ export default function AdminView() {
         {tab === 'Media' && <MediaTab />}
         {tab === 'Metrics' && <MetricsTab />}
         {tab === 'Branding' && <BrandingTab />}
+        {tab === 'Devotionals' && <DevotionalsTab />}
         {tab === 'Codex' && <CodexTab />}
       </div>
     </div>
@@ -863,6 +864,81 @@ function Stat({ label, value }) {
     <div className="flex items-baseline justify-between">
       <span className="text-sm text-muted">{label}</span>
       <span className="font-display text-lg text-parchment">{value}</span>
+    </div>
+  );
+}
+
+function DevotionalsTab() {
+  const [modules, setModules] = useState([]);
+  const [selected, setSelected] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    Promise.all([api.listDevotionalModules(), api.getDevotionalSettings()])
+      .then(([mods, settings]) => {
+        setModules(mods);
+        setSelected(settings.moduleCode || (mods[0]?.name ?? ''));
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      await api.setDevotionalModule(selected);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <p className="text-sm text-muted">Loading…</p>;
+
+  return (
+    <div className="max-w-md">
+      <form onSubmit={handleSave} className="space-y-3 rounded-md border border-rule p-4">
+        <div>
+          <label htmlFor="dev-module" className="mb-1 block text-xs uppercase tracking-wide text-muted">
+            Active devotional module
+          </label>
+          {modules.length === 0 ? (
+            <p className="text-sm text-muted">No devotional modules installed. Install a SWORD devotional (e.g. Daily Light, Spurgeon's Morning &amp; Evening) from the Modules tab.</p>
+          ) : (
+            <select
+              id="dev-module"
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+              className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass focus:outline-none"
+            >
+              {modules.map((m) => (
+                <option key={m.name} value={m.name}>{m.description || m.name}</option>
+              ))}
+            </select>
+          )}
+          <p className="mt-1 text-xs text-muted">Shown on the home screen daily reading. All users see the same module.</p>
+        </div>
+
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        {saved && <p className="text-sm text-verdigris">Saved.</p>}
+
+        <button
+          type="submit"
+          disabled={saving || modules.length === 0}
+          className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
+        >
+          {saving ? 'saving…' : 'save'}
+        </button>
+      </form>
     </div>
   );
 }

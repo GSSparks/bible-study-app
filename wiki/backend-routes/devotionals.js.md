@@ -10,6 +10,7 @@ Serves daily devotional content from a configurable SWORD dictionary module, whe
 |--------|------|-------------|
 | GET | `/api/devotionals/today` | Returns today's devotional entry from the currently active module |
 | GET | `/api/devotionals/modules` | Lists all available devotional modules (synchronous — no DB query) |
+| GET | `/api/devotionals/settings` | Admin-only; returns `{ moduleCode }` for the currently active module |
 | GET | `/api/devotionals/debug?module=<moduleCode>` | Admin-only; dumps the first 40 raw entry keys for the specified (or active) module to help diagnose key-format issues |
 | POST | `/api/devotionals/settings` | Admin-only; sets the active devotional module; body: `{ moduleCode }` |
 
