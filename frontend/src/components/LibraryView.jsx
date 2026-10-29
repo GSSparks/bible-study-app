@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, ChevronLeft, FileText, Folder, Library, Search, Upload, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, Download, FileText, Folder, Globe, Library, Link, Search, Upload, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import DocumentReader from './DocumentReader.jsx';
 
@@ -20,6 +20,16 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
   const [activeCollection, setActiveCollection] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  const [addingLink, setAddingLink] = useState(false);
+  const [linkTitle, setLinkTitle] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkAuthor, setLinkAuthor] = useState('');
+  const [linkCollection, setLinkCollection] = useState('');
+  const [linkSaving, setLinkSaving] = useState(false);
+  const [linkError, setLinkError] = useState(null);
+  const [importMsg, setImportMsg] = useState(null);
+  const [importError, setImportError] = useState(null);
+  const importInputRef = useRef(null);
   const [mobileShowReader, setMobileShowReader] = useState(false);
   const sortRef = useRef(null);
 
@@ -70,6 +80,65 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
     }
   }
 
+  async function handleExport() {
+    try {
+      const blob = await api.exportLibrary();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'library-export.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setImportError(err.message);
+      setTimeout(() => setImportError(null), 4000);
+    }
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setImportMsg(null);
+    setImportError(null);
+    try {
+      const text = await file.text();
+      let entries;
+      try { entries = JSON.parse(text); }
+      catch { throw new Error('Invalid JSON file'); }
+      const result = await api.importLibrary(entries);
+      setImportMsg(`Imported ${result.imported}, skipped ${result.skipped}`);
+      setTimeout(() => setImportMsg(null), 4000);
+      if (result.imported > 0) refreshDocs();
+    } catch (err) {
+      setImportError(err.message);
+      setTimeout(() => setImportError(null), 4000);
+    }
+  }
+
+  async function handleAddLink(e) {
+    e.preventDefault();
+    if (!linkTitle.trim()) { setLinkError('Title is required.'); return; }
+    if (!linkUrl.trim()) { setLinkError('URL is required.'); return; }
+    setLinkSaving(true);
+    setLinkError(null);
+    try {
+      await api.createExternalResource({
+        title: linkTitle.trim(),
+        url: linkUrl.trim(),
+        author: linkAuthor.trim() || null,
+        collection: linkCollection.trim() || null,
+      });
+      setAddingLink(false);
+      setLinkTitle(''); setLinkUrl(''); setLinkAuthor(''); setLinkCollection('');
+      refreshDocs();
+    } catch (err) {
+      setLinkError(err.message);
+    } finally {
+      setLinkSaving(false);
+    }
+  }
+
   function sortDocs(list) {
     if (sortBy === 'title') return [...list].sort((a, b) => a.title.localeCompare(b.title));
     if (sortBy === 'author') return [...list].sort((a, b) => (a.author || '').localeCompare(b.author || ''));
@@ -93,21 +162,102 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
             <Library size={16} className="shrink-0 text-brass" />
             <h1 className="font-display flex-1 text-base font-semibold text-parchment">Library</h1>
             {isAdmin && (
-              <label className="flex cursor-pointer items-center gap-1.5 rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment">
-                <Upload size={11} />
-                {uploading ? '…' : 'Upload'}
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  className="hidden"
-                  onChange={handleUpload}
-                />
-              </label>
+              <div className="flex items-center gap-1.5">
+                <label className="flex cursor-pointer items-center gap-1.5 rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment">
+                  <Upload size={11} />
+                  {uploading ? '…' : 'Upload'}
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="hidden"
+                    onChange={handleUpload}
+                  />
+                </label>
+                <button
+                  onClick={() => { setAddingLink((v) => !v); setLinkError(null); }}
+                  className={`flex items-center gap-1.5 rounded border px-2 py-1 text-xs transition-colors ${addingLink ? 'border-brass text-brass' : 'border-rule text-muted hover:border-brass hover:text-parchment'}`}
+                  title="Add external link"
+                >
+                  <Link size={11} />
+                  Link
+                </button>
+              </div>
             )}
           </div>
           <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">Documents & PDFs</p>
           {uploadError && <p className="mt-1 text-xs text-red-400">{uploadError}</p>}
         </div>
+
+        {/* Add external link form */}
+        {addingLink && (
+          <form onSubmit={handleAddLink} className="shrink-0 border-b border-rule px-3 py-3 space-y-2">
+            <input
+              value={linkTitle}
+              onChange={(e) => setLinkTitle(e.target.value)}
+              placeholder="Title *"
+              autoFocus
+              className="w-full rounded border border-rule bg-ink px-2.5 py-1.5 text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+            />
+            <input
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              placeholder="URL *"
+              type="url"
+              className="w-full rounded border border-rule bg-ink px-2.5 py-1.5 text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+            />
+            <div className="flex gap-2">
+              <input
+                value={linkAuthor}
+                onChange={(e) => setLinkAuthor(e.target.value)}
+                placeholder="Author"
+                className="min-w-0 flex-1 rounded border border-rule bg-ink px-2.5 py-1.5 text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+              />
+              <input
+                list="lib-link-collections"
+                value={linkCollection}
+                onChange={(e) => setLinkCollection(e.target.value)}
+                placeholder="Collection"
+                className="min-w-0 flex-1 rounded border border-rule bg-ink px-2.5 py-1.5 text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+              />
+              <datalist id="lib-link-collections">
+                {collections.map((c) => <option key={c} value={c} />)}
+              </datalist>
+            </div>
+            {linkError && <p className="text-xs text-red-400">{linkError}</p>}
+            {importMsg && <p className="text-xs text-green-400">{importMsg}</p>}
+            {importError && <p className="text-xs text-red-400">{importError}</p>}
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                disabled={linkSaving}
+                className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
+              >
+                {linkSaving ? 'Adding…' : 'Add link'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAddingLink(false); setLinkTitle(''); setLinkUrl(''); setLinkAuthor(''); setLinkCollection(''); setLinkError(null); }}
+                className="text-xs text-muted hover:text-parchment"
+              >
+                Cancel
+              </button>
+              <div className="ml-auto flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  title="Export library as JSON"
+                  className="rounded p-1 text-muted hover:text-parchment"
+                >
+                  <Download size={13} />
+                </button>
+                <label className="cursor-pointer rounded p-1 text-muted hover:text-parchment" title="Import library from JSON">
+                  <Upload size={13} />
+                  <input ref={importInputRef} type="file" accept=".json,application/json" className="hidden" onChange={handleImport} />
+                </label>
+              </div>
+            </div>
+          </form>
+        )}
 
         {/* Search */}
         <div className="shrink-0 px-3 pt-2 pb-1.5">
@@ -213,7 +363,10 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
                       : 'border-transparent text-muted hover:bg-ink/30 hover:text-parchment'
                   }`}
                 >
-                  <p className="truncate text-sm leading-snug">{doc.title}</p>
+                  <div className="flex items-start gap-1.5">
+                    {doc.sourceType === 'external' && <Globe size={11} className="mt-0.5 shrink-0 text-muted/60" />}
+                    <p className="truncate text-sm leading-snug">{doc.title}</p>
+                  </div>
                   {doc.author && (
                     <p className="mt-0.5 truncate text-[11px] text-muted/70">{doc.author}</p>
                   )}

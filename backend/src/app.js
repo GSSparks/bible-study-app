@@ -37,6 +37,7 @@ import { booksRouter } from './routes/books.js';
 import { codexRouter } from './routes/factbook.js';
 import { bibleMapsRouter } from './routes/bibleMaps.js';
 import { UPLOADS_PATH } from './middleware/upload.js';
+import { getFrameSrcOrigins } from './services/frameSrcCache.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND_DIST = path.join(__dirname, '..', 'public');
@@ -52,30 +53,32 @@ export function createApp() {
 
   app.use(helmet({
     // Disable HSTS — this app runs over plain HTTP on local/LAN installs.
-    // Sending Strict-Transport-Security over HTTP causes browsers to cache
-    // an HTTPS-only policy for the host and upgrade all subsequent requests,
-    // which breaks everything when there is no TLS terminator.
     strictTransportSecurity: false,
-    contentSecurityPolicy: {
-      // Opt out of Helmet's merged defaults — they include upgrade-insecure-requests,
-      // which tells the browser to load all sub-resources over HTTPS and breaks
-      // plain HTTP installs (local / LAN). We define a complete directive set here.
-      useDefaults: false,
-      directives: {
-        defaultSrc: ["'self'"],
-        baseUri: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-        connectSrc: ["'self'"],
-        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-        frameSrc: ["'none'"],
-        frameAncestors: ["'self'"],
-        objectSrc: ["'none'"],
-        formAction: ["'self'"],
-      },
-    },
+    // CSP is set by the middleware below so frame-src can be built dynamically
+    // from the external library links stored in the DB. Helmet's CSP option
+    // only accepts static values; function-valued directives aren't supported.
+    contentSecurityPolicy: false,
   }));
+
+  // Dynamic CSP — frame-src is assembled per-request from the in-memory
+  // origin cache so newly-added library links are reflected immediately.
+  app.use((req, res, next) => {
+    const frameSrc = ["'self'", ...getFrameSrcOrigins()].join(' ');
+    res.setHeader('Content-Security-Policy', [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: blob: https:",
+      "connect-src 'self'",
+      "font-src 'self' https://fonts.gstatic.com",
+      `frame-src ${frameSrc}`,
+      "frame-ancestors 'self'",
+      "object-src 'none'",
+      "form-action 'self'",
+    ].join('; '));
+    next();
+  });
 
   // Dynamic CORS — reads allowed origin from the site_url AppSetting so
   // the admin can configure it from the UI without restarting the server.
