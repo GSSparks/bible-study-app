@@ -151,17 +151,12 @@ export async function ocrDocument(id) {
 }
 
 export async function searchDocuments(term) {
-  // Simple ILIKE search to start; swap for Postgres full-text search
-  // (tsvector column + GIN index) once your library grows past a
-  // few dozen PDFs.
-  return prisma.document.findMany({
-    where: {
-      OR: [
-        { title: { contains: term, mode: 'insensitive' } },
-        { extractedText: { contains: term, mode: 'insensitive' } },
-      ],
-    },
-    select: { id: true, title: true, author: true },
-    take: 25,
-  });
+  if (!term?.trim()) return [];
+  return prisma.$queryRaw`
+    SELECT id, title, author
+    FROM "Document"
+    WHERE search_vector @@ plainto_tsquery('english', ${term})
+    ORDER BY ts_rank(search_vector, plainto_tsquery('english', ${term})) DESC
+    LIMIT 25
+  `;
 }

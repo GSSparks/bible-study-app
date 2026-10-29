@@ -83,6 +83,8 @@ export default function SearchResultsPane({ pendingSearch, onNavigate, defaultBi
   const [total, setTotal] = useState(null);
   const [capped, setCapped] = useState(false);
   const [discussions, setDiscussions] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -122,12 +124,16 @@ export default function SearchResultsPane({ pendingSearch, onNavigate, defaultBi
     setResults([]);
     setTotal(null);
     setDiscussions([]);
+    setNotes([]);
+    setDocuments([]);
     try {
       const res = await api.search(q.trim(), mod, type);
       setResults(res.bible || []);
       setTotal(res.total ?? (res.bible || []).length);
       setCapped(!!res.capped);
       setDiscussions(res.discussions || []);
+      setNotes(res.notes || []);
+      setDocuments(res.documents || []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -307,6 +313,46 @@ export default function SearchResultsPane({ pendingSearch, onNavigate, defaultBi
             <p className="px-4 py-3 text-center text-xs text-pageMuted">
               Showing first 500 matches — narrow your search for more precise results.
             </p>
+          )}
+
+          {!loading && notes.length > 0 && (
+            <div className="border-t border-pageBorder/60 pt-1">
+              <p className="px-4 py-2 text-xs font-medium uppercase tracking-wide text-pageMuted">
+                My Notes
+              </p>
+              {notes.map((n) => (
+                <div
+                  key={n.id}
+                  className={`border-b border-pageBorder/40 px-4 py-2.5 ${n.reference ? 'cursor-pointer hover:bg-pageAccent/10' : ''}`}
+                  onClick={() => n.reference && onNavigate?.(n.reference)}
+                >
+                  <div className="mb-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    {n.reference && (
+                      <span className="font-mono text-xs font-semibold text-verdigris">{n.reference}</span>
+                    )}
+                    {n.title && <span className="text-xs font-medium text-pageText">{n.title}</span>}
+                    {n.fromAssistant && (
+                      <span className="rounded border border-brass/40 px-1 py-px text-[10px] text-brass">AI</span>
+                    )}
+                  </div>
+                  <p className="line-clamp-2 text-sm leading-relaxed text-pageText/80">{stripMarkdown(n.body)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && documents.length > 0 && (
+            <div className="border-t border-pageBorder/60 pt-1">
+              <p className="px-4 py-2 text-xs font-medium uppercase tracking-wide text-pageMuted">
+                Documents
+              </p>
+              {documents.map((d) => (
+                <div key={d.id} className="border-b border-pageBorder/40 px-4 py-2.5">
+                  <p className="text-sm font-medium text-pageText">{d.title}</p>
+                  {d.author && <p className="text-xs text-pageMuted">{d.author}</p>}
+                </div>
+              ))}
+            </div>
           )}
 
           {!loading && discussions.length > 0 && (
