@@ -114,6 +114,46 @@ export async function createExternalResource({ title, author, collection, url })
   });
 }
 
+export async function exportLibrary() {
+  const docs = await prisma.document.findMany({
+    orderBy: { createdAt: 'asc' },
+    select: { title: true, author: true, collection: true, url: true, sourceType: true, pageCount: true },
+  });
+  return docs;
+}
+
+export async function importLibrary(entries) {
+  if (!Array.isArray(entries)) throw new Error('Expected a JSON array');
+  const externalEntries = entries.filter((e) => e.url?.trim());
+  if (externalEntries.length === 0) return { imported: 0, skipped: 0 };
+
+  const urls = externalEntries.map((e) => e.url.trim());
+  const existing = await prisma.document.findMany({
+    where: { url: { in: urls } },
+    select: { url: true },
+  });
+  const existingUrls = new Set(existing.map((d) => d.url));
+
+  let imported = 0;
+  let skipped = 0;
+  for (const entry of externalEntries) {
+    const url = entry.url.trim();
+    if (existingUrls.has(url)) { skipped++; continue; }
+    if (!entry.title?.trim()) { skipped++; continue; }
+    await prisma.document.create({
+      data: {
+        title: entry.title.trim(),
+        author: entry.author?.trim() || null,
+        collection: entry.collection?.trim() || null,
+        url,
+        sourceType: 'external',
+      },
+    });
+    imported++;
+  }
+  return { imported, skipped };
+}
+
 export async function getDocument(id) {
   return prisma.document.findUnique({ where: { id } });
 }

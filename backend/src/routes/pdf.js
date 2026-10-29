@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import fs from 'node:fs';
 import path from 'node:path';
-import { ingestPdf, listDocuments, getDocumentFilePath, getDocument, searchDocuments, updateDocument, deleteDocument, ocrDocument, createExternalResource } from '../services/pdfService.js';
+import { ingestPdf, listDocuments, getDocumentFilePath, getDocument, searchDocuments, updateDocument, deleteDocument, ocrDocument, createExternalResource, exportLibrary, importLibrary } from '../services/pdfService.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { refreshFrameSrcCache } from '../services/frameSrcCache.js';
 
@@ -40,6 +40,30 @@ pdfRouter.post('/external', requireAdmin, async (req, res, next) => {
     const doc = await createExternalResource({ title: title.trim(), author, collection, url: url.trim() });
     refreshFrameSrcCache().catch(() => {});
     res.status(201).json(doc);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/pdf/export — download full library as JSON. Admin-only.
+// Must be before /:id.
+pdfRouter.get('/export', requireAdmin, async (req, res, next) => {
+  try {
+    const data = await exportLibrary();
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="library-export.json"');
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/pdf/import — bulk-create external resources from JSON array. Admin-only.
+// Must be before /:id.
+pdfRouter.post('/import', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await importLibrary(req.body);
+    res.json(result);
   } catch (err) {
     next(err);
   }

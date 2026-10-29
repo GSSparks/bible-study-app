@@ -85,6 +85,12 @@ export const api = {
   deleteDocument: (id) => request(`/pdf/${id}`, { method: 'DELETE' }),
   ocrDocument: (id) => request(`/pdf/${id}/ocr`, { method: 'POST' }),
   documentFileUrl: (id) => `${BASE}/pdf/${id}/file`,
+  exportLibrary: async () => {
+    const res = await fetch('/api/pdf/export');
+    if (!res.ok) throw new Error('Export failed');
+    return res.blob();
+  },
+  importLibrary: (entries) => request('/pdf/import', { method: 'POST', body: JSON.stringify(entries) }),
 
   // Topic / Codex cross-module search
   searchTopics: (q) => request(`/topics?q=${encodeURIComponent(q)}`),

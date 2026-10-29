@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, ChevronLeft, FileText, Folder, Globe, Library, Link, Search, Upload, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, Download, FileText, Folder, Globe, Library, Link, Search, Upload, X } from 'lucide-react';
 import { api } from '../api/client.js';
 import DocumentReader from './DocumentReader.jsx';
 
@@ -27,6 +27,9 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
   const [linkCollection, setLinkCollection] = useState('');
   const [linkSaving, setLinkSaving] = useState(false);
   const [linkError, setLinkError] = useState(null);
+  const [importMsg, setImportMsg] = useState(null);
+  const [importError, setImportError] = useState(null);
+  const importInputRef = useRef(null);
   const [mobileShowReader, setMobileShowReader] = useState(false);
   const sortRef = useRef(null);
 
@@ -74,6 +77,42 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
     } finally {
       setUploading(false);
       e.target.value = '';
+    }
+  }
+
+  async function handleExport() {
+    try {
+      const blob = await api.exportLibrary();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'library-export.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setImportError(err.message);
+      setTimeout(() => setImportError(null), 4000);
+    }
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setImportMsg(null);
+    setImportError(null);
+    try {
+      const text = await file.text();
+      let entries;
+      try { entries = JSON.parse(text); }
+      catch { throw new Error('Invalid JSON file'); }
+      const result = await api.importLibrary(entries);
+      setImportMsg(`Imported ${result.imported}, skipped ${result.skipped}`);
+      setTimeout(() => setImportMsg(null), 4000);
+      if (result.imported > 0) refreshDocs();
+    } catch (err) {
+      setImportError(err.message);
+      setTimeout(() => setImportError(null), 4000);
     }
   }
 
@@ -185,7 +224,9 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
               </datalist>
             </div>
             {linkError && <p className="text-xs text-red-400">{linkError}</p>}
-            <div className="flex gap-2">
+            {importMsg && <p className="text-xs text-green-400">{importMsg}</p>}
+            {importError && <p className="text-xs text-red-400">{importError}</p>}
+            <div className="flex items-center gap-2">
               <button
                 type="submit"
                 disabled={linkSaving}
@@ -200,6 +241,20 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
               >
                 Cancel
               </button>
+              <div className="ml-auto flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  title="Export library as JSON"
+                  className="rounded p-1 text-muted hover:text-parchment"
+                >
+                  <Download size={13} />
+                </button>
+                <label className="cursor-pointer rounded p-1 text-muted hover:text-parchment" title="Import library from JSON">
+                  <Upload size={13} />
+                  <input ref={importInputRef} type="file" accept=".json,application/json" className="hidden" onChange={handleImport} />
+                </label>
+              </div>
             </div>
           </form>
         )}
