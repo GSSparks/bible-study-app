@@ -362,12 +362,19 @@ export const api = {
     const blob = await res.blob();
     const cd = res.headers.get('content-disposition') || '';
     const match = cd.match(/filename="([^"]+)"/);
-    const filename = match?.[1] || `study-${id}.json`;
+    const filename = match?.[1] || `study-${id}.zip`;
     return { blob, filename };
   },
 
-  importStudy: (scriptoriumId, data) =>
-    request('/studies/import', { method: 'POST', body: JSON.stringify({ scriptoriumId, data }) }),
+  importStudy: (scriptoriumId, fileOrData) => {
+    if (fileOrData instanceof Blob) {
+      const form = new FormData();
+      form.append('file', fileOrData);
+      if (scriptoriumId) form.append('scriptoriumId', scriptoriumId);
+      return request('/studies/import', { method: 'POST', body: form });
+    }
+    return request('/studies/import', { method: 'POST', body: JSON.stringify({ scriptoriumId, data: fileOrData }) });
+  },
 
   getAllMaps: () => request('/bible-maps/all'),
   getMapsForReference: (ref) =>
