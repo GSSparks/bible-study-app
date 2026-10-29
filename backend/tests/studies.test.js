@@ -242,14 +242,22 @@ describe('Studies routes', () => {
   });
 
   describe('Export', () => {
-    it('GET /api/studies/:id/export exports the study as JSON', async () => {
+    it('GET /api/studies/:id/export exports the study as a zip containing study.json', async () => {
       const { agent, study } = await setupAdminAndStudy('Export Study');
       await agent.post(`/api/studies/${study.id}/lessons`).send({ order: 1, title: 'Lesson 1' });
-      const res = await agent.get(`/api/studies/${study.id}/export`);
+      const res = await agent.get(`/api/studies/${study.id}/export`).buffer(true).parse((r, cb) => {
+        const chunks = [];
+        r.on('data', (c) => chunks.push(c));
+        r.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
       expect(res.status).toBe(200);
       expect(res.headers['content-disposition']).toMatch(/attachment/);
-      expect(res.body.title).toBe('Export Study');
-      expect(Array.isArray(res.body.lessons)).toBe(true);
+      expect(res.headers['content-type']).toMatch(/zip/);
+      const AdmZip = (await import('adm-zip')).default;
+      const zip = new AdmZip(res.body);
+      const data = JSON.parse(zip.getEntry('study.json').getData().toString('utf8'));
+      expect(data.title).toBe('Export Study');
+      expect(Array.isArray(data.lessons)).toBe(true);
     });
   });
 
