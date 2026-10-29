@@ -98,25 +98,32 @@ export async function ingestPdf({ buffer, originalName, title, author, collectio
 export async function listDocuments() {
   return prisma.document.findMany({
     orderBy: { createdAt: 'desc' },
-    select: { id: true, title: true, author: true, collection: true, pageCount: true, createdAt: true, filename: true },
+    select: { id: true, title: true, author: true, collection: true, pageCount: true, createdAt: true, filename: true, url: true, sourceType: true },
   });
 }
 
 export async function getDocumentFilePath(id) {
   const doc = await prisma.document.findUnique({ where: { id } });
-  if (!doc) return null;
+  if (!doc?.filename) return null;
   return path.join(config.pdfStoragePath, doc.filename);
+}
+
+export async function createExternalResource({ title, author, collection, url }) {
+  return prisma.document.create({
+    data: { title, author: author || null, collection: collection || null, url, sourceType: 'external' },
+  });
 }
 
 export async function getDocument(id) {
   return prisma.document.findUnique({ where: { id } });
 }
 
-export async function updateDocument(id, { title, author, collection }) {
+export async function updateDocument(id, { title, author, collection, url }) {
   const data = {};
   if (title !== undefined) data.title = title;
   if (author !== undefined) data.author = author;
   if (collection !== undefined) data.collection = collection || null;
+  if (url !== undefined) data.url = url || null;
   const updated = await prisma.document.update({ where: { id }, data });
   // Keep study resource labels in sync when a document is renamed.
   if (title !== undefined) {
@@ -131,12 +138,13 @@ export async function updateDocument(id, { title, author, collection }) {
 export async function deleteDocument(id) {
   const doc = await prisma.document.findUnique({ where: { id } });
   if (!doc) return null;
-  // Remove any study resources that reference this document before deleting.
   await prisma.studyResource.deleteMany({ where: { url: `/api/pdf/${id}/file` } });
-  try {
-    await fs.unlink(path.join(config.pdfStoragePath, doc.filename));
-  } catch (err) {
-    console.warn(`Could not delete PDF file ${doc.filename}:`, err.message);
+  if (doc.filename) {
+    try {
+      await fs.unlink(path.join(config.pdfStoragePath, doc.filename));
+    } catch (err) {
+      console.warn(`Could not delete file ${doc.filename}:`, err.message);
+    }
   }
   return prisma.document.delete({ where: { id } });
 }

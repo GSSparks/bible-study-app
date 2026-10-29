@@ -78,6 +78,7 @@ export const api = {
 
   // PDF library
   listDocuments: () => request('/pdf'),
+  createExternalResource: (data) => request('/pdf/external', { method: 'POST', body: JSON.stringify(data) }),
   getDocument: (id) => request(`/pdf/${id}`),
   searchDocuments: (q) => request(`/pdf/search?q=${encodeURIComponent(q)}`),
   updateDocument: (id, patch) => request(`/pdf/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),

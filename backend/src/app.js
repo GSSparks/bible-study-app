@@ -37,6 +37,7 @@ import { booksRouter } from './routes/books.js';
 import { codexRouter } from './routes/factbook.js';
 import { bibleMapsRouter } from './routes/bibleMaps.js';
 import { UPLOADS_PATH } from './middleware/upload.js';
+import { getFrameSrcOrigins } from './services/frameSrcCache.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND_DIST = path.join(__dirname, '..', 'public');
@@ -69,7 +70,7 @@ export function createApp() {
         imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
         connectSrc: ["'self'"],
         fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-        frameSrc: ["'none'"],
+        frameSrc: () => ["'self'", ...getFrameSrcOrigins()],
         frameAncestors: ["'self'"],
         objectSrc: ["'none'"],
         formAction: ["'self'"],

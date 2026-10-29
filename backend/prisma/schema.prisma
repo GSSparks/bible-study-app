@@ -56,9 +56,11 @@ model Document {
   title         String
   author        String?
   collection    String?
-  filename      String   @unique
+  filename      String?  @unique
   pageCount     Int?
   extractedText String?
+  url           String?
+  sourceType    String   @default("pdf")
   createdAt     DateTime @default(now())
 }
 
