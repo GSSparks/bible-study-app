@@ -181,6 +181,7 @@ This wiki contains one summary file per source file in the repository. Each summ
 |---|---|
 | `frontend/src/components/ReaderPane.jsx` | [frontend-components/ReaderPane.jsx.md](frontend-components/ReaderPane.jsx.md) |
 | `frontend/src/components/PassageGuidePane.jsx` | [frontend-components/PassageGuidePane.jsx.md](frontend-components/PassageGuidePane.jsx.md) |
+| `frontend/src/components/PersonalCommentaryPane.jsx` | [frontend-components/PersonalCommentaryPane.jsx.md](frontend-components/PersonalCommentaryPane.jsx.md) |
 | `frontend/src/components/PassageQuickView.jsx` | [frontend-components/PassageQuickView.jsx.md](frontend-components/PassageQuickView.jsx.md) |
 | `frontend/src/components/PassageMapsModal.jsx` | [frontend-components/PassageMapsModal.jsx.md](frontend-components/PassageMapsModal.jsx.md) |
 | `frontend/src/components/CrossRefPane.jsx` | [frontend-components/CrossRefPane.jsx.md](frontend-components/CrossRefPane.jsx.md) |

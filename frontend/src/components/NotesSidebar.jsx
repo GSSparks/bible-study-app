@@ -101,7 +101,7 @@ export default function NotesSidebar({ reference, module, isLoggedIn }) {
   }
 
   return (
-    <div className="flex h-full flex-col" data-color-mode="dark">
+    <div className="flex h-full flex-col" data-color-mode="light">
       {/* Tab bar + new button */}
       <div className="mb-4 flex items-end justify-between border-b border-rule">
         <div className="flex gap-4 text-sm">

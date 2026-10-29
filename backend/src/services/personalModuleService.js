@@ -158,90 +158,156 @@ function osisOverlaps(aItem, bItem) {
 }
 
 /** Returns the list of verse references that have a personal commentary
- *  entry in "My Studies" whose reference starts with `prefix` (e.g.
- *  "John 3:"). Used to populate note-indicator dots in CommentaryPane. */
+ *  note whose reference starts with `prefix` (e.g. "John 3:"). Commentary
+ *  notes are regular Note records tagged 'personal-commentary'. */
 export async function listPersonalCommentaryEntryRefs(prefix, userId) {
   if (!userId) return [];
-  const mod = await prisma.personalModule.findFirst({
-    where: { type: 'COMMENTARY', name: 'My Studies', userId },
-  });
-  if (!mod) return [];
-  const entries = await prisma.personalEntry.findMany({
-    where: { moduleId: mod.id, reference: { startsWith: prefix } },
+  const notes = await prisma.note.findMany({
+    where: { userId, tags: { has: 'personal-commentary' }, reference: { startsWith: prefix } },
     select: { reference: true },
   });
-  return entries.map((e) => e.reference);
+  return notes.map((n) => n.reference);
 }
 
-/** Fetches an existing commentary entry for the given human reference
- *  from the user's default "My Studies" personal module, or null if none
- *  exists. Used by the verse note editor to pre-fill existing content. */
+/** Fetches the personal commentary note for the given reference, or null.
+ *  Returns the Note record with an added `bodyMd` alias of `body` so
+ *  callers expecting the old PersonalEntry shape continue to work. */
 export async function getPersonalCommentaryEntry(reference, userId) {
   if (!userId) return null;
-  const mod = await prisma.personalModule.findFirst({
-    where: { type: 'COMMENTARY', name: 'My Studies', userId },
+  const note = await prisma.note.findFirst({
+    where: { userId, tags: { has: 'personal-commentary' }, reference },
   });
-  if (!mod) return null;
-  return prisma.personalEntry.findFirst({ where: { moduleId: mod.id, reference } });
+  if (!note) return null;
+  return { ...note, bodyMd: note.body };
 }
 
-/** Creates or updates a personal commentary entry for the given reference.
- *  If an entry already exists with that exact reference in the user's
- *  "My Studies" module, it is updated in place (no duplicates). */
+/** Creates or updates a personal commentary note for the given reference.
+ *  Stored as a Note with tags ['personal-commentary'] so it appears in
+ *  Notes views alongside freestanding notes. */
 export async function upsertPersonalCommentaryEntry({ reference, title, bodyMd, userId }) {
   if (!userId) {
     const err = new Error('Login required.');
     err.status = 401;
     throw err;
   }
-  const html = marked.parse(bodyMd || '');
-  const mod = await getOrCreateDefaultPersonalModule('COMMENTARY', userId);
-  const existing = await prisma.personalEntry.findFirst({ where: { moduleId: mod.id, reference } });
+  const existing = await prisma.note.findFirst({
+    where: { userId, tags: { has: 'personal-commentary' }, reference },
+  });
   if (existing) {
-    return prisma.personalEntry.update({
+    const updated = await prisma.note.update({
       where: { id: existing.id },
-      data: { title, body: html, bodyMd },
+      data: { title, body: bodyMd || '' },
     });
+    return { ...updated, bodyMd: updated.body };
   }
-  return prisma.personalEntry.create({
-    data: { moduleId: mod.id, reference, title, body: html, bodyMd },
+  const created = await prisma.note.create({
+    data: { userId, reference, title, body: bodyMd || '', tags: ['personal-commentary'] },
+  });
+  return { ...created, bodyMd: created.body };
+}
+
+/** Returns id/reference/title/createdAt for every personal commentary
+ *  note, ordered by reference. Used by the My Commentary pane's list. */
+export async function listAllPersonalCommentaryEntries(userId) {
+  if (!userId) return [];
+  return prisma.note.findMany({
+    where: { userId, tags: { has: 'personal-commentary' }, reference: { not: null } },
+    select: { id: true, reference: true, title: true, createdAt: true },
+    orderBy: { reference: 'asc' },
   });
 }
 
-/** COMMENTARY-type: every saved entry whose own reference overlaps the
- *  queried one — not an exact string match, since a conversation saved
- *  about "John 3:16-18" should still surface when focus lands on just
- *  "John 3:17", the same way a real SWORD commentary keyed for a range
- *  does. Shaped like the VerseObjects getPassage() normally returns
- *  (chapter/verseNr/content) so DictionaryPane's existing reference-mode
- *  rendering needs no changes at all — it already just maps over
- *  whatever `verses` it's handed. */
+/** Serialises all personal commentary notes to Markdown. Round-trips
+ *  cleanly with importPersonalCommentaryFromMarkdown. */
+export async function exportPersonalCommentary(userId) {
+  if (!userId) return '# My Commentary\n';
+  const entries = await prisma.note.findMany({
+    where: { userId, tags: { has: 'personal-commentary' }, reference: { not: null } },
+    orderBy: { reference: 'asc' },
+  });
+  if (entries.length === 0) return '# My Commentary\n\n*(No entries yet)*\n';
+  const sections = entries.map((e) => {
+    const heading =
+      e.title && e.title !== `Note on ${e.reference}`
+        ? `## ${e.reference} — ${e.title}`
+        : `## ${e.reference}`;
+    return `${heading}\n\n${e.body || ''}\n`;
+  });
+  return `# My Commentary\n\n${sections.join('\n---\n\n')}`;
+}
+
+/** Parses a Markdown string exported by exportPersonalCommentary (or
+ *  written manually in the same format) and upserts each section into
+ *  the user's "My Studies" module.  Returns the count of imported
+ *  entries. */
+export async function importPersonalCommentaryFromMarkdown(markdown, userId) {
+  const lines = markdown.split('\n');
+  const sections = [];
+  let current = null;
+  for (const line of lines) {
+    const m = line.match(/^## (.+?)(?:\s+—\s+(.+))?$/);
+    if (m) {
+      if (current) sections.push(current);
+      current = { reference: m[1].trim(), title: m[2]?.trim() || null, bodyLines: [] };
+    } else if (current) {
+      if (line.trim() === '---') {
+        sections.push(current);
+        current = null;
+      } else {
+        current.bodyLines.push(line);
+      }
+    }
+  }
+  if (current) sections.push(current);
+
+  let imported = 0;
+  for (const s of sections) {
+    const bodyMd = s.bodyLines.join('\n').trim();
+    if (!bodyMd) continue;
+    await upsertPersonalCommentaryEntry({
+      reference: s.reference,
+      title: s.title || `Note on ${s.reference}`,
+      bodyMd,
+      userId,
+    });
+    imported++;
+  }
+  return imported;
+}
+
+/** COMMENTARY-type: every personal commentary note whose reference
+ *  overlaps the queried one — not exact string match so a note saved for
+ *  "John 3:16-18" surfaces when focus is on "John 3:17", same as a real
+ *  SWORD commentary keyed to a range. Data now lives in the Note table
+ *  (tagged 'personal-commentary'); moduleCode is kept for ownership
+ *  verification only. */
 export async function getPersonalPassage(moduleCode, humanReference, userId) {
   await assertOwnsModule(moduleCode, userId);
-  const id = extractModuleId(moduleCode);
   const osis = toOsis(humanReference);
   if (!osis) return [];
   const queryItems = splitOsisSequence(osis);
 
-  const entries = await prisma.personalEntry.findMany({ where: { moduleId: id, reference: { not: null } } });
+  const notes = await prisma.note.findMany({
+    where: { userId, tags: { has: 'personal-commentary' }, reference: { not: null } },
+  });
 
   const matches = [];
-  for (const entry of entries) {
-    const entryOsis = toOsis(entry.reference);
+  for (const note of notes) {
+    const entryOsis = toOsis(note.reference);
     if (!entryOsis) continue;
     const entryItems = splitOsisSequence(entryOsis);
     const overlaps = queryItems.some((q) => entryItems.some((e) => osisOverlaps(q, e)));
-    if (overlaps) matches.push({ entry, entryItems });
+    if (overlaps) matches.push({ note, entryItems });
   }
 
-  return matches.map(({ entry, entryItems }) => {
+  return matches.map(({ note, entryItems }) => {
     const firstItem = entryItems[0];
     const point = parseOsisPoint(firstItem.includes('-') ? firstItem.split('-')[0] : firstItem);
     return {
       bibleBookShortTitle: point.book,
       chapter: point.chapter,
       verseNr: point.verse,
-      content: `<h4 class="mb-1 font-sans text-sm text-brass">${escapeHtml(entry.title)}</h4>${entry.body}`,
+      content: `<h4 class="mb-1 font-sans text-sm text-brass">${escapeHtml(note.title || '')}</h4>${marked.parse(note.body || '')}`,
       titles: [],
     };
   });

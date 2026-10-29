@@ -13,7 +13,7 @@ const PANE_LABELS = {
   crossrefs: 'Cross-refs', passageguide: 'Guide', document: 'Docs',
   search: 'Search', links: 'Links', notes: 'Notes',
 };
-const MOBILE_TAB_TYPES = ['bible', 'commentary', 'dictionary', 'crossrefs', 'passageguide', 'document', 'search', 'links', 'notes'];
+const MOBILE_TAB_TYPES = ['bible', 'commentary', 'dictionary', 'crossrefs', 'passageguide', 'document', 'search', 'links', 'notes', 'personal_commentary'];
 // Fixed order for the mobile tab strip — always shows all pane types so the
 // strip doubles as the open/close control (replacing the desktop window toggles).
 import { api } from '../api/client.js';
@@ -34,6 +34,7 @@ import RefNav from './RefNav.jsx';
 import ModulePicker from './ModulePicker.jsx';
 import LinksPane from './LinksPane.jsx';
 import CellNotePane from './CellNotePane.jsx';
+import PersonalCommentaryPane from './PersonalCommentaryPane.jsx';
 
 // ─── Resize handles (shown when not dragging) ─────────────────────────────────
 
@@ -118,7 +119,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
     onPersonalDictionarySaved,
   } = shared;
 
-  const { removePane, splitPane, addTab, removeTab, setActiveTab, swapTabModule,
+  const { removePane, splitPane, setPaneType, addTab, removeTab, setActiveTab, swapTabModule,
           setBibleTabReference, addTabParallel, removeTabParallel, swapTabParallel } = layoutOps;
 
   const activeTab = row.tabs.find((t) => t.id === row.activeTabId) || null;
@@ -511,9 +512,20 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
       case 'notes':
         return (
           <div className="min-h-0 flex-1 overflow-hidden">
-          <CellNotePane isLoggedIn={Boolean(auth?.user)} />
+            <CellNotePane isLoggedIn={Boolean(auth?.user)} focusedReference={focusedReference} />
           </div>
         );
+
+      case 'personal_commentary':
+        return (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <PersonalCommentaryPane
+              reference={focusedReference}
+              onNavigate={onNavigate}
+            />
+          </div>
+        );
+
       default:
         return <EmptyPaneContent label={`Unknown pane type: ${row.type}`} />;
     }
@@ -684,6 +696,7 @@ export default function WorkspaceLayout({
   addColumn,
   removePane,
   splitPane,
+  setPaneType,
   resizeColumn,
   resizeRow,
   addTab,
@@ -733,6 +746,7 @@ export default function WorkspaceLayout({
   const layoutOps = {
     removePane,
     splitPane,
+    setPaneType,
     resizeColumn,
     resizeRow,
     addTab,

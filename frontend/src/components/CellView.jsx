@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, StickyNote } from 'lucide-react';
+import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, StickyNote, PenLine } from 'lucide-react';
 import SearchBar from './SearchBar.jsx';
 import WorkspaceLayout from './WorkspaceLayout.jsx';
 import { api } from '../api/client.js';
@@ -15,6 +15,7 @@ const WINDOW_TOGGLES = [
   { type: 'document',     Icon: FileText,    title: 'Documents' },
   { type: 'search',       Icon: Search,      title: 'Search Results' },
   { type: 'notes',        Icon: StickyNote,  title: 'Notes' },
+  { type: 'personal_commentary', Icon: PenLine, title: 'My Commentary' },
 ];
 
 export default function CellView({

@@ -13,12 +13,14 @@ notesRouter.use(requireLogin);
 
 // GET /api/notes?reference=John.3.16       -> notes anchored to that passage
 // GET /api/notes?q=grace                   -> search title/body across ALL notes
+// GET /api/notes?freestanding=true         -> only notes with no reference (excludes commentary notes)
 // GET /api/notes                           -> everything, most recent first
 notesRouter.get('/', async (req, res, next) => {
   try {
-    const { reference, prefix, q } = req.query;
+    const { reference, prefix, q, freestanding } = req.query;
     const where = { userId: req.user.id };
-    if (reference) where.reference = reference;
+    if (freestanding === 'true') where.reference = null;
+    else if (reference) where.reference = reference;
     else if (prefix) where.reference = { startsWith: prefix };
     if (q) {
       where.OR = [
