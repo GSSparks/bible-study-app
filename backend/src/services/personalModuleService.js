@@ -264,6 +264,7 @@ export async function importPersonalCommentaryFromMarkdown(markdown, userId) {
   for (const s of sections) {
     const bodyMd = s.bodyLines.join('\n').trim();
     if (!bodyMd) continue;
+    if (!toOsis(s.reference)) continue;
     await upsertPersonalCommentaryEntry({
       reference: s.reference,
       title: s.title || `Note on ${s.reference}`,

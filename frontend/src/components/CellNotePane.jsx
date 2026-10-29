@@ -41,7 +41,7 @@ export default function CellNotePane({ isLoggedIn = false, focusedReference = nu
       const all = await api.listNotes();
       setGeneralNotes(
         all
-          .filter((n) => !n.reference && !(n.tags || []).includes('personal-commentary'))
+          .filter((n) => !n.reference && !(n.tags || []).includes('personal-commentary') && !n.fromAssistant)
           .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
       );
       setPassageNotes(

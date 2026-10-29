@@ -875,7 +875,12 @@ const SCHEDULE_PLACEHOLDER = `[
 ]`;
 
 function parseSchedule(raw) {
-  const parsed = JSON.parse(raw.trim());
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.trim());
+  } catch {
+    throw new Error('Invalid JSON — check for missing commas, quotes, or brackets');
+  }
   if (!Array.isArray(parsed)) throw new Error('Schedule must be a JSON array');
   for (const entry of parsed) {
     if (typeof entry.day !== 'number') throw new Error('Each entry needs a numeric "day" field');
@@ -1164,7 +1169,7 @@ function DevotionalsTab() {
     Promise.all([api.listDevotionalModules(), api.getDevotionalSettings()])
       .then(([mods, settings]) => {
         setModules(mods);
-        setSelected(settings.moduleCode || (mods[0]?.name ?? ''));
+        setSelected(settings.moduleCode || '');
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -1204,6 +1209,7 @@ function DevotionalsTab() {
               onChange={(e) => setSelected(e.target.value)}
               className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass focus:outline-none"
             >
+              <option value="">— select module —</option>
               {modules.map((m) => (
                 <option key={m.name} value={m.name}>{m.description || m.name}</option>
               ))}

@@ -147,8 +147,8 @@ export const api = {
     const form = new FormData();
     form.append('file', file);
     const res = await fetch('/api/personal-modules/import', { method: 'POST', body: form });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || 'Import failed');
+    const body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(body?.error || res.statusText || 'Import failed');
     return body;
   },
 

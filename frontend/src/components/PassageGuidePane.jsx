@@ -205,7 +205,6 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
 
   async function loadAndResume(session) {
     setDropdownOpen(false);
-    if (session.messages) { resumeSession(session); return; }
     try {
       const full = await api.getSession(session.id);
       resumeSession(full);
