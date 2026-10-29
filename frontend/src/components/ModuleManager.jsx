@@ -14,6 +14,7 @@ export default function ModuleManager({ onClose, onOpenModule, onModulesChanged,
   const [available, setAvailable] = useState([]);
   const [installed, setInstalled] = useState([]);
   const [installing, setInstalling] = useState(null);
+  const [installProgress, setInstallProgress] = useState(null);
   const [removing, setRemoving] = useState(null);
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -48,15 +49,32 @@ export default function ModuleManager({ onClose, onOpenModule, onModulesChanged,
 
   async function handleInstall(moduleCode) {
     setInstalling(moduleCode);
+    setInstallProgress({ totalPercent: 0, filePercent: 0, message: '' });
     setError(null);
     try {
-      await api.installModule(selectedRepo, moduleCode);
+      const result = await api.installModule(selectedRepo, moduleCode);
+      const { jobId } = result ?? {};
+      if (!jobId) throw new Error('Server did not return a job ID — try restarting the backend.');
+      await new Promise((resolve, reject) => {
+        const es = new EventSource(`/api/modules/install/progress/${jobId}`);
+        es.addEventListener('progress', (e) => {
+          const data = JSON.parse(e.data);
+          setInstallProgress({ totalPercent: data.totalPercent, filePercent: data.filePercent, message: data.message });
+        });
+        es.addEventListener('complete', () => { es.close(); resolve(); });
+        es.addEventListener('job-error', (e) => {
+          es.close();
+          try { reject(new Error(JSON.parse(e.data).message)); } catch { reject(new Error('Install failed')); }
+        });
+        es.onerror = () => { es.close(); reject(new Error('Connection lost during install')); };
+      });
       refreshInstalled();
       onModulesChanged?.();
     } catch (e) {
       setError(e.message);
     } finally {
       setInstalling(null);
+      setInstallProgress(null);
     }
   }
 
@@ -134,6 +152,24 @@ export default function ModuleManager({ onClose, onOpenModule, onModulesChanged,
         </div>
 
         {error && <p className="px-6 pt-3 text-sm text-red-400">{error}</p>}
+
+        {installing && installProgress && (
+          <div className="mx-6 mt-3 rounded-md border border-rule bg-ink/50 px-4 py-3">
+            <div className="mb-1.5 flex items-center justify-between text-xs text-muted">
+              <span>Installing <span className="font-mono text-parchment">{installing}</span>…</span>
+              <span className="tabular-nums">{installProgress.totalPercent}%</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-rule">
+              <div
+                className="h-full rounded-full bg-brass transition-all duration-300"
+                style={{ width: `${installProgress.totalPercent}%` }}
+              />
+            </div>
+            {installProgress.message && (
+              <p className="mt-1 truncate text-xs text-muted">{installProgress.message}</p>
+            )}
+          </div>
+        )}
 
         <div className="grid flex-1 grid-cols-2 gap-4 overflow-hidden p-6">
           <div className="flex flex-col overflow-hidden">
