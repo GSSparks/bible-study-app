@@ -29,9 +29,7 @@ export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenS
     setImporting(true);
     setError(null);
     try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      const created = await api.importStudy(scriptoriumId, data);
+      const created = await api.importStudy(scriptoriumId, file);
       refresh();
       onOpenStudy(created.id);
     } catch (err) {
@@ -52,7 +50,7 @@ export default function ScriptoriumStudiesTab({ scriptoriumId, isMember, onOpenS
             <input
               ref={importInputRef}
               type="file"
-              accept=".json"
+              accept=".zip,.json"
               className="hidden"
               onChange={handleImportFile}
             />

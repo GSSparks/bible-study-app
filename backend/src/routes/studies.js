@@ -1,6 +1,10 @@
 import { Router } from 'express';
+import path from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import multer from 'multer';
 import { requireLogin } from '../middleware/auth.js';
-import { uploadPostMedia, mimeToType } from '../middleware/upload.js';
+import { uploadPostMedia, mimeToType, UPLOADS_PATH } from '../middleware/upload.js';
 import {
   createStudy,
   getStudy,
@@ -56,6 +60,12 @@ export const studiesRouter = Router();
 
 studiesRouter.use(requireLogin);
 
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 600 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, file.originalname.toLowerCase().endsWith('.zip')),
+});
+
 // Static paths first — /:id below would otherwise swallow these
 // (matching them as id="mine" etc.) if registered first.
 studiesRouter.get('/mine', async (req, res, next) => {
@@ -106,9 +116,63 @@ studiesRouter.post('/', async (req, res, next) => {
   }
 });
 
-studiesRouter.post('/import', async (req, res, next) => {
+studiesRouter.post('/import', importUpload.single('file'), async (req, res, next) => {
   try {
-    const { scriptoriumId, data } = req.body;
+    let data;
+
+    if (req.file) {
+      const AdmZip = (await import('adm-zip')).default;
+      const zip = new AdmZip(req.file.buffer);
+
+      const jsonEntry = zip.getEntry('study.json');
+      if (!jsonEntry) return res.status(400).json({ error: 'study.json not found in the zip.' });
+      try {
+        data = JSON.parse(jsonEntry.getData().toString('utf8'));
+      } catch {
+        return res.status(400).json({ error: 'study.json is not valid JSON.' });
+      }
+
+      // Extract banner if bundled
+      if (data.bannerFile) {
+        const entry = zip.getEntry(data.bannerFile);
+        if (entry) {
+          const ext = path.extname(data.bannerFile).toLowerCase();
+          if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].includes(ext)) {
+            const filename = `${randomUUID()}${ext}`;
+            const dir = path.join(UPLOADS_PATH, 'banners');
+            mkdirSync(dir, { recursive: true });
+            writeFileSync(path.join(dir, filename), entry.getData());
+            data.bannerUrl = `/uploads/banners/${filename}`;
+          }
+        }
+        delete data.bannerFile;
+      }
+
+      // Extract lesson videos if bundled
+      if (Array.isArray(data.lessons)) {
+        for (const lesson of data.lessons) {
+          if (lesson.videoFile) {
+            const entry = zip.getEntry(lesson.videoFile);
+            if (entry) {
+              const ext = path.extname(lesson.videoFile).toLowerCase();
+              if (['.mp4', '.webm', '.mov'].includes(ext)) {
+                const filename = `${randomUUID()}${ext}`;
+                const dir = path.join(UPLOADS_PATH, 'lesson-videos');
+                mkdirSync(dir, { recursive: true });
+                writeFileSync(path.join(dir, filename), entry.getData());
+                lesson.videoUrl = `/uploads/lesson-videos/${filename}`;
+              }
+            }
+            delete lesson.videoFile;
+          }
+        }
+      }
+    } else {
+      // Backward-compat: JSON body { scriptoriumId, data }
+      data = req.body.data;
+    }
+
+    const scriptoriumId = req.body?.scriptoriumId || null;
     res.status(201).json(await importStudy({ scriptoriumId, creatorId: req.user.id, data }));
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
@@ -240,8 +304,43 @@ studiesRouter.get('/:id/export', async (req, res, next) => {
   try {
     const data = await exportStudy(req.params.id, req.user.id);
     const slug = data.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase().replace(/^-+|-+$/g, '');
-    res.setHeader('Content-Disposition', `attachment; filename="${slug}.study.json"`);
-    res.json(data);
+
+    const AdmZip = (await import('adm-zip')).default;
+    const zip = new AdmZip();
+
+    // Bundle banner if it's a local upload
+    if (data.bannerUrl?.startsWith('/uploads/')) {
+      try {
+        const filePath = path.join(UPLOADS_PATH, data.bannerUrl.slice('/uploads/'.length));
+        const buf = readFileSync(filePath);
+        const ext = path.extname(filePath);
+        const bannerName = `banner${ext}`;
+        zip.addFile(bannerName, buf);
+        data.bannerFile = bannerName;
+      } catch { /* file missing on disk — skip */ }
+      data.bannerUrl = null;
+    }
+
+    // Bundle lesson videos that are local uploads
+    for (const lesson of data.lessons) {
+      if (lesson.videoUrl?.startsWith('/uploads/')) {
+        try {
+          const filePath = path.join(UPLOADS_PATH, lesson.videoUrl.slice('/uploads/'.length));
+          const buf = readFileSync(filePath);
+          const ext = path.extname(filePath);
+          const videoName = `videos/lesson-${lesson.order}${ext}`;
+          zip.addFile(videoName, buf);
+          lesson.videoFile = videoName;
+        } catch { /* file missing on disk — skip */ }
+        lesson.videoUrl = null;
+      }
+    }
+
+    zip.addFile('study.json', Buffer.from(JSON.stringify(data, null, 2)));
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${slug}.study.zip"`);
+    res.send(zip.toBuffer());
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
