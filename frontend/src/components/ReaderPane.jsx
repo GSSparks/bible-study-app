@@ -272,13 +272,19 @@ export default function ReaderPane({
         return newVerses;
       });
 
-      // Remove highlights for any trimmed chapter
+      // Remove highlights and commentary indicators for any trimmed chapter
       if (trimmed) {
         setHighlightMap((prev) => {
           const next = { ...prev };
           for (const k of Object.keys(next)) {
             if (k.startsWith(`${trimmed.book}-${trimmed.chapter}-`)) delete next[k];
           }
+          return next;
+        });
+        setCommentaryMap((prev) => {
+          const prefix = `${trimmed.book} ${trimmed.chapter}:`;
+          const next = new Set(prev);
+          for (const ref of prev) { if (ref.startsWith(prefix)) next.delete(ref); }
           return next;
         });
       }
@@ -1010,22 +1016,24 @@ export default function ReaderPane({
       )}
 
       {/* Note editor */}
-      {noteEditor && (
-        <VerseCommentaryEditor
-          reference={noteEditor.verseRef}
-          x={noteEditor.x}
-          y={noteEditor.y}
-          onClose={() => setNoteEditor(null)}
-          onSaved={() => {
-            onPersonalCommentarySaved?.();
-            const ref = noteEditor?.verseRef;
-            if (ref) {
-              const m = ref.match(/^(.+?)\s+(\d+):/);
-              if (m) loadCommentaryIndicators(m[1], parseInt(m[2], 10));
-            }
-          }}
-        />
-      )}
+      {noteEditor && (() => {
+        const { verseRef } = noteEditor;
+        return (
+          <VerseCommentaryEditor
+            reference={verseRef}
+            x={noteEditor.x}
+            y={noteEditor.y}
+            onClose={() => setNoteEditor(null)}
+            onSaved={() => {
+              onPersonalCommentarySaved?.();
+              if (verseRef) {
+                const m = verseRef.match(/^(.+?)\s+(\d+):/);
+                if (m) loadCommentaryIndicators(m[1], parseInt(m[2], 10));
+              }
+            }}
+          />
+        );
+      })()}
 
       {/* Phrase / word study toolbar */}
       {phraseSelection && createPortal(

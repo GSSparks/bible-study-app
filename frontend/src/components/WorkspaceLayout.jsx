@@ -11,7 +11,7 @@ const PANE_ICONS = {
 const PANE_LABELS = {
   bible: 'Bible', commentary: 'Commentary', dictionary: 'Dictionary',
   crossrefs: 'Cross-refs', passageguide: 'Guide', document: 'Docs',
-  search: 'Search', links: 'Links', notes: 'Notes',
+  search: 'Search', links: 'Links', notes: 'Notes', personal_commentary: 'My Commentary',
 };
 const MOBILE_TAB_TYPES = ['bible', 'commentary', 'dictionary', 'crossrefs', 'passageguide', 'document', 'search', 'links', 'notes', 'personal_commentary'];
 // Fixed order for the mobile tab strip — always shows all pane types so the
@@ -522,6 +522,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
             <PersonalCommentaryPane
               reference={focusedReference}
               onNavigate={onNavigate}
+              isLoggedIn={Boolean(auth?.user)}
             />
           </div>
         );

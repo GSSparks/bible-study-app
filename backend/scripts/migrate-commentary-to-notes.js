@@ -19,30 +19,39 @@ export async function migrateCommentaryToNotes() {
 
   if (mods.length === 0) return;
 
+  const modIds = mods.map((m) => m.id);
+  const modUserMap = Object.fromEntries(mods.map((m) => [m.id, m.userId]));
+
+  const allEntries = await prisma.personalEntry.findMany({
+    where: { moduleId: { in: modIds }, reference: { not: null } },
+  });
+
+  if (allEntries.length === 0) return;
+
+  const userIds = [...new Set(mods.map((m) => m.userId))];
+  const references = [...new Set(allEntries.map((e) => e.reference).filter(Boolean))];
+
+  const existingNotes = await prisma.note.findMany({
+    where: { userId: { in: userIds }, tags: { has: 'personal-commentary' }, reference: { in: references } },
+    select: { userId: true, reference: true },
+  });
+  const existingSet = new Set(existingNotes.map((n) => `${n.userId}|${n.reference}`));
+
   let migrated = 0;
-
-  for (const mod of mods) {
-    const entries = await prisma.personalEntry.findMany({
-      where: { moduleId: mod.id, reference: { not: null } },
+  for (const entry of allEntries) {
+    const userId = modUserMap[entry.moduleId];
+    if (!userId) continue;
+    if (existingSet.has(`${userId}|${entry.reference}`)) continue;
+    await prisma.note.create({
+      data: {
+        userId,
+        reference: entry.reference,
+        title: entry.title,
+        body: entry.bodyMd || entry.body || '',
+        tags: ['personal-commentary'],
+      },
     });
-
-    for (const entry of entries) {
-      const existing = await prisma.note.findFirst({
-        where: { userId: mod.userId, tags: { has: 'personal-commentary' }, reference: entry.reference },
-      });
-      if (existing) continue;
-
-      await prisma.note.create({
-        data: {
-          userId: mod.userId,
-          reference: entry.reference,
-          title: entry.title,
-          body: entry.bodyMd || entry.body || '',
-          tags: ['personal-commentary'],
-        },
-      });
-      migrated++;
-    }
+    migrated++;
   }
 
   if (migrated > 0) console.log(`Commentary migration: moved ${migrated} entries to Note table.`);

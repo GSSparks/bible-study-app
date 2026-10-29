@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { Upload, Download, Pencil } from 'lucide-react';
 import { api } from '../api/client.js';
 
-export default function PersonalCommentaryPane({ reference, onNavigate }) {
+export default function PersonalCommentaryPane({ reference, onNavigate, isLoggedIn = false }) {
   const [entry, setEntry] = useState(null);
   const [loadingEntry, setLoadingEntry] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -22,17 +22,18 @@ export default function PersonalCommentaryPane({ reference, onNavigate }) {
   const [exporting, setExporting] = useState(false);
 
   const refreshAll = useCallback(() => {
+    if (!isLoggedIn) return;
     setLoadingAll(true);
     api.listAllCommentaryEntries()
       .then(setAllEntries)
       .catch(() => {})
       .finally(() => setLoadingAll(false));
-  }, []);
+  }, [isLoggedIn]);
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
 
   useEffect(() => {
-    if (!reference) return;
+    if (!reference || !isLoggedIn) return;
     let cancelled = false;
     setLoadingEntry(true);
     setEditing(false);
@@ -105,6 +106,7 @@ export default function PersonalCommentaryPane({ reference, onNavigate }) {
     try {
       const { imported } = await api.importCommentary(file);
       setImportMsg(`Imported ${imported} entr${imported === 1 ? 'y' : 'ies'}.`);
+      setTimeout(() => setImportMsg(null), 3000);
       refreshAll();
       if (reference) {
         const updated = await api.getCommentaryEntry(reference);
