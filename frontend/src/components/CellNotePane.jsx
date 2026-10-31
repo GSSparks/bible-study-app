@@ -214,12 +214,12 @@ export default function CellNotePane({ isLoggedIn = false, focusedReference = nu
         created = await api.createNote({
           reference: focusedReference,
           title: `Note on ${focusedReference}`,
-          body: '',
+          body: ' ',
           tags: ['personal-commentary'],
         });
         setPassageNotes((prev) => [created, ...prev].sort((a, b) => (a.reference || '').localeCompare(b.reference || '')));
       } else {
-        created = await api.createNote({ title: null, body: '' });
+        created = await api.createNote({ title: null, body: ' ' });
         setGeneralNotes((prev) => [created, ...prev]);
       }
       applyNote(created);
