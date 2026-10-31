@@ -36,6 +36,7 @@ import { merriamRouter } from './routes/merriam.js';
 import { booksRouter } from './routes/books.js';
 import { codexRouter } from './routes/factbook.js';
 import { bibleMapsRouter } from './routes/bibleMaps.js';
+import { eswordLibraryRouter } from './routes/eswordLibrary.js';
 import { UPLOADS_PATH } from './middleware/upload.js';
 import { getFrameSrcOrigins } from './services/frameSrcCache.js';
 
@@ -171,6 +172,7 @@ export function createApp() {
   app.use('/api/books', booksRouter);
   app.use('/api/codex', codexRouter);
   app.use('/api/bible-maps', bibleMapsRouter);
+  app.use('/api/esword-library', eswordLibraryRouter);
   // SWORD module images — served directly from the modules data directory.
   // Entries in dict/maps modules contain relative <img> paths; swordService
   // rewrites them to /api/sword-data/{dataPath}/{img} so this handler resolves them.

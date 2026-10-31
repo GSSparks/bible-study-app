@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 
 const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding', 'Devotionals', 'Reading Plans', 'Codex'];
@@ -312,13 +312,22 @@ function langLabel(code) {
   }
 }
 
+const ESWORD_REPO = 'e-Sword Library';
+
+function filterESwordByType(catalog, t) {
+  return catalog
+    .filter((e) => e.type === t)
+    .map((e) => ({ name: e.filename, description: e.title, _downloadUrl: e.downloadUrl }));
+}
+
 function ModulesTab() {
   const [type, setType] = useState('BIBLE');
   const [repos, setRepos] = useState([]);
   const [selectedRepo, setSelectedRepo] = useState('');
-  const [available, setAvailable] = useState([]);
+  const [swordAvailable, setSwordAvailable] = useState([]);
   const [installed, setInstalled] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
   const [error, setError] = useState(null);
   const [installing, setInstalling] = useState(null);
   const [installProgress, setInstallProgress] = useState(null);
@@ -329,12 +338,18 @@ function ModulesTab() {
   const [toggling, setToggling] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadNote, setUploadNote] = useState(null);
+  const [eswordCatalog, setESwordCatalog] = useState(null);
 
-  // listModuleVisibility already returns everything needed for the
-  // "Installed" column — name, description, and availableToUsers — so
-  // there's no separate listInstalledModules call here the way the
-  // old standalone Module Manager needed; this merges what used to be
-  // two different module screens into one.
+  const fetchingESword = useRef(false);
+
+  const isESword = selectedRepo === ESWORD_REPO;
+
+  // For e-Sword, derive the filtered list directly from state — no separate setAvailable needed.
+  const available = useMemo(
+    () => (isESword ? filterESwordByType(eswordCatalog ?? [], type) : swordAvailable),
+    [isESword, eswordCatalog, type, swordAvailable],
+  );
+
   function refresh() {
     setLoading(true);
     setError(null);
@@ -346,48 +361,88 @@ function ModulesTab() {
   }
 
   useEffect(() => {
-    api.listRepositories().then(setRepos).catch((e) => setError(e.message));
+    api.listRepositories()
+      .then((r) => setRepos([...r, ESWORD_REPO]))
+      .catch((e) => setError(e.message));
   }, []);
 
+  // Refresh installed list whenever the type tab changes.
   useEffect(() => {
     refresh();
-    setAvailable([]);
     setAvailableSearch('');
     setLangFilter('');
-    if (selectedRepo) {
-      api.listAvailableModules(selectedRepo, type).then(setAvailable).catch((e) => setError(e.message));
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
+  // Load available modules when repo or type changes.
   useEffect(() => {
     if (!selectedRepo) return;
     setAvailableSearch('');
     setLangFilter('');
-    api.listAvailableModules(selectedRepo, type).then(setAvailable).catch((e) => setError(e.message));
+
+    if (isESword) {
+      // e-Sword filtered list is derived via useMemo — just fetch the catalog once.
+      if (eswordCatalog || fetchingESword.current) return;
+      fetchingESword.current = true;
+      setLoadingAvailable(true);
+      api.fetchESwordCatalog()
+        .then((catalog) => { setESwordCatalog(catalog); })
+        .catch((e) => setError(e.message))
+        .finally(() => { fetchingESword.current = false; setLoadingAvailable(false); });
+      return;
+    }
+
+    // SWORD repo: fetch available modules and cancel stale requests.
+    setSwordAvailable([]);
+    let cancelled = false;
+    api.listAvailableModules(selectedRepo, type)
+      .then((mods) => { if (!cancelled) setSwordAvailable(mods); })
+      .catch((e) => { if (!cancelled) setError(e.message); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRepo, type]);
 
-  async function handleInstall(moduleCode) {
-    setInstalling(moduleCode);
-    setInstallProgress({ totalPercent: 0, filePercent: 0, message: '' });
+  async function handleInstall(mod) {
+    const isESwordMod = typeof mod === 'object' && mod._downloadUrl;
+    const moduleKey = isESwordMod ? mod.name : mod;
+    setInstalling(moduleKey);
+    setInstallProgress(isESwordMod
+      ? { indeterminate: true, message: 'Starting…' }
+      : { totalPercent: 0, filePercent: 0, message: '' });
     setError(null);
     try {
-      const result = await api.installModule(selectedRepo, moduleCode);
-      const { jobId } = result ?? {};
-      if (!jobId) throw new Error('Server did not return a job ID — try restarting the backend.');
-      await new Promise((resolve, reject) => {
-        const es = new EventSource(`/api/modules/install/progress/${jobId}`);
-        es.addEventListener('progress', (e) => {
-          const data = JSON.parse(e.data);
-          setInstallProgress({ totalPercent: data.totalPercent, filePercent: data.filePercent, message: data.message });
+      if (isESwordMod) {
+        const { jobId } = await api.installFromESwordLibrary(mod._downloadUrl);
+        await new Promise((resolve, reject) => {
+          const es = new EventSource(`/api/esword-library/install/progress/${jobId}`);
+          es.addEventListener('progress', (e) => {
+            try { setInstallProgress({ indeterminate: true, message: JSON.parse(e.data).message }); } catch { /* */ }
+          });
+          es.addEventListener('complete', () => { es.close(); resolve(); });
+          es.addEventListener('job-error', (e) => {
+            es.close();
+            try { reject(new Error(JSON.parse(e.data).message)); } catch { reject(new Error('Install failed')); }
+          });
+          es.onerror = () => { es.close(); reject(new Error('Connection lost during install')); };
         });
-        es.addEventListener('complete', () => { es.close(); resolve(); });
-        es.addEventListener('job-error', (e) => {
-          es.close();
-          try { reject(new Error(JSON.parse(e.data).message)); } catch { reject(new Error('Install failed')); }
+      } else {
+        const result = await api.installModule(selectedRepo, moduleKey);
+        const { jobId } = result ?? {};
+        if (!jobId) throw new Error('Server did not return a job ID — try restarting the backend.');
+        await new Promise((resolve, reject) => {
+          const es = new EventSource(`/api/modules/install/progress/${jobId}`);
+          es.addEventListener('progress', (e) => {
+            const data = JSON.parse(e.data);
+            setInstallProgress({ totalPercent: data.totalPercent, filePercent: data.filePercent, message: data.message });
+          });
+          es.addEventListener('complete', () => { es.close(); resolve(); });
+          es.addEventListener('job-error', (e) => {
+            es.close();
+            try { reject(new Error(JSON.parse(e.data).message)); } catch { reject(new Error('Install failed')); }
+          });
+          es.onerror = () => { es.close(); reject(new Error('Connection lost during install')); };
         });
-        es.onerror = () => { es.close(); reject(new Error('Connection lost during install')); };
-      });
+      }
       refresh();
     } catch (e) {
       setError(e.message);
@@ -465,11 +520,11 @@ function ModulesTab() {
 
       <div className="mb-4 flex items-center gap-3">
         <label className="cursor-pointer rounded border border-dashed border-rule px-3 py-1.5 text-xs text-verdigris hover:border-verdigris hover:text-brass">
-          {uploading ? 'uploading…' : '⇪ Upload a module .zip manually'}
-          <input type="file" accept=".zip" className="hidden" onChange={handleUpload} disabled={uploading} />
+          {uploading ? 'uploading…' : '⇪ Upload a module'}
+          <input type="file" accept=".zip,.bblx,.bbli,.cmtx,.dctx,.topx" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
         {uploadNote && <p className="text-xs text-muted">{uploadNote}</p>}
-        {!uploadNote && <p className="text-xs text-muted">Accepts SWORD .zip, Markdown module .zip, or a .zip containing <code>module.json</code> + a <code>.xml</code> ThML file (CCEL format).</p>}
+        {!uploadNote && <p className="text-xs text-muted">Accepts SWORD .zip, Markdown module .zip, CCEL ThML .zip, or e-Sword files (.bblx/.bbli Bible, .cmtx commentary, .dctx dictionary, .topx topic notes).</p>}
       </div>
 
       {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
@@ -478,13 +533,19 @@ function ModulesTab() {
         <div className="mb-4 rounded-md border border-rule bg-ink/50 px-4 py-3">
           <div className="mb-1.5 flex items-center justify-between text-xs text-muted">
             <span>Installing <span className="font-mono text-parchment">{installing}</span>…</span>
-            <span className="tabular-nums">{installProgress.totalPercent}%</span>
+            {!installProgress.indeterminate && (
+              <span className="tabular-nums">{installProgress.totalPercent}%</span>
+            )}
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-rule">
-            <div
-              className="h-full rounded-full bg-brass transition-all duration-300"
-              style={{ width: `${installProgress.totalPercent}%` }}
-            />
+            {installProgress.indeterminate ? (
+              <div className="h-full w-full animate-pulse rounded-full bg-brass/60" />
+            ) : (
+              <div
+                className="h-full rounded-full bg-brass transition-all duration-300"
+                style={{ width: `${installProgress.totalPercent}%` }}
+              />
+            )}
           </div>
           {installProgress.message && (
             <p className="mt-1 truncate text-xs text-muted">{installProgress.message}</p>
@@ -502,12 +563,10 @@ function ModulesTab() {
           >
             <option value="">Select a repository…</option>
             {repos.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
+              <option key={r} value={r}>{r}</option>
             ))}
           </select>
-          {available.length > 0 && (() => {
+          {!isESword && available.length > 0 && (() => {
             const langs = [...new Set(available.map((m) => m.language).filter(Boolean))].sort((a, b) => {
               if (a === 'en') return -1;
               if (b === 'en') return 1;
@@ -528,12 +587,13 @@ function ModulesTab() {
               </select>
             ) : null;
           })()}
-          {available.length > 0 && (
+          {(available.length > 0 || loadingAvailable) && (
             <input
               value={availableSearch}
               onChange={(e) => setAvailableSearch(e.target.value)}
-              placeholder="Filter modules…"
+              placeholder={isESword ? `Search ${available.length} modules…` : 'Filter modules…'}
               className="mb-2 w-full rounded-md border border-rule bg-ink px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+              disabled={loadingAvailable}
             />
           )}
           {available.length > 0 && (
@@ -550,12 +610,21 @@ function ModulesTab() {
           <div className="max-h-96 overflow-y-auto overflow-x-hidden rounded-md border border-rule">
             {(() => {
               const installedNames = new Set(installed.map((m) => m.name));
+              const installedSourceFiles = isESword
+                ? new Set(installed.map((m) => m.sourceFile).filter(Boolean))
+                : null;
               const q = availableSearch.toLowerCase();
-              let shown = hideInstalled ? available.filter((m) => !installedNames.has(m.name)) : available;
+              let shown = hideInstalled
+                ? available.filter((m) => {
+                    if (isESword && installedSourceFiles) return !installedSourceFiles.has(m.name);
+                    return !installedNames.has(m.name);
+                  })
+                : available;
               if (langFilter) shown = shown.filter((m) => m.language === langFilter);
               if (q) shown = shown.filter((m) => m.name.toLowerCase().includes(q) || (m.description || '').toLowerCase().includes(q));
               if (!selectedRepo) return <p className="p-3 text-sm text-muted">Pick a repository to browse what's available.</p>;
-              if (available.length === 0) return <p className="p-3 text-sm text-muted">No modules of this type found in this repository.</p>;
+              if (loadingAvailable) return <p className="p-3 text-sm text-muted">Fetching catalog…</p>;
+              if (available.length === 0) return <p className="p-3 text-sm text-muted">No {type.toLowerCase()} modules found{isESword ? ' in the e-Sword Library' : ' in this repository'}.</p>;
               if (shown.length === 0 && hideInstalled && installedNames.size > 0 && !langFilter && !q) return <p className="p-3 text-sm text-muted">All available modules of this type are already installed.</p>;
               if (shown.length === 0) return <p className="p-3 text-sm text-muted">No matches{langFilter ? ` in ${langLabel(langFilter)}` : ''}{q ? ` for "${availableSearch}"` : ''}.</p>;
               return shown.map((m) => (
@@ -563,13 +632,13 @@ function ModulesTab() {
                   <div className="min-w-0 flex-1">
                     <div className="text-parchment">{m.description || m.name}</div>
                     <div className="flex items-center gap-2 font-mono text-xs text-muted">
-                      <span>{m.name}</span>
-                      {m.language && <span className="rounded bg-ink px-1 py-px font-sans text-[10px] uppercase tracking-wide">{m.language}</span>}
+                      <span className="truncate">{m.name}</span>
+                      {m.language && <span className="shrink-0 rounded bg-ink px-1 py-px font-sans text-[10px] uppercase tracking-wide">{m.language}</span>}
                     </div>
                   </div>
                   <button
                     disabled={installing === m.name}
-                    onClick={() => handleInstall(m.name)}
+                    onClick={() => handleInstall(m._downloadUrl ? m : m.name)}
                     className="ml-2 shrink-0 rounded bg-verdigris/80 px-2 py-1 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
                   >
                     {installing === m.name ? 'installing…' : 'install'}
@@ -624,6 +693,7 @@ function ModulesTab() {
     </div>
   );
 }
+
 
 function PostsTab() {
   const [posts, setPosts] = useState([]);

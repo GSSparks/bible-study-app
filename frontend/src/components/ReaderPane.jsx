@@ -789,6 +789,7 @@ export default function ReaderPane({
 
   const segments = useMemo(() => groupVerses(verses), [verses]);
   const firstVerse = verses[0];
+  const hasStrongs = verses.some((v) => v.content?.includes('data-strong='));
 
   function goToChapter(delta) {
     if (!firstVerse) return;
@@ -811,8 +812,15 @@ export default function ReaderPane({
             {showMarginalia && (
               <button
                 onClick={toggleInterlinear}
-                title="Toggle interlinear mode"
-                className={`rounded border px-2 py-1 text-xs transition-colors ${interlinearMode ? 'border-verdigris text-verdigris' : 'border-pageBorder text-pageMuted hover:border-pageAccent hover:text-pageText'}`}
+                disabled={!hasStrongs}
+                title={hasStrongs ? 'Toggle interlinear mode' : 'No Strong’s data in this module'}
+                className={`rounded border px-2 py-1 text-xs transition-colors ${
+                  !hasStrongs
+                    ? 'cursor-not-allowed border-pageBorder text-pageMuted opacity-40'
+                    : interlinearMode
+                    ? 'border-verdigris text-verdigris'
+                    : 'border-pageBorder text-pageMuted hover:border-pageAccent hover:text-pageText'
+                }`}
               >
                 Interlinear
               </button>

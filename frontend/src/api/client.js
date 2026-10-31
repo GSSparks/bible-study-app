@@ -372,4 +372,9 @@ export const api = {
   getAllMaps: () => request('/bible-maps/all'),
   getMapsForReference: (ref) =>
     request(`/bible-maps/for-reference?ref=${encodeURIComponent(ref)}`),
+
+  // e-Sword Library (eswordlibrary.com)
+  fetchESwordCatalog: () => request('/esword-library/catalog'),
+  installFromESwordLibrary: (downloadUrl) =>
+    request('/esword-library/install', { method: 'POST', body: JSON.stringify({ downloadUrl }) }),
 };
