@@ -87,6 +87,7 @@ This wiki contains one summary file per source file in the repository. Each summ
 | `backend/src/services/connectionService.js` | [backend-services/connectionService.js.md](backend-services/connectionService.js.md) |
 | `backend/src/services/contextBuilder.js` | [backend-services/contextBuilder.js.md](backend-services/contextBuilder.js.md) |
 | `backend/src/services/devotionalService.js` | [backend-services/devotionalService.js.md](backend-services/devotionalService.js.md) |
+| `backend/src/services/eSwordService.js` | [backend-services/eSwordService.js.md](backend-services/eSwordService.js.md) |
 | `backend/src/services/eswordLibraryService.js` | [backend-services/eswordLibraryService.js.md](backend-services/eswordLibraryService.js.md) |
 | `backend/src/services/factbookSummaryService.js` | [backend-services/factbookSummaryService.js.md](backend-services/factbookSummaryService.js.md) |
 | `backend/src/services/mdModuleService.js` | [backend-services/mdModuleService.js.md](backend-services/mdModuleService.js.md) |

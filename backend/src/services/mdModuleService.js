@@ -1,5 +1,5 @@
 import { readdir, readFile, mkdir, rm } from 'fs/promises';
-import { existsSync } from 'fs';
+
 import { join, basename, resolve } from 'path';
 import { marked } from 'marked';
 import AdmZip from 'adm-zip';
@@ -442,7 +442,10 @@ export async function getMdFullBookContent(dirName) {
   if (meta?.format?.startsWith('esword-')) {
     const entries = await getESwordAllEntries(join(modulePath, 'data.db'));
     return entries
-      .map(({ key, text }) => `<h2>${key}</h2>\n${mdToHtml(text)}`)
+      .map(({ key, text }) => {
+        const safeKey = key.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<h2>${safeKey}</h2>\n${mdToHtml(text)}`;
+      })
       .join('\n\n');
   }
 

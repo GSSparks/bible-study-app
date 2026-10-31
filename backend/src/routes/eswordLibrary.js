@@ -2,10 +2,8 @@ import { Router } from 'express';
 import { requireAdmin } from '../middleware/auth.js';
 import { fetchCatalog, downloadModuleFile } from '../services/eswordLibraryService.js';
 import { installMdModuleFromZip } from '../services/mdModuleService.js';
-import { convertESword, installESwordDirect } from '../services/eSwordService.js';
+import { convertESword, installESwordDirect, ESWORD_EXTS } from '../services/eSwordService.js';
 import { swordService } from '../services/swordService.js';
-
-const ESWORD_EXTS = new Set(['.bblx', '.bbli', '.cmtx', '.dctx', '.topx']);
 
 export const eswordLibraryRouter = Router();
 

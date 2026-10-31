@@ -15,6 +15,8 @@ import AdmZip from 'adm-zip';
 
 const MD_MODULES_PATH = process.env.MD_MODULES_PATH || '/data/md-modules';
 
+export const ESWORD_EXTS = new Set(['.bblx', '.bbli', '.cmtx', '.dctx', '.topx']);
+
 // e-Sword book numbers 1–66 → lowercase filename stems used by MD modules.
 const BOOK_STEMS = [
   null, // index 0 unused
@@ -501,22 +503,6 @@ function resolveTopicTable(db) {
   throw err;
 }
 
-function convertTopicNotes(db) {
-  const { table, topicCol, noteCol } = resolveTopicTable(db);
-  const rows = db.prepare(
-    `SELECT \`${topicCol}\`, \`${noteCol}\` FROM \`${table}\` ORDER BY \`${topicCol}\``
-  ).all();
-
-  let content = '';
-  for (const row of rows) {
-    const topic = row[topicCol]?.trim();
-    const text  = cleanMarkup(row[noteCol]);
-    if (!topic || !text) continue;
-    content += `## ${topic}\n${text}\n\n`;
-  }
-  return content;
-}
-
 /**
  * Convert an e-Sword buffer to a zip buffer ready for installMdModuleFromZip.
  *
@@ -588,7 +574,7 @@ export async function convertESword(buffer, ext, originalName = '') {
       }
     }
     if (dictContent !== undefined) {
-      const dictFile = type === 'BOOK' ? 'content.md' : 'dictionary.md';
+      const dictFile = 'dictionary.md';
       zip.addFile(dictFile, Buffer.from(dictContent, 'utf8'));
     }
 

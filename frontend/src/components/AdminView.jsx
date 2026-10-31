@@ -625,7 +625,7 @@ function ModulesTab() {
               if (!selectedRepo) return <p className="p-3 text-sm text-muted">Pick a repository to browse what's available.</p>;
               if (loadingAvailable) return <p className="p-3 text-sm text-muted">Fetching catalog…</p>;
               if (available.length === 0) return <p className="p-3 text-sm text-muted">No {type.toLowerCase()} modules found{isESword ? ' in the e-Sword Library' : ' in this repository'}.</p>;
-              if (shown.length === 0 && hideInstalled && installedNames.size > 0 && !langFilter && !q) return <p className="p-3 text-sm text-muted">All available modules of this type are already installed.</p>;
+              if (shown.length === 0 && hideInstalled && (installedNames.size > 0 || (isESword && (installedSourceFiles?.size ?? 0) > 0)) && !langFilter && !q) return <p className="p-3 text-sm text-muted">All available modules of this type are already installed.</p>;
               if (shown.length === 0) return <p className="p-3 text-sm text-muted">No matches{langFilter ? ` in ${langLabel(langFilter)}` : ''}{q ? ` for "${availableSearch}"` : ''}.</p>;
               return shown.map((m) => (
                 <div key={m.name} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">

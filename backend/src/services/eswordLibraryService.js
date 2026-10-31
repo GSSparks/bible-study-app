@@ -68,7 +68,14 @@ function inferZipType(filename) {
   return 'BOOK';
 }
 
+let catalogCache = null;
+let catalogCacheTime = 0;
+const CATALOG_TTL_MS = 10 * 60 * 1000;
+
 export async function fetchCatalog() {
+  if (catalogCache && Date.now() - catalogCacheTime < CATALOG_TTL_MS) {
+    return catalogCache;
+  }
   const allEntries = [];
   const BATCH = 6;
   for (let i = 0; i < ALPHALIST_PAGES.length; i += BATCH) {
@@ -79,11 +86,14 @@ export async function fetchCatalog() {
   // Deduplicate by filename — the same module can appear on multiple alphalist pages,
   // potentially with different URL timestamps each time.
   const seen = new Set();
-  return allEntries.filter((e) => {
+  const result = allEntries.filter((e) => {
     if (seen.has(e.filename)) return false;
     seen.add(e.filename);
     return true;
   });
+  catalogCache = result;
+  catalogCacheTime = Date.now();
+  return result;
 }
 
 async function fetchAlphalistPage(url) {
@@ -162,7 +172,15 @@ export async function downloadModuleFile(downloadUrl, onProgress) {
     );
   }
 
+  const MAX_BYTES = 300 * 1024 * 1024;
+  const contentLength = Number(res.headers.get('content-length') || 0);
+  if (contentLength > MAX_BYTES) {
+    throw Object.assign(new Error(`File is too large to download (${Math.round(contentLength / 1024 / 1024)} MB limit is 300 MB)`), { status: 400 });
+  }
   const buffer = Buffer.from(await res.arrayBuffer());
+  if (buffer.length > MAX_BYTES) {
+    throw Object.assign(new Error('Downloaded file exceeds 300 MB limit'), { status: 400 });
+  }
 
   // Derive filename from Content-Disposition or final URL
   const cd = res.headers.get('content-disposition') || '';

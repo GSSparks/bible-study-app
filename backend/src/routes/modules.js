@@ -6,9 +6,7 @@ import { filterAvailableModules } from '../services/moduleVisibilityService.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { listMdModules, installMdModuleFromZip, removeMdModule, isMdModuleCode, mdDirName } from '../services/mdModuleService.js';
 import { listBuiltinModules } from '../services/builtinLexiconService.js';
-import { convertESword, installESwordDirect } from '../services/eSwordService.js';
-
-const ESWORD_EXTS = new Set(['.bblx', '.bbli', '.cmtx', '.dctx', '.topx']);
+import { convertESword, installESwordDirect, ESWORD_EXTS } from '../services/eSwordService.js';
 
 export const modulesRouter = Router();
 
