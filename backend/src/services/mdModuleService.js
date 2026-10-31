@@ -1,7 +1,9 @@
 import { readdir, readFile, mkdir, rm } from 'fs/promises';
+
 import { join, basename, resolve } from 'path';
 import { marked } from 'marked';
 import AdmZip from 'adm-zip';
+import { getESwordKeys, getESwordEntry, getESwordAllEntries } from './eSwordService.js';
 
 const MD_MODULES_PATH = process.env.MD_MODULES_PATH || '/data/md-modules';
 export const MD_PREFIX = 'md:';
@@ -64,6 +66,17 @@ function mdToHtml(md) {
   return marked.parse(md);
 }
 
+// For Bible verse content rendered inline inside ReaderPane's <p> context,
+// a single-paragraph marked output produces <p>text</p> which is a block
+// element inside an inline <span>, breaking browser layout. Strip the wrapper
+// when the entire content is a single <p>...</p> block.
+function mdToHtmlInline(md) {
+  if (!md) return '';
+  const html = marked.parse(md);
+  const m = html.match(/^<p>([\s\S]*?)<\/p>\n?$/);
+  return m ? m[1].trim() : html;
+}
+
 async function readBookFile(moduleDirName, book) {
   const modulePath = join(MD_MODULES_PATH, moduleDirName);
   const normalized = normalizeBookFileName(book); // e.g. "gen" or "genesis"
@@ -93,6 +106,14 @@ async function readBookFile(moduleDirName, book) {
   }
 }
 
+async function readModuleMeta(modulePath) {
+  try {
+    return JSON.parse(await readFile(join(modulePath, 'module.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export async function listMdModules(type = null) {
@@ -114,6 +135,7 @@ export async function listMdModules(type = null) {
         name: `${MD_PREFIX}${entry.name}`,
         description: meta.name || entry.name,
         source: 'markdown',
+        ...(meta.sourceFile ? { sourceFile: meta.sourceFile } : {}),
       });
     } catch {
       // skip dirs without valid module.json
@@ -144,9 +166,20 @@ export async function getMdPassage(moduleDirName, ref) {
       const section = sections.find((s) => s.key === `${parsed.chapter}:${v}`);
       if (section) matched.push({ verseNr: v, content: section.content });
     }
+  } else {
+    // Chapter-only request — collect all verse-keyed sections for this chapter
+    // (e.g. ## 4:1, ## 4:2, ... from converted BIBLE modules)
+    const prefix = `${parsed.chapter}:`;
+    for (const s of sections) {
+      if (s.key.startsWith(prefix)) {
+        const v = parseInt(s.key.slice(prefix.length), 10);
+        if (!isNaN(v)) matched.push({ verseNr: v, content: s.content });
+      }
+    }
+    matched.sort((a, b) => a.verseNr - b.verseNr);
   }
 
-  // Fall back to chapter-level match (e.g., "## 3" heading)
+  // Fall back to chapter-level match (e.g., "## 3" heading in commentary-style modules)
   if (matched.length === 0) {
     const chapterSection = sections.find((s) => s.key === String(parsed.chapter));
     if (chapterSection) matched.push({ verseNr: 1, content: chapterSection.content });
@@ -159,7 +192,7 @@ export async function getMdPassage(moduleDirName, ref) {
     chapter: parsed.chapter,
     verseNr,
     absoluteVerseNr: i,
-    content: mdToHtml(content),
+    content: mdToHtmlInline(content),
     titles: [],
   }));
 }
@@ -191,6 +224,12 @@ export async function getMdDictionaryKeys(moduleDirName) {
 
 export async function getMdBookChapters(moduleDirName) {
   const modulePath = join(MD_MODULES_PATH, moduleDirName);
+
+  const meta = await readModuleMeta(modulePath);
+  if (meta?.format?.startsWith('esword-')) {
+    return getESwordKeys(join(modulePath, 'data.db'));
+  }
+
   let files;
   try {
     files = await readdir(modulePath);
@@ -269,6 +308,13 @@ function extractHtmlSection(html, key) {
 
 export async function getMdBookChapterContent(dirName, key) {
   const modulePath = join(MD_MODULES_PATH, dirName);
+
+  const meta = await readModuleMeta(modulePath);
+  if (meta?.format?.startsWith('esword-')) {
+    const text = await getESwordEntry(join(modulePath, 'data.db'), key);
+    return text ? mdToHtml(text) : null;
+  }
+
   let files;
   try { files = await readdir(modulePath); } catch { return null; }
 
@@ -391,6 +437,18 @@ function parseThml(xml) {
 // otherwise all .md files are concatenated in sorted order.
 export async function getMdFullBookContent(dirName) {
   const modulePath = join(MD_MODULES_PATH, dirName);
+
+  const meta = await readModuleMeta(modulePath);
+  if (meta?.format?.startsWith('esword-')) {
+    const entries = await getESwordAllEntries(join(modulePath, 'data.db'));
+    return entries
+      .map(({ key, text }) => {
+        const safeKey = key.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<h2>${safeKey}</h2>\n${mdToHtml(text)}`;
+      })
+      .join('\n\n');
+  }
+
   let files;
   try { files = await readdir(modulePath); } catch { return ''; }
 

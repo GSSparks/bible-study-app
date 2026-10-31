@@ -58,6 +58,7 @@ This wiki contains one summary file per source file in the repository. Each summ
 | `backend/src/routes/dictionary.js` | [backend-routes/dictionary.js.md](backend-routes/dictionary.js.md) |
 | `backend/src/routes/factbook.js` | [backend-routes/factbook.js.md](backend-routes/factbook.js.md) |
 | `backend/src/routes/merriam.js` | [backend-routes/merriam.js.md](backend-routes/merriam.js.md) |
+| `backend/src/routes/eswordLibrary.js` | [backend-routes/eswordLibrary.js.md](backend-routes/eswordLibrary.js.md) |
 | `backend/src/routes/modules.js` | [backend-routes/modules.js.md](backend-routes/modules.js.md) |
 | `backend/src/routes/notes.js` | [backend-routes/notes.js.md](backend-routes/notes.js.md) |
 | `backend/src/routes/pdf.js` | [backend-routes/pdf.js.md](backend-routes/pdf.js.md) |
@@ -86,6 +87,8 @@ This wiki contains one summary file per source file in the repository. Each summ
 | `backend/src/services/connectionService.js` | [backend-services/connectionService.js.md](backend-services/connectionService.js.md) |
 | `backend/src/services/contextBuilder.js` | [backend-services/contextBuilder.js.md](backend-services/contextBuilder.js.md) |
 | `backend/src/services/devotionalService.js` | [backend-services/devotionalService.js.md](backend-services/devotionalService.js.md) |
+| `backend/src/services/eSwordService.js` | [backend-services/eSwordService.js.md](backend-services/eSwordService.js.md) |
+| `backend/src/services/eswordLibraryService.js` | [backend-services/eswordLibraryService.js.md](backend-services/eswordLibraryService.js.md) |
 | `backend/src/services/factbookSummaryService.js` | [backend-services/factbookSummaryService.js.md](backend-services/factbookSummaryService.js.md) |
 | `backend/src/services/mdModuleService.js` | [backend-services/mdModuleService.js.md](backend-services/mdModuleService.js.md) |
 | `backend/src/services/metricsService.js` | [backend-services/metricsService.js.md](backend-services/metricsService.js.md) |

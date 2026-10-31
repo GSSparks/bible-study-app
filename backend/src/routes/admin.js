@@ -89,6 +89,7 @@ adminRouter.get('/modules/visibility', async (req, res, next) => {
       description: m.description,
       availableToUsers: true,
       isMd: true,
+      ...(m.sourceFile ? { sourceFile: m.sourceFile } : {}),
     }));
     res.json([...swordResult, ...mdResult]);
   } catch (err) {

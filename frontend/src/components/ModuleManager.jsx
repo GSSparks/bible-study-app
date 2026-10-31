@@ -131,8 +131,8 @@ export default function ModuleManager({ onClose, onOpenModule, onModulesChanged,
 
         <div className="flex items-center gap-3 border-b border-rule px-6 py-2">
           <label className="cursor-pointer rounded border border-dashed border-rule px-3 py-1.5 text-xs text-verdigris hover:border-verdigris hover:text-brass">
-            {uploading ? 'uploading…' : '⇪ Upload module .zip'}
-            <input type="file" accept=".zip" className="hidden" onChange={handleUpload} disabled={uploading} />
+            {uploading ? 'uploading…' : '⇪ Upload module'}
+            <input type="file" accept=".zip,.bblx,.bbli,.cmtx,.dctx,.topx" className="hidden" onChange={handleUpload} disabled={uploading} />
           </label>
           {uploadNote && <p className="text-xs text-muted">{uploadNote}</p>}
         </div>

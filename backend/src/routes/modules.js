@@ -6,6 +6,7 @@ import { filterAvailableModules } from '../services/moduleVisibilityService.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { listMdModules, installMdModuleFromZip, removeMdModule, isMdModuleCode, mdDirName } from '../services/mdModuleService.js';
 import { listBuiltinModules } from '../services/builtinLexiconService.js';
+import { convertESword, installESwordDirect, ESWORD_EXTS } from '../services/eSwordService.js';
 
 export const modulesRouter = Router();
 
@@ -14,10 +15,11 @@ export const modulesRouter = Router();
 const installJobs = new Map();
 
 const upload = multer({
-  limits: { fileSize: 300 * 1024 * 1024 }, // some modules (esp. commentaries) run large
+  limits: { fileSize: 300 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!file.originalname.toLowerCase().endsWith('.zip')) {
-      return cb(new Error('Only .zip files are accepted'));
+    const ext = file.originalname.toLowerCase().match(/\.[^.]+$/)?.[0] ?? '';
+    if (ext !== '.zip' && !ESWORD_EXTS.has(ext)) {
+      return cb(new Error('Accepted formats: .zip, .bblx/.bbli (e-Sword Bible), .cmtx (e-Sword commentary), .dctx (e-Sword dictionary), .topx (e-Sword topic notes)'));
     }
     cb(null, true);
   },
@@ -150,6 +152,20 @@ modulesRouter.post('/upload', requireAdmin, upload.single('file'), async (req, r
   try {
     if (!req.file) return res.status(400).json({ error: 'file is required' });
 
+    const ext = req.file.originalname.toLowerCase().match(/\.[^.]+$/)?.[0] ?? '';
+
+    // .topx — store SQLite directly, query at read time
+    if (ext === '.topx') {
+      const moduleCode = await installESwordDirect(req.file.buffer, ext, req.file.originalname);
+      return res.json({ status: 'installed', moduleCode });
+    }
+    // Other e-Sword formats — convert to MD module zip
+    if (ESWORD_EXTS.has(ext)) {
+      const zipBuffer = await convertESword(req.file.buffer, ext, req.file.originalname);
+      const moduleCode = await installMdModuleFromZip(zipBuffer);
+      return res.json({ status: 'installed', moduleCode });
+    }
+
     // Auto-detect zip type: MD modules contain module.json; SWORD modules contain mods.d/
     const AdmZip = (await import('adm-zip')).default;
     const zip = new AdmZip(req.file.buffer);
@@ -167,6 +183,7 @@ modulesRouter.post('/upload', requireAdmin, upload.single('file'), async (req, r
       note: "If it doesn't show up in the installed list right away, restart the backend — local module scanning may only happen at startup.",
     });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
   }
 });
