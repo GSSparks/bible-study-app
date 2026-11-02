@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useHorizontalScroll } from '../hooks/useHorizontalScroll.js';
-import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, Link, MapPin, StickyNote } from 'lucide-react';
+import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, Link, MapPin, StickyNote, Sparkles, X } from 'lucide-react';
 import PassageMapsModal from './PassageMapsModal.jsx';
 
 const PANE_ICONS = {
@@ -716,6 +716,11 @@ export default function WorkspaceLayout({
   const [over, setOver] = useState(null);
   const [mobilePaneId, setMobilePaneId] = useState(null);
   const prevPaneIdsRef = useRef(null);
+  const touchStartRef = useRef(null);
+  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
+  const [quickNoteText, setQuickNoteText] = useState('');
+  const [quickNoteError, setQuickNoteError] = useState(null);
+  const [quickNoteSaving, setQuickNoteSaving] = useState(false);
 
   // Flat ordered list of all panes for the mobile view.
   const allPanes = columns.flatMap((col) => col.rows.map((row) => ({ col, row })));
@@ -822,6 +827,48 @@ export default function WorkspaceLayout({
   const firstCol = columns[0];
   const lastCol = columns[columns.length - 1];
 
+  function handleTouchStart(e) {
+    if (e.touches.length !== 1) return;
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+
+  function handleTouchEnd(e) {
+    if (!touchStartRef.current || e.changedTouches.length !== 1) return;
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+    const idx = allPanes.findIndex(({ row }) => row.id === activeMobilePaneId);
+    if (dx < 0 && idx < allPanes.length - 1) setMobilePaneId(allPanes[idx + 1].row.id);
+    if (dx > 0 && idx > 0) setMobilePaneId(allPanes[idx - 1].row.id);
+  }
+
+  async function saveQuickNote() {
+    const text = quickNoteText.trim();
+    if (!text) { setQuickNoteOpen(false); setQuickNoteText(''); return; }
+    setQuickNoteSaving(true);
+    setQuickNoteError(null);
+    try {
+      await api.createNote({ title: null, body: text });
+      setQuickNoteText('');
+      setQuickNoteOpen(false);
+    } catch (e) {
+      setQuickNoteError(e.message);
+    } finally {
+      setQuickNoteSaving(false);
+    }
+  }
+
+  function handleMobileAiTap() {
+    const guidePane = allPanes.find(({ row }) => row.type === 'passageguide');
+    if (guidePane) {
+      setMobilePaneId(guidePane.row.id);
+      if (shared.focusedReference) shared.onAskAboutPassage(shared.defaultBibleModule, shared.focusedReference);
+    } else if (shared.focusedReference) {
+      shared.onAskAboutPassage(shared.defaultBibleModule, shared.focusedReference);
+    }
+  }
+
   return (
     <div className="h-full min-h-0 overflow-hidden">
 
@@ -874,8 +921,26 @@ export default function WorkspaceLayout({
                 );
               })}
             </div>
-            {/* Pane content — all mounted, CSS toggles visibility */}
-            <div className="relative min-h-0 flex-1 overflow-hidden">
+            {/* Pane position indicator — dots show swipe position when multiple panes open */}
+            {allPanes.length > 1 && (
+              <div className="flex shrink-0 justify-center gap-2 border-b border-rule bg-panel py-1.5">
+                {allPanes.map(({ row }) => (
+                  <button
+                    key={row.id}
+                    onClick={() => setMobilePaneId(row.id)}
+                    className={`h-1.5 rounded-full transition-all ${
+                      row.id === activeMobilePaneId ? 'w-4 bg-brass' : 'w-1.5 bg-muted/30'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+            {/* Pane content — all mounted, CSS toggles visibility. Touch handlers enable swipe-between-panes. */}
+            <div
+              className="relative min-h-0 flex-1 overflow-hidden"
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
               {allPanes.map(({ col, row }) => (
                 <div key={row.id} className={`absolute inset-0 flex flex-col ${row.id === activeMobilePaneId ? '' : 'hidden'}`}>
                   <PaneShell
@@ -887,6 +952,65 @@ export default function WorkspaceLayout({
                 </div>
               ))}
             </div>
+            {/* FABs: AI (bottom-left) and quick note (bottom-right); hidden when drawers or note sheet are open */}
+            {!quickNoteOpen && !shared.strongsDrawer && !shared.verseDrawer && (
+              <div className="pointer-events-none absolute bottom-5 left-0 right-0 z-20 flex items-end justify-between px-4">
+                <button
+                  className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-ink/90 shadow-lg ring-1 ring-rule"
+                  title="Ask AI about this passage"
+                  onClick={handleMobileAiTap}
+                >
+                  <Sparkles size={20} className="text-brass" />
+                </button>
+                <button
+                  className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-brass shadow-lg"
+                  title="Quick capture note"
+                  onClick={() => { setQuickNoteOpen(true); setQuickNoteError(null); }}
+                >
+                  <StickyNote size={20} className="text-ink" />
+                </button>
+              </div>
+            )}
+            {/* Quick note bottom-sheet */}
+            {quickNoteOpen && (
+              <div
+                className="absolute inset-0 z-40 flex flex-col justify-end bg-ink/60"
+                onClick={() => { setQuickNoteOpen(false); setQuickNoteText(''); }}
+              >
+                <div className="rounded-t-2xl bg-panel p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-parchment">Quick Note</span>
+                    <div className="flex items-center gap-3">
+                      {shared.focusedReference && (
+                        <span className="text-xs text-muted">{shared.focusedReference}</span>
+                      )}
+                      <button onClick={() => { setQuickNoteOpen(false); setQuickNoteText(''); }}>
+                        <X size={16} className="text-muted" />
+                      </button>
+                    </div>
+                  </div>
+                  <textarea
+                    autoFocus
+                    className="mb-3 h-32 w-full resize-none rounded border border-rule bg-ink/40 p-2 text-sm text-parchment placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-brass"
+                    placeholder="Type your note…"
+                    value={quickNoteText}
+                    onChange={(e) => setQuickNoteText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') { setQuickNoteOpen(false); setQuickNoteText(''); }
+                      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') saveQuickNote();
+                    }}
+                  />
+                  {quickNoteError && <p className="mb-2 text-xs text-red-400">{quickNoteError}</p>}
+                  <button
+                    onClick={saveQuickNote}
+                    disabled={quickNoteSaving || !quickNoteText.trim()}
+                    className="w-full rounded-lg bg-brass py-2.5 text-sm font-semibold text-ink disabled:opacity-40"
+                  >
+                    {quickNoteSaving ? 'Saving…' : 'Save Note'}
+                  </button>
+                </div>
+              </div>
+            )}
             {/* Strong's and verse drawers — rendered as bottom-sheet overlays on mobile
                 (suppressed inside PaneShell via isMobile so they don't clip) */}
             {shared.strongsDrawer && (
