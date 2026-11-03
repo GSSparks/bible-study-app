@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import MarkdownContent from './MarkdownContent.jsx';
 import { Upload, Download, Pencil } from 'lucide-react';
 import { api } from '../api/client.js';
 
@@ -211,10 +210,10 @@ export default function PersonalCommentaryPane({ reference, onNavigate, isLogged
                 className="w-full resize-none bg-transparent font-mono text-sm text-pageText placeholder:text-pageMuted/50 focus:outline-none"
               />
             ) : (
-              <div className="markdown-body markdown-body-page max-h-44 overflow-y-auto text-sm text-pageText">
+              <div className="max-h-44 overflow-y-auto">
                 {body.trim()
-                  ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
-                  : <p className="italic text-pageMuted/60">Nothing to preview.</p>
+                  ? <MarkdownContent className="markdown-body-page text-sm text-pageText">{body}</MarkdownContent>
+                  : <p className="text-sm italic text-pageMuted/60">Nothing to preview.</p>
                 }
               </div>
             )}
@@ -233,9 +232,7 @@ export default function PersonalCommentaryPane({ reference, onNavigate, isLogged
             </div>
           </div>
         ) : entry ? (
-          <div className="markdown-body markdown-body-page max-h-52 overflow-y-auto px-3 pb-3 text-sm text-pageText">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.bodyMd || ''}</ReactMarkdown>
-          </div>
+          <MarkdownContent className="markdown-body-page max-h-52 overflow-y-auto px-3 pb-3 text-sm text-pageText">{entry.bodyMd || ''}</MarkdownContent>
         ) : reference ? (
           <p className="px-3 pb-3 text-xs text-pageMuted">No entry for this passage yet.</p>
         ) : null}
