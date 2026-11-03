@@ -849,7 +849,7 @@ export default function WorkspaceLayout({
     setQuickNoteSaving(true);
     setQuickNoteError(null);
     try {
-      await api.createNote({ title: null, body: text });
+      await api.createNote({ title: null, body: text, reference: shared.focusedReference || null });
       setQuickNoteText('');
       setQuickNoteOpen(false);
     } catch (e) {
@@ -859,12 +859,12 @@ export default function WorkspaceLayout({
     }
   }
 
-  function handleMobileAiTap() {
+  async function handleMobileAiTap() {
     const guidePane = allPanes.find(({ row }) => row.type === 'passageguide');
-    if (guidePane) {
-      setMobilePaneId(guidePane.row.id);
-      if (shared.focusedReference) shared.onAskAboutPassage(shared.defaultBibleModule, shared.focusedReference);
-    } else if (shared.focusedReference) {
+    if (guidePane) setMobilePaneId(guidePane.row.id);
+    if (!shared.focusedReference) return;
+    const existing = await api.getSessionsByReference(shared.focusedReference).catch(() => []);
+    if (!existing.length) {
       shared.onAskAboutPassage(shared.defaultBibleModule, shared.focusedReference);
     }
   }
