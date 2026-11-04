@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import MDEditor from '@uiw/react-md-editor';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import MarkdownContent from './MarkdownContent.jsx';
 import { api } from '../api/client.js';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
@@ -194,9 +193,7 @@ export default function NotesSidebar({ reference, module, isLoggedIn }) {
                 </p>
               )}
               {displayBody && (
-                <div className="markdown-body mt-2 line-clamp-3 text-sm text-parchment/70">
-                  <Markdown remarkPlugins={[remarkGfm]}>{displayBody}</Markdown>
-                </div>
+                <MarkdownContent className="mt-2 line-clamp-3 text-sm text-parchment/70">{displayBody}</MarkdownContent>
               )}
             </div>
           );
@@ -263,9 +260,7 @@ function NoteModal({ note, onClose, onEdit, onDelete }) {
 
         {/* Modal body */}
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          <div className="markdown-body markdown-body-page text-sm leading-relaxed text-pageText">
-            <Markdown remarkPlugins={[remarkGfm]}>{displayBody}</Markdown>
-          </div>
+          <MarkdownContent className="markdown-body-page text-sm leading-relaxed text-pageText">{displayBody}</MarkdownContent>
         </div>
       </div>
     </div>

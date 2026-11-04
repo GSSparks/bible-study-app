@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import MarkdownContent from './MarkdownContent.jsx';
 import { api } from '../api/client.js';
 
 let nextConvId = 1;
@@ -529,9 +528,7 @@ export default function StudyAssistant({
               </div>
             ) : (
               <div className="w-full">
-                <div className="markdown-body border-l-2 border-brass/30 pl-4 text-sm leading-relaxed text-parchment/90">
-                  <Markdown remarkPlugins={[remarkGfm]}>{m.content}</Markdown>
-                </div>
+                <MarkdownContent className="border-l-2 border-brass/30 pl-4 text-sm leading-relaxed text-parchment/90">{m.content}</MarkdownContent>
                 <div className="mt-1.5 flex gap-2 pl-4 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
                     onClick={() => saveAsNote(m.content, i)}
