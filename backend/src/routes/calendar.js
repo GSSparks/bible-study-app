@@ -263,7 +263,7 @@ calendarRouter.delete('/images/day-bg/:filename', requireAdmin, (req, res) => {
 const fontUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
-      const dir = path.join(process.env.UPLOADS_PATH, 'calendar', 'fonts');
+      const dir = path.join(process.env.UPLOADS_PATH || path.join(process.cwd(), 'uploads'), 'calendar', 'fonts');
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       cb(null, dir);
     },
@@ -339,7 +339,7 @@ calendarRouter.get('/countries', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-calendarRouter.post('/layers/:id/generate', async (req, res, next) => {
+calendarRouter.post('/layers/:id/generate', requireAdmin, async (req, res, next) => {
   try {
     const { id: layerId } = req.params;
     const userId = req.user.id;

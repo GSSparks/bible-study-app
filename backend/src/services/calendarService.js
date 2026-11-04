@@ -131,9 +131,9 @@ export function validatePrintConfig({ year, layout, paper, orientation }) {
 
 const BUILT_IN_LAYERS = [
   { name: 'Civil',             color: '#888888', calendarSystem: 'gregorian' },
-{ name: 'Western Christian', color: '#4a90d9', calendarSystem: 'gregorian' },
-{ name: 'Hebrew',            color: '#d4a843', calendarSystem: 'hebrew'    },
-{ name: 'Eastern Christian', color: '#c0392b', calendarSystem: 'julian'    },
+  { name: 'Western Christian', color: '#4a90d9', calendarSystem: 'gregorian' },
+  { name: 'Hebrew',            color: '#d4a843', calendarSystem: 'hebrew'    },
+  { name: 'Eastern Christian', color: '#c0392b', calendarSystem: 'julian'    },
 ];
 
 
@@ -175,8 +175,11 @@ export function deleteDayBgFile(filename) {
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 
-/** Ensures the 4 system layers exist globally. Idempotent — safe to call on every request. */
+let _seeded = false;
+
+/** Ensures the 4 system layers exist globally. Cached after first successful run. */
 export async function ensureBuiltInLayers() {
+  if (_seeded) return;
   // Remove duplicate built-in layers (keep the oldest of each name)
   const builtIns = await prisma.calendarLayer.findMany({
     where: { userId: null, isBuiltIn: true },
@@ -211,6 +214,7 @@ export async function ensureBuiltInLayers() {
       });
     }
   }
+  _seeded = true;
 }
 
 // ─── Layer CRUD ───────────────────────────────────────────────────────────────

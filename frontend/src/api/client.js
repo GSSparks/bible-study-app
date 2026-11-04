@@ -408,8 +408,6 @@ export const api = {
     fd.append('image', file);
     return request(`/calendar/images/${subdir}`, { method: 'POST', body: fd });
   },
-  removeSharedLayer: (layerId, sharedByUserId) =>
-  request(`/calendar/layers/${layerId}/share/${sharedByUserId}`, { method: 'DELETE' }),
   unshareCalendarLayer: (layerId, userId) =>
   request(`/calendar/layers/${layerId}/share/${userId}`, { method: 'DELETE' }),
   listDayImages: (year, month) => request(`/calendar/day-images/${year}/${month}`),

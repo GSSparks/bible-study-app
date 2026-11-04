@@ -6,8 +6,8 @@ import TimelineTab from './TimelineTab';
 
 const TABS = [
   { id: 'reading-plan', label: 'Reading Plan', icon: BookMarked },
-  { id: 'calendar', label: 'Calendar', icon: Calendar },
-  { id: 'timeline', label: 'Timeline', icon: Clock },
+  { id: 'calendar',     label: 'Calendar',     icon: Calendar },
+  { id: 'timeline',     label: 'Timeline',     icon: Clock, soon: true },
 ];
 
 export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
@@ -31,10 +31,11 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
           active
           ? 'bg-ink/60 text-brass'
           : 'bg-ink/30 text-muted hover:bg-ink/50 hover:text-parchment'
-        }`}
+        } ${tab.soon ? 'opacity-50' : ''}`}
         >
         <Icon size={14} />
         {tab.label}
+        {tab.soon && <span className="text-[10px] text-muted">soon</span>}
         </button>
       );
     })}
