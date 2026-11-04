@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireLogin } from '../middleware/auth.js';
+import { requireLogin, attachUser } from '../middleware/auth.js';
 import {
   sendRequest,
   respondToRequest,
