@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── MDEditor cream theme ────────────────────────────────────────────────────
+   Override the editor's GitHub-palette CSS variables at the .w-md-editor
+   level so all instances — editor/toolbar/preview — use the warm cream page
+   color regardless of what data-color-mode their wrapper sets.
+   Custom properties defined on an element beat the same property inherited
+   from an ancestor, so these take precedence over the library's own
+   [data-color-mode] definitions without needing !important. */
+.w-md-editor {
+  --color-canvas-default: #EDE6D3;   /* cream page */
+  --color-canvas-subtle:  #E4DAC3;   /* toolbar — slightly deeper */
+  --color-border-default: #C8BFA8;
+  --color-border-muted:   #D4C9B0;
+  --color-fg-default:     #2B2620;   /* pageText */
+  --color-fg-muted:       #6B5E4E;
+  --color-fg-subtle:      #7A6D5F;
+  --color-neutral-muted:  rgba(100, 82, 60, 0.1);
+  --color-accent-fg:      #97721C;   /* brass */
+  border-color: #C8BFA8 !important;
+}
+
 /* The wmde-markdown CSS sets background-color via a per-element CSS
    variable override, so parent-level overrides lose the specificity
    battle. Making it transparent here lets the parent's bg-page or

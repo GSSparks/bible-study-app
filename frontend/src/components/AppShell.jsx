@@ -342,13 +342,6 @@ export default function AppShell({ auth }) {
             <Menu size={20} />
           </button>
           <span className="ml-3 flex-1 font-display text-lg tracking-wide">{brandName}</span>
-          <button
-            onClick={() => setBiblePanelOpen((prev) => !prev)}
-            title="Quick Bible (Ctrl+B)"
-            className={`rounded p-1 transition-colors ${biblePanelOpen ? 'text-brass' : 'text-muted hover:text-parchment'}`}
-          >
-            <BookOpen size={18} />
-          </button>
         </div>
 
       <main className="min-h-0 flex-1 overflow-hidden">

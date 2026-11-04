@@ -2,32 +2,36 @@
 
 ## Purpose
 
-A full-featured Markdown note editor mounted as a workspace pane (type `notes`) inside `WorkspaceLayout`. Gives users a scratchpad for free-form study notes alongside their Bible/commentary/dictionary panes. Notes are stored as `Note` records via the standard notes API (freestanding, not anchored to a verse reference).
+A workspace pane (type `notes`) with a full MDEditor and a **Notes / Passage mode toggle**. In **Notes** mode it shows freestanding notes (no reference); in **Passage** mode it shows personal commentary notes (tagged `personal-commentary`, same data as `PersonalCommentaryPane`). A searchable dropdown picker lets the user find and load any note into the editor.
 
 ## Props
 
 | Prop | Type | Description |
 |---|---|---|
-| `isLoggedIn` | bool | When false, the pane renders but skips all API calls |
+| `isLoggedIn` | bool | When false, skips all API calls |
+| `focusedReference` | string | Workspace passage; in Passage mode, auto-selects the matching note when it changes |
 
 ## State / Key Logic
 
-- **Note list**: loaded on mount via `api.listNotes({ freestanding: true })`; the first note in the list is auto-selected. The list is sorted by `updatedAt` descending so the most recently edited note appears first.
-- **Autosave**: every edit to the title or body calls `scheduleSave`, which debounces to `api.updateNote` after 2 seconds (`DEBOUNCE_MS`). A `dirtyRef` tracks whether unsaved changes exist so that:
-  - switching notes flushes the current note synchronously before loading the next,
-  - unmounting the pane fires a final save (via the effect cleanup) to avoid losing in-flight edits.
-- **Manual save**: the Save button calls `doSave` immediately, cancelling any pending debounce timer.
-- **Note list overlay**: a slide-in left panel (z-indexed above the editor) shows all notes with title, body preview, and a delete button. Opening the list refreshes from the API.
-- **Export**: downloads the current note body as a `.md` file using a `Blob` URL.
-- **Create / Delete**: `api.createNote` with a blank body; `api.deleteNote` with optimistic list removal.
+**Mode toggle** (`notes` | `passage`):
+- Switching modes calls `handleModeSwitch`, which flushes any pending save then auto-selects: Passage → note matching `focusedReference` (or clears); Notes → most-recent general note.
+
+**Searchable note picker** (dropdown with inline search input):
+- On mount, loads all notes via `api.listNotes()` and splits client-side: freestanding → `generalNotes`, `personal-commentary`-tagged → `passageNotes`.
+- `filteredNotes` is the active list filtered by `search` against reference, title, and body.
+- Click-outside closes the dropdown.
+
+**Auto-select in Passage mode**: when `focusedReference` changes and there are no unsaved changes (`dirtyRef.current === false`), the pane finds and loads the matching passage note automatically.
+
+**Autosave**: edits debounce to `api.updateNote` after 2 s. `dirtyRef` + `selectedIdRef` + `titleRef` + `bodyRef` ensure the unmount-cleanup flush reads current values without stale closures.
+
+**Create**: in Passage mode creates a Note with `{ reference, tags: ['personal-commentary'] }`; if one already exists for the current reference, selects it instead. In Notes mode creates a freestanding Note.
 
 ## Dependencies
 
-- `@uiw/react-md-editor` — the Markdown editor component (imports its own CSS)
+- `@uiw/react-md-editor` — the Markdown editor
 - `api.listNotes`, `api.createNote`, `api.updateNote`, `api.deleteNote`
 
 ## Notes
 
-- Title and body are kept in both React state (for rendering) and `useRef` values (`titleRef`, `bodyRef`) so the unmount cleanup can safely read the latest values without stale closure issues.
-- The `notes` pane type was added to `PANE_TYPES` in `useWorkspaceLayout.js` and to the mobile tab strip alongside the other eight pane types.
-- No `reference` or `module` props — this pane deliberately ignores the workspace's focused reference. Notes are freestanding.
+- Passage note data is stored as `Note` records with `tags: ['personal-commentary']`. The same records appear in `PersonalCommentaryPane` and `NotesView`.

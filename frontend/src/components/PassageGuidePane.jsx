@@ -1,102 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
+import MarkdownContent from './MarkdownContent.jsx';
 
-// ─── Markdown renderer ────────────────────────────────────────────────────────
 
-function applyInline(text) {
-  return text
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code class="font-mono text-xs bg-[#E5DCC8] px-1 rounded text-verdigris">$1</code>');
-}
-
-function parseTable(lines) {
-  const isHeaderSep = (l) => /^\|[\s:|-]+\|$/.test(l.trim());
-  const dataLines = lines.filter((l) => l.trim().startsWith('|'));
-  if (dataLines.length < 2) return '';
-  const sepIdx = dataLines.findIndex(isHeaderSep);
-  if (sepIdx === -1) return '';
-  const parseRow = (line) => line.split('|').slice(1, -1).map((c) => c.trim());
-  const headerCells = parseRow(dataLines[0]);
-  const bodyLines = dataLines.slice(sepIdx + 1).filter((l) => !isHeaderSep(l));
-  const thead =
-    '<thead><tr>' +
-    headerCells
-      .map((c) => `<th class="border border-pageBorder px-3 py-2 text-left font-semibold text-pageText bg-[#DDD5BC] font-sans text-xs uppercase tracking-wide">${applyInline(c)}</th>`)
-      .join('') +
-    '</tr></thead>';
-  const tbody =
-    '<tbody>' +
-    bodyLines
-      .map(
-        (line) =>
-          '<tr class="even:bg-[#E5DCC8]">' +
-          parseRow(line)
-            .map((c) => `<td class="border border-pageBorder px-3 py-2 text-pageMuted font-display text-sm">${applyInline(c)}</td>`)
-            .join('') +
-          '</tr>'
-      )
-      .join('') +
-    '</tbody>';
-  return `<div class="overflow-x-auto my-4"><table class="w-full border-collapse">${thead}${tbody}</table></div>`;
-}
-
-function markdownToHtml(md) {
-  // Ensure a blank line after every heading that is immediately followed by
-  // content (only one newline between them). Without this, the heading and its
-  // body land in the same block and the body is silently discarded because the
-  // block parser only inspects lines[0] for type detection.
-  const normalized = md.replace(/(^|\n)(#{1,4}[^\n]+)\n([^\n#])/g, '$1$2\n\n$3');
-  const blocks = normalized.split(/\n{2,}/);
-  return blocks
-    .map((block) => {
-      const lines = block.split('\n').filter((l) => l !== undefined);
-      if (!lines.length) return '';
-      const first = lines[0];
-
-      const hMatch = first.match(/^(#{1,4})\s+(.*)/);
-      if (hMatch) {
-        const level = hMatch[1].length;
-        const text = applyInline(hMatch[2]);
-        const styles = [
-          '',
-          'mt-7 mb-2 font-display text-xl font-bold text-brass border-b border-rule/50 pb-1',
-          'mt-6 mb-2 font-display text-lg font-semibold text-pageText',
-          'mt-5 mb-1 font-display text-base font-semibold text-verdigris',
-          'mt-4 mb-1 font-sans text-sm font-semibold text-pageMuted uppercase tracking-wider',
-        ][level] || '';
-        return `<h${level} class="${styles}">${text}</h${level}>`;
-      }
-
-      if (/^[-*_]{3,}$/.test(first.trim())) return '<hr class="my-5 border-rule/50" />';
-
-      if (first.trim().startsWith('|')) return parseTable(lines);
-
-      if (/^[-*+]\s/.test(first)) {
-        const items = lines
-          .filter((l) => /^[-*+]\s/.test(l))
-          .map((l) => `<li class="mb-1">${applyInline(l.replace(/^[-*+]\s+/, ''))}</li>`);
-        return `<ul class="list-disc pl-5 mb-3 space-y-0.5 font-display text-base leading-relaxed text-pageText">${items.join('')}</ul>`;
-      }
-
-      if (/^\d+[.)]\s/.test(first)) {
-        const items = lines
-          .filter((l) => /^\d+[.)]\s/.test(l))
-          .map((l) => `<li class="mb-1">${applyInline(l.replace(/^\d+[.)]\s+/, ''))}</li>`);
-        return `<ol class="list-decimal pl-5 mb-3 space-y-0.5 font-display text-base leading-relaxed text-pageText">${items.join('')}</ol>`;
-      }
-
-      if (first.startsWith('>')) {
-        const text = lines.map((l) => l.replace(/^>\s?/, '')).join(' ');
-        return `<blockquote class="border-l-2 border-brass/50 pl-4 my-3 italic font-display text-base text-pageMuted leading-relaxed">${applyInline(text)}</blockquote>`;
-      }
-
-      return `<p class="mb-3 font-display text-base leading-loose text-pageText">${applyInline(lines.join(' '))}</p>`;
-    })
-    .join('\n');
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -115,6 +21,7 @@ function formatAge(isoDate) {
 
 export default function PassageGuidePane({ reference, module, isLoggedIn, pendingAiRequest, onPersonalDictionarySaved }) {
   const [sessions, setSessions] = useState([]);
+  const [sessionsByRef, setSessionsByRef] = useState([]);
   const [sessionSearch, setSessionSearch] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -160,6 +67,11 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
   }, [isLoggedIn]);
 
   useEffect(() => {
+    if (!isLoggedIn || !reference) { setSessionsByRef([]); return; }
+    api.getSessionsByReference(reference).then(setSessionsByRef).catch(() => {});
+  }, [reference, isLoggedIn]);
+
+  useEffect(() => {
     if (!pendingAiRequest?.nonce) return;
     if (pendingAiRequest.nonce === handledNonceRef.current) return;
     handledNonceRef.current = pendingAiRequest.nonce;
@@ -195,6 +107,14 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
     setError(null);
     setAttachedNotes([]);
     setDropdownOpen(false);
+  }
+
+  async function loadAndResume(session) {
+    setDropdownOpen(false);
+    try {
+      const full = await api.getSession(session.id);
+      resumeSession(full);
+    } catch { resumeSession(session); }
   }
 
   // Auto-load the most recent cached guide whenever the reference changes.
@@ -543,12 +463,35 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
                   >
                     + New Guide
                   </button>
+                  {!sessionSearch && sessionsByRef.length > 0 && (
+                    <div className="border-t border-pageBorder">
+                      <p className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-widest text-pageMuted">
+                        This Passage
+                      </p>
+                      {sessionsByRef.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => loadAndResume(s)}
+                          className={`block w-full px-3 py-2 text-left text-xs ${
+                            s.id === activeSessionId ? 'text-brass' : 'text-pageText hover:bg-[#E5DCC8]'
+                          }`}
+                        >
+                          <div className="truncate">{s.title || s.reference || 'Untitled'}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {filteredSessions.length > 0 && (
                     <div className="border-t border-pageBorder">
+                      {!sessionSearch && sessionsByRef.length > 0 && (
+                        <p className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-widest text-pageMuted">
+                          Recent
+                        </p>
+                      )}
                       {filteredSessions.map((s) => (
                         <button
                           key={s.id}
-                          onClick={() => resumeSession(s)}
+                          onClick={() => loadAndResume(s)}
                           className={`block w-full px-3 py-2 text-left text-xs ${
                             s.id === activeSessionId ? 'text-brass' : 'text-pageText hover:bg-[#E5DCC8]'
                           }`}
@@ -665,7 +608,7 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
             // Assistant — full-width, same rendering as old PassageGuidePane
             return (
               <div key={i} className="group mb-6">
-                <div dangerouslySetInnerHTML={{ __html: markdownToHtml(m.content) }} />
+                <MarkdownContent className="markdown-body-page font-display text-base leading-relaxed text-pageText">{m.content}</MarkdownContent>
                 <div className="mt-1 flex gap-3 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
                     onClick={() => saveAsNote(m.content, i)}

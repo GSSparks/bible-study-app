@@ -6,14 +6,20 @@ import { filterAvailableModules } from '../services/moduleVisibilityService.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { listMdModules, installMdModuleFromZip, removeMdModule, isMdModuleCode, mdDirName } from '../services/mdModuleService.js';
 import { listBuiltinModules } from '../services/builtinLexiconService.js';
+import { convertESword, installESwordDirect, ESWORD_EXTS } from '../services/eSwordService.js';
 
 export const modulesRouter = Router();
 
+// In-memory job store for async module installs (keyed by jobId).
+// Jobs auto-delete after 5 minutes once they reach a terminal state.
+const installJobs = new Map();
+
 const upload = multer({
-  limits: { fileSize: 300 * 1024 * 1024 }, // some modules (esp. commentaries) run large
+  limits: { fileSize: 300 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!file.originalname.toLowerCase().endsWith('.zip')) {
-      return cb(new Error('Only .zip files are accepted'));
+    const ext = file.originalname.toLowerCase().match(/\.[^.]+$/)?.[0] ?? '';
+    if (ext !== '.zip' && !ESWORD_EXTS.has(ext)) {
+      return cb(new Error('Accepted formats: .zip, .bblx/.bbli (e-Sword Bible), .cmtx (e-Sword commentary), .dctx (e-Sword dictionary), .topx (e-Sword topic notes)'));
     }
     cb(null, true);
   },
@@ -76,19 +82,65 @@ modulesRouter.get('/installed', async (req, res, next) => {
 });
 
 // POST /api/modules/install  { repo, moduleCode } — admin-only.
-modulesRouter.post('/install', requireAdmin, async (req, res, next) => {
-  try {
-    const { repo, moduleCode } = req.body;
-    if (!repo || !moduleCode) {
-      return res.status(400).json({ error: 'repo and moduleCode are required' });
-    }
-    // Fire-and-poll pattern would be nicer for large modules; keeping this
-    // synchronous for simplicity. Consider SSE/WebSocket progress later.
-    await swordService.installModule(repo, moduleCode);
-    res.json({ status: 'installed', moduleCode });
-  } catch (err) {
-    next(err);
+// Returns { jobId } immediately; use GET /install/progress/:jobId to stream progress.
+modulesRouter.post('/install', requireAdmin, (req, res) => {
+  const { repo, moduleCode } = req.body;
+  if (!repo || !moduleCode) {
+    return res.status(400).json({ error: 'repo and moduleCode are required' });
   }
+
+  const jobId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const job = { status: 'running', totalPercent: 0, filePercent: 0, message: '', moduleCode };
+  installJobs.set(jobId, job);
+
+  swordService
+    .installModule(repo, moduleCode, (progress) => {
+      job.totalPercent = progress?.totalPercent ?? 0;
+      job.filePercent = progress?.filePercent ?? 0;
+      job.message = progress?.message ?? '';
+    })
+    .then(() => {
+      job.status = 'complete';
+      setTimeout(() => installJobs.delete(jobId), 5 * 60 * 1000);
+    })
+    .catch((err) => {
+      job.status = 'error';
+      job.error = err.message;
+      setTimeout(() => installJobs.delete(jobId), 5 * 60 * 1000);
+    });
+
+  res.json({ jobId });
+});
+
+// GET /api/modules/install/progress/:jobId — SSE stream for install progress.
+modulesRouter.get('/install/progress/:jobId', requireAdmin, (req, res) => {
+  const job = installJobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+
+  const tick = () => {
+    if (job.status === 'running') {
+      send('progress', { totalPercent: job.totalPercent, filePercent: job.filePercent, message: job.message });
+    } else if (job.status === 'complete') {
+      send('complete', { moduleCode: job.moduleCode });
+      clearInterval(interval);
+      res.end();
+    } else if (job.status === 'error') {
+      send('job-error', { message: job.error });
+      clearInterval(interval);
+      res.end();
+    }
+  };
+
+  tick();
+  const interval = setInterval(tick, 300);
+  req.on('close', () => clearInterval(interval));
 });
 
 // POST /api/modules/upload — admin-only. requireAdmin runs BEFORE
@@ -99,6 +151,20 @@ modulesRouter.post('/install', requireAdmin, async (req, res, next) => {
 modulesRouter.post('/upload', requireAdmin, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'file is required' });
+
+    const ext = req.file.originalname.toLowerCase().match(/\.[^.]+$/)?.[0] ?? '';
+
+    // .topx — store SQLite directly, query at read time
+    if (ext === '.topx') {
+      const moduleCode = await installESwordDirect(req.file.buffer, ext, req.file.originalname);
+      return res.json({ status: 'installed', moduleCode });
+    }
+    // Other e-Sword formats — convert to MD module zip
+    if (ESWORD_EXTS.has(ext)) {
+      const zipBuffer = await convertESword(req.file.buffer, ext, req.file.originalname);
+      const moduleCode = await installMdModuleFromZip(zipBuffer);
+      return res.json({ status: 'installed', moduleCode });
+    }
 
     // Auto-detect zip type: MD modules contain module.json; SWORD modules contain mods.d/
     const AdmZip = (await import('adm-zip')).default;
@@ -117,6 +183,7 @@ modulesRouter.post('/upload', requireAdmin, upload.single('file'), async (req, r
       note: "If it doesn't show up in the installed list right away, restart the backend — local module scanning may only happen at startup.",
     });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
   }
 });

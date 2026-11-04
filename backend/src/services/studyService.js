@@ -913,6 +913,7 @@ export async function exportStudy(studyId, userId) {
     exportedAt: new Date().toISOString(),
     title: study.title,
     description: study.description || null,
+    bannerUrl: study.bannerUrl || null,
     lessons: study.lessons.map((l) => ({
       order: l.order,
       title: l.title,
@@ -954,6 +955,7 @@ export async function importStudy({ scriptoriumId, creatorId, data }) {
       data: {
         title: data.title.trim(),
         description: data.description?.trim() || null,
+        bannerUrl: data.bannerUrl || null,
         scriptoriumId: scriptoriumId || null,
         creatorId,
       },

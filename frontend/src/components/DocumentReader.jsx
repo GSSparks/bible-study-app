@@ -124,6 +124,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
   const [renameTitle, setRenameTitle] = useState('');
   const [renameAuthor, setRenameAuthor] = useState('');
   const [renameCollection, setRenameCollection] = useState('');
+  const [renameUrl, setRenameUrl] = useState('');
   const [renameSaving, setRenameSaving] = useState(false);
   const [renameError, setRenameError] = useState(null);
 
@@ -178,12 +179,14 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
     setRenameTitle(doc.title);
     setRenameAuthor(doc.author || '');
     setRenameCollection(doc.collection || '');
+    setRenameUrl(doc.url || '');
     setRenameError(null);
     setRenaming(true);
   }
 
   async function saveRename() {
     if (!renameTitle.trim()) { setRenameError('Title is required.'); return; }
+    if (doc?.sourceType === 'external' && !renameUrl.trim()) { setRenameError('URL is required.'); return; }
     setRenameSaving(true);
     setRenameError(null);
     try {
@@ -191,6 +194,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
         title: renameTitle.trim(),
         author: renameAuthor.trim() || null,
         collection: renameCollection.trim() || null,
+        url: renameUrl.trim() || null,
       });
       setDoc(updated);
       setRenaming(false);
@@ -240,8 +244,9 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
     }, 50);
   }
 
-  const isPdf = /\.pdf$/i.test(doc?.filename || '');
-  const isWordDoc = /\.docx?$/i.test(doc?.filename || '');
+  const isExternal = doc?.sourceType === 'external';
+  const isPdf = !isExternal && /\.pdf$/i.test(doc?.filename || '');
+  const isWordDoc = !isExternal && /\.docx?$/i.test(doc?.filename || '');
   const blocks = useMemo(
     () => (doc?.extractedText ? parseBlocks(doc.extractedText, isWordDoc) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -276,6 +281,16 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
               className="w-full rounded border border-rule bg-ink px-3 py-1.5 font-display text-lg text-parchment focus:border-brass focus:outline-none"
               placeholder="Title"
             />
+            {isExternal && (
+              <input
+                type="url"
+                value={renameUrl}
+                onChange={(e) => setRenameUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveRename(); if (e.key === 'Escape') setRenaming(false); }}
+                className="w-full rounded border border-rule bg-ink px-3 py-1.5 font-mono text-sm text-parchment focus:border-brass focus:outline-none"
+                placeholder="URL"
+              />
+            )}
             <div className="flex gap-2">
               <input
                 value={renameAuthor}
@@ -374,7 +389,17 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
                   )}
                 </>
               )}
-              {!isPdf && (
+              {isExternal && doc.url && (
+                <a
+                  href={doc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded border border-rule px-2.5 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment"
+                >
+                  <ExternalLink size={12} /> Open in new tab
+                </a>
+              )}
+              {!isPdf && !isExternal && (
                 <a
                   href={api.documentFileUrl(documentId)}
                   target="_blank"
@@ -389,7 +414,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
         )}
 
         {/* Search + TOC toolbar — only for non-PDF text documents */}
-        {doc?.extractedText && !isPdf && (
+        {doc?.extractedText && !isPdf && !isExternal && (
           <div className="flex items-center gap-2 border-t border-rule/50 px-5 py-2">
             {tocItems.length > 0 && (
               <button
@@ -457,11 +482,29 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
         </div>
       )}
 
-      {/* Body — visual PDF renderer for .pdf files, text renderer for everything else */}
+      {/* Body */}
       {loading && <p className="min-h-0 flex-1 p-8 text-sm text-pageMuted">Loading…</p>}
       {error && <p className="min-h-0 flex-1 p-8 text-sm text-red-600">{error}</p>}
 
-      {doc && !loading && !error && isPdf && (
+      {doc && !loading && !error && isExternal && (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <iframe
+            src={doc.url}
+            className="min-h-0 flex-1 w-full border-0"
+            title={doc.title}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+          />
+          <p className="shrink-0 border-t border-pageBorder px-4 py-1.5 text-center text-xs text-pageMuted">
+            If the page doesn't load,{' '}
+            <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-brass hover:underline">
+              open it in a new tab
+            </a>
+            {' '}— some sites block embedding.
+          </p>
+        </div>
+      )}
+
+      {doc && !loading && !error && !isExternal && isPdf && (
         <PDFBody
           documentId={documentId}
           doc={doc}
@@ -474,7 +517,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
         />
       )}
 
-      {doc && !loading && !error && !isPdf && (
+      {doc && !loading && !error && !isExternal && !isPdf && (
         <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto bg-page">
           {!doc.extractedText && (
             <div className="mx-auto max-w-3xl px-6 py-12 text-center">

@@ -2,8 +2,9 @@ import { Router } from 'express';
 import multer from 'multer';
 import fs from 'node:fs';
 import path from 'node:path';
-import { ingestPdf, listDocuments, getDocumentFilePath, getDocument, searchDocuments, updateDocument, deleteDocument, ocrDocument } from '../services/pdfService.js';
+import { ingestPdf, listDocuments, getDocumentFilePath, getDocument, searchDocuments, updateDocument, deleteDocument, ocrDocument, createExternalResource, exportLibrary, importLibrary } from '../services/pdfService.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { refreshFrameSrcCache } from '../services/frameSrcCache.js';
 
 const ACCEPTED_MIMES = new Set([
   'application/pdf',
@@ -28,6 +29,45 @@ const upload = multer({
 });
 
 export const pdfRouter = Router();
+
+// POST /api/pdf/external — create an external link entry. Admin-only.
+// Must be registered before /:id.
+pdfRouter.post('/external', requireAdmin, async (req, res, next) => {
+  try {
+    const { title, author, collection, url } = req.body;
+    if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
+    if (!url?.trim()) return res.status(400).json({ error: 'url is required' });
+    const doc = await createExternalResource({ title: title.trim(), author, collection, url: url.trim() });
+    refreshFrameSrcCache().catch(() => {});
+    res.status(201).json(doc);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/pdf/export — download full library as JSON. Admin-only.
+// Must be before /:id.
+pdfRouter.get('/export', requireAdmin, async (req, res, next) => {
+  try {
+    const data = await exportLibrary();
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="library-export.json"');
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/pdf/import — bulk-create external resources from JSON array. Admin-only.
+// Must be before /:id.
+pdfRouter.post('/import', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await importLibrary(req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /api/pdf/search?q=term — full-text search across title + extracted body.
 // Must be registered before /:id so Express doesn't treat "search" as an id.
@@ -86,8 +126,9 @@ pdfRouter.get('/:id', async (req, res, next) => {
 // PATCH /api/pdf/:id — update title and/or author. Admin-only.
 pdfRouter.patch('/:id', requireAdmin, async (req, res, next) => {
   try {
-    const { title, author, collection } = req.body;
-    const doc = await updateDocument(req.params.id, { title, author, collection });
+    const { title, author, collection, url } = req.body;
+    const doc = await updateDocument(req.params.id, { title, author, collection, url });
+    if (url !== undefined) refreshFrameSrcCache().catch(() => {});
     res.json(doc);
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'not found' });
@@ -100,6 +141,7 @@ pdfRouter.delete('/:id', requireAdmin, async (req, res, next) => {
   try {
     const doc = await deleteDocument(req.params.id);
     if (!doc) return res.status(404).json({ error: 'not found' });
+    if (doc.sourceType === 'external') refreshFrameSrcCache().catch(() => {});
     res.status(204).end();
   } catch (err) {
     next(err);

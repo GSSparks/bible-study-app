@@ -1,6 +1,17 @@
 import { Router } from 'express';
-import { savePersonalEntry, getPersonalCommentaryEntry, upsertPersonalCommentaryEntry, listPersonalCommentaryEntryRefs } from '../services/personalModuleService.js';
+import multer from 'multer';
+import {
+  savePersonalEntry,
+  getPersonalCommentaryEntry,
+  upsertPersonalCommentaryEntry,
+  listPersonalCommentaryEntryRefs,
+  listAllPersonalCommentaryEntries,
+  exportPersonalCommentary,
+  importPersonalCommentaryFromMarkdown,
+} from '../services/personalModuleService.js';
 import { requireLogin } from '../middleware/auth.js';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 
 export const personalModulesRouter = Router();
 
@@ -24,6 +35,39 @@ personalModulesRouter.post('/save', async (req, res, next) => {
     }
     const entry = await savePersonalEntry({ type, key, reference, title, body, userId: req.user.id });
     res.json({ status: 'saved', entryId: entry.id, moduleCode: entry.moduleCode });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/personal-modules/entries — all entries (id, reference, title, createdAt)
+personalModulesRouter.get('/entries', async (req, res, next) => {
+  try {
+    res.json(await listAllPersonalCommentaryEntries(req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/personal-modules/export — full commentary as a .md download
+personalModulesRouter.get('/export', async (req, res, next) => {
+  try {
+    const markdown = await exportPersonalCommentary(req.user.id);
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="my-commentary.md"');
+    res.send(markdown);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/personal-modules/import — import from an uploaded .md file
+personalModulesRouter.post('/import', upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+    const markdown = req.file.buffer.toString('utf8');
+    const imported = await importPersonalCommentaryFromMarkdown(markdown, req.user.id);
+    res.json({ imported });
   } catch (err) {
     next(err);
   }

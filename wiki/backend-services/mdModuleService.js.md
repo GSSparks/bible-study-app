@@ -8,7 +8,7 @@ Implements "Markdown modules" — a lightweight alternative to compiled SWORD mo
 
 - **`isMdModuleCode(code)`** — Returns `true` if the code starts with `"md:"`.
 - **`mdDirName(code)`** — Strips the `md:` prefix to get the directory name.
-- **`listMdModules(type)`** — Scans `MD_MODULES_PATH` for subdirectories containing a valid `module.json`, optionally filtering by type (`BIBLE`, `COMMENTARY`, `DICT`, `BOOK`). Returns objects shaped like `swordService.listInstalledModules` results.
+- **`listMdModules(type)`** — Scans `MD_MODULES_PATH` for subdirectories containing a valid `module.json`, optionally filtering by type (`BIBLE`, `COMMENTARY`, `DICT`, `BOOK`). Returns objects shaped like `swordService.listInstalledModules` results, including a `sourceFile` field when present in `module.json` (written by `convertESword` to enable the admin UI to match catalog entries to installed modules).
 - **`getMdPassage(moduleDirName, ref)`** — Parses a human reference, finds the correct book file (by normalized filename matching), parses `## chapter:verse` sections, and returns verse-shaped objects. Falls back to a `## chapter` heading if no per-verse section matches.
 - **`getMdDictionaryKeys(moduleDirName)`** — Returns a sorted list of all `## Heading` keys across all `.md` files in a DICT module directory.
 - **`getMdDictionaryEntry(moduleDirName, key)`** — Looks up a dictionary entry by case-insensitive key match, first trying a slug-named individual file then scanning all `.md` files for a `## section` match.
@@ -24,6 +24,7 @@ Implements "Markdown modules" — a lightweight alternative to compiled SWORD mo
 ## Dependencies
 
 - **External libraries:** `fs/promises`, `path`, `marked` (Markdown to HTML), `adm-zip` (zip extraction)
+- **`eSwordService`** — `getESwordKeys`, `getESwordEntry`, `getESwordAllEntries` for live-query reads of `.topx` data files
 - **No Prisma models** — purely filesystem-based
 
 ## Patterns / notes
@@ -33,3 +34,5 @@ Implements "Markdown modules" — a lightweight alternative to compiled SWORD mo
 - **Path traversal guards:** `installMdModuleFromZip` validates the directory name with a regex and resolves the destination path against `MD_MODULES_PATH` before writing any files. Individual entry paths are also checked.
 - **Book file matching:** `readBookFile` does exact-then-prefix matching between the normalized reference book name and `.md` filenames, tolerating common abbreviation mismatches (e.g. `"Gen"` finds `"genesis.md"`).
 - **Commentary search snippet:** `searchMdCommentary` strips Markdown syntax (headings, bold, links, etc.) from section content before extracting the snippet to produce clean plain-text previews. Book display names in `reference` are derived from the filename by capitalizing the stem.
+- **e-Sword fast-paths:** When `module.json` contains `format: "esword-topx"`, `getMdDictionaryKeys`, `getMdDictionaryEntry`, and `getMdFullBookContent` skip Markdown file I/O and query the live `data.db` via `getESwordKeys`, `getESwordEntry`, and `getESwordAllEntries` respectively. This avoids a large up-front conversion step for `.topx` files.
+- **XSS in dictionary rendering:** Dictionary keys from `getESwordAllEntries` are HTML-escaped before being inserted into `<h2>` headings to prevent injection from malformed module data.

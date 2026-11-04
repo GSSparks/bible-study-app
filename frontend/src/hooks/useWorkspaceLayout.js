@@ -13,6 +13,7 @@ export const PANE_TYPES = [
   { value: 'document', label: 'Documents', moduleType: 'document' },
   { value: 'search', label: 'Search Results', moduleType: null },
   { value: 'notes', label: 'Notes', moduleType: null },
+  { value: 'personal_commentary', label: 'My Commentary', moduleType: null },
 ];
 
 function makeTab(module = '', title = '') {

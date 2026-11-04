@@ -1,0 +1,3 @@
+ALTER TABLE "Document" ALTER COLUMN "filename" DROP NOT NULL;
+ALTER TABLE "Document" ADD COLUMN "url" TEXT;
+ALTER TABLE "Document" ADD COLUMN "sourceType" TEXT NOT NULL DEFAULT 'pdf';

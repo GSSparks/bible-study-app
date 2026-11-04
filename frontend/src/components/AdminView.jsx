@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 
-const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding', 'Codex'];
+const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding', 'Devotionals', 'Reading Plans', 'Codex'];
 const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT', 'BOOK'];
 
 function formatBytes(bytes) {
@@ -40,6 +40,8 @@ export default function AdminView() {
         {tab === 'Media' && <MediaTab />}
         {tab === 'Metrics' && <MetricsTab />}
         {tab === 'Branding' && <BrandingTab />}
+        {tab === 'Devotionals' && <DevotionalsTab />}
+        {tab === 'Reading Plans' && <ReadingPlansTab />}
         {tab === 'Codex' && <CodexTab />}
       </div>
     </div>
@@ -310,15 +312,25 @@ function langLabel(code) {
   }
 }
 
+const ESWORD_REPO = 'e-Sword Library';
+
+function filterESwordByType(catalog, t) {
+  return catalog
+    .filter((e) => e.type === t)
+    .map((e) => ({ name: e.filename, description: e.title, _downloadUrl: e.downloadUrl }));
+}
+
 function ModulesTab() {
   const [type, setType] = useState('BIBLE');
   const [repos, setRepos] = useState([]);
   const [selectedRepo, setSelectedRepo] = useState('');
-  const [available, setAvailable] = useState([]);
+  const [swordAvailable, setSwordAvailable] = useState([]);
   const [installed, setInstalled] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
   const [error, setError] = useState(null);
   const [installing, setInstalling] = useState(null);
+  const [installProgress, setInstallProgress] = useState(null);
   const [availableSearch, setAvailableSearch] = useState('');
   const [langFilter, setLangFilter] = useState('');
   const [hideInstalled, setHideInstalled] = useState(true);
@@ -326,12 +338,18 @@ function ModulesTab() {
   const [toggling, setToggling] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadNote, setUploadNote] = useState(null);
+  const [eswordCatalog, setESwordCatalog] = useState(null);
 
-  // listModuleVisibility already returns everything needed for the
-  // "Installed" column — name, description, and availableToUsers — so
-  // there's no separate listInstalledModules call here the way the
-  // old standalone Module Manager needed; this merges what used to be
-  // two different module screens into one.
+  const fetchingESword = useRef(false);
+
+  const isESword = selectedRepo === ESWORD_REPO;
+
+  // For e-Sword, derive the filtered list directly from state — no separate setAvailable needed.
+  const available = useMemo(
+    () => (isESword ? filterESwordByType(eswordCatalog ?? [], type) : swordAvailable),
+    [isESword, eswordCatalog, type, swordAvailable],
+  );
+
   function refresh() {
     setLoading(true);
     setError(null);
@@ -343,37 +361,94 @@ function ModulesTab() {
   }
 
   useEffect(() => {
-    api.listRepositories().then(setRepos).catch((e) => setError(e.message));
+    api.listRepositories()
+      .then((r) => setRepos([...r, ESWORD_REPO]))
+      .catch((e) => setError(e.message));
   }, []);
 
+  // Refresh installed list whenever the type tab changes.
   useEffect(() => {
     refresh();
-    setAvailable([]);
     setAvailableSearch('');
     setLangFilter('');
-    if (selectedRepo) {
-      api.listAvailableModules(selectedRepo, type).then(setAvailable).catch((e) => setError(e.message));
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
+  // Load available modules when repo or type changes.
   useEffect(() => {
     if (!selectedRepo) return;
     setAvailableSearch('');
     setLangFilter('');
-    api.listAvailableModules(selectedRepo, type).then(setAvailable).catch((e) => setError(e.message));
+
+    if (isESword) {
+      // e-Sword filtered list is derived via useMemo — just fetch the catalog once.
+      if (eswordCatalog || fetchingESword.current) return;
+      fetchingESword.current = true;
+      setLoadingAvailable(true);
+      api.fetchESwordCatalog()
+        .then((catalog) => { setESwordCatalog(catalog); })
+        .catch((e) => setError(e.message))
+        .finally(() => { fetchingESword.current = false; setLoadingAvailable(false); });
+      return;
+    }
+
+    // SWORD repo: fetch available modules and cancel stale requests.
+    setSwordAvailable([]);
+    let cancelled = false;
+    api.listAvailableModules(selectedRepo, type)
+      .then((mods) => { if (!cancelled) setSwordAvailable(mods); })
+      .catch((e) => { if (!cancelled) setError(e.message); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRepo, type]);
 
-  async function handleInstall(moduleCode) {
-    setInstalling(moduleCode);
+  async function handleInstall(mod) {
+    const isESwordMod = typeof mod === 'object' && mod._downloadUrl;
+    const moduleKey = isESwordMod ? mod.name : mod;
+    setInstalling(moduleKey);
+    setInstallProgress(isESwordMod
+      ? { indeterminate: true, message: 'Starting…' }
+      : { totalPercent: 0, filePercent: 0, message: '' });
     setError(null);
     try {
-      await api.installModule(selectedRepo, moduleCode);
+      if (isESwordMod) {
+        const { jobId } = await api.installFromESwordLibrary(mod._downloadUrl);
+        await new Promise((resolve, reject) => {
+          const es = new EventSource(`/api/esword-library/install/progress/${jobId}`);
+          es.addEventListener('progress', (e) => {
+            try { setInstallProgress({ indeterminate: true, message: JSON.parse(e.data).message }); } catch { /* */ }
+          });
+          es.addEventListener('complete', () => { es.close(); resolve(); });
+          es.addEventListener('job-error', (e) => {
+            es.close();
+            try { reject(new Error(JSON.parse(e.data).message)); } catch { reject(new Error('Install failed')); }
+          });
+          es.onerror = () => { es.close(); reject(new Error('Connection lost during install')); };
+        });
+      } else {
+        const result = await api.installModule(selectedRepo, moduleKey);
+        const { jobId } = result ?? {};
+        if (!jobId) throw new Error('Server did not return a job ID — try restarting the backend.');
+        await new Promise((resolve, reject) => {
+          const es = new EventSource(`/api/modules/install/progress/${jobId}`);
+          es.addEventListener('progress', (e) => {
+            const data = JSON.parse(e.data);
+            setInstallProgress({ totalPercent: data.totalPercent, filePercent: data.filePercent, message: data.message });
+          });
+          es.addEventListener('complete', () => { es.close(); resolve(); });
+          es.addEventListener('job-error', (e) => {
+            es.close();
+            try { reject(new Error(JSON.parse(e.data).message)); } catch { reject(new Error('Install failed')); }
+          });
+          es.onerror = () => { es.close(); reject(new Error('Connection lost during install')); };
+        });
+      }
       refresh();
     } catch (e) {
       setError(e.message);
     } finally {
       setInstalling(null);
+      setInstallProgress(null);
     }
   }
 
@@ -445,14 +520,38 @@ function ModulesTab() {
 
       <div className="mb-4 flex items-center gap-3">
         <label className="cursor-pointer rounded border border-dashed border-rule px-3 py-1.5 text-xs text-verdigris hover:border-verdigris hover:text-brass">
-          {uploading ? 'uploading…' : '⇪ Upload a module .zip manually'}
-          <input type="file" accept=".zip" className="hidden" onChange={handleUpload} disabled={uploading} />
+          {uploading ? 'uploading…' : '⇪ Upload a module'}
+          <input type="file" accept=".zip,.bblx,.bbli,.cmtx,.dctx,.topx" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
         {uploadNote && <p className="text-xs text-muted">{uploadNote}</p>}
-        {!uploadNote && <p className="text-xs text-muted">Accepts SWORD .zip, Markdown module .zip, or a .zip containing <code>module.json</code> + a <code>.xml</code> ThML file (CCEL format).</p>}
+        {!uploadNote && <p className="text-xs text-muted">Accepts SWORD .zip, Markdown module .zip, CCEL ThML .zip, or e-Sword files (.bblx/.bbli Bible, .cmtx commentary, .dctx dictionary, .topx topic notes).</p>}
       </div>
 
       {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
+
+      {installing && installProgress && (
+        <div className="mb-4 rounded-md border border-rule bg-ink/50 px-4 py-3">
+          <div className="mb-1.5 flex items-center justify-between text-xs text-muted">
+            <span>Installing <span className="font-mono text-parchment">{installing}</span>…</span>
+            {!installProgress.indeterminate && (
+              <span className="tabular-nums">{installProgress.totalPercent}%</span>
+            )}
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-rule">
+            {installProgress.indeterminate ? (
+              <div className="h-full w-full animate-pulse rounded-full bg-brass/60" />
+            ) : (
+              <div
+                className="h-full rounded-full bg-brass transition-all duration-300"
+                style={{ width: `${installProgress.totalPercent}%` }}
+              />
+            )}
+          </div>
+          {installProgress.message && (
+            <p className="mt-1 truncate text-xs text-muted">{installProgress.message}</p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
@@ -464,12 +563,10 @@ function ModulesTab() {
           >
             <option value="">Select a repository…</option>
             {repos.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
+              <option key={r} value={r}>{r}</option>
             ))}
           </select>
-          {available.length > 0 && (() => {
+          {!isESword && available.length > 0 && (() => {
             const langs = [...new Set(available.map((m) => m.language).filter(Boolean))].sort((a, b) => {
               if (a === 'en') return -1;
               if (b === 'en') return 1;
@@ -490,12 +587,13 @@ function ModulesTab() {
               </select>
             ) : null;
           })()}
-          {available.length > 0 && (
+          {(available.length > 0 || loadingAvailable) && (
             <input
               value={availableSearch}
               onChange={(e) => setAvailableSearch(e.target.value)}
-              placeholder="Filter modules…"
+              placeholder={isESword ? `Search ${available.length} modules…` : 'Filter modules…'}
               className="mb-2 w-full rounded-md border border-rule bg-ink px-3 py-1.5 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+              disabled={loadingAvailable}
             />
           )}
           {available.length > 0 && (
@@ -512,26 +610,35 @@ function ModulesTab() {
           <div className="max-h-96 overflow-y-auto overflow-x-hidden rounded-md border border-rule">
             {(() => {
               const installedNames = new Set(installed.map((m) => m.name));
+              const installedSourceFiles = isESword
+                ? new Set(installed.map((m) => m.sourceFile).filter(Boolean))
+                : null;
               const q = availableSearch.toLowerCase();
-              let shown = hideInstalled ? available.filter((m) => !installedNames.has(m.name)) : available;
+              let shown = hideInstalled
+                ? available.filter((m) => {
+                    if (isESword && installedSourceFiles) return !installedSourceFiles.has(m.name);
+                    return !installedNames.has(m.name);
+                  })
+                : available;
               if (langFilter) shown = shown.filter((m) => m.language === langFilter);
               if (q) shown = shown.filter((m) => m.name.toLowerCase().includes(q) || (m.description || '').toLowerCase().includes(q));
               if (!selectedRepo) return <p className="p-3 text-sm text-muted">Pick a repository to browse what's available.</p>;
-              if (available.length === 0) return <p className="p-3 text-sm text-muted">No modules of this type found in this repository.</p>;
-              if (shown.length === 0 && hideInstalled && installedNames.size > 0 && !langFilter && !q) return <p className="p-3 text-sm text-muted">All available modules of this type are already installed.</p>;
+              if (loadingAvailable) return <p className="p-3 text-sm text-muted">Fetching catalog…</p>;
+              if (available.length === 0) return <p className="p-3 text-sm text-muted">No {type.toLowerCase()} modules found{isESword ? ' in the e-Sword Library' : ' in this repository'}.</p>;
+              if (shown.length === 0 && hideInstalled && (installedNames.size > 0 || (isESword && (installedSourceFiles?.size ?? 0) > 0)) && !langFilter && !q) return <p className="p-3 text-sm text-muted">All available modules of this type are already installed.</p>;
               if (shown.length === 0) return <p className="p-3 text-sm text-muted">No matches{langFilter ? ` in ${langLabel(langFilter)}` : ''}{q ? ` for "${availableSearch}"` : ''}.</p>;
               return shown.map((m) => (
                 <div key={m.name} className="flex items-center justify-between border-b border-rule px-3 py-2 text-sm last:border-0">
                   <div className="min-w-0 flex-1">
                     <div className="text-parchment">{m.description || m.name}</div>
                     <div className="flex items-center gap-2 font-mono text-xs text-muted">
-                      <span>{m.name}</span>
-                      {m.language && <span className="rounded bg-ink px-1 py-px font-sans text-[10px] uppercase tracking-wide">{m.language}</span>}
+                      <span className="truncate">{m.name}</span>
+                      {m.language && <span className="shrink-0 rounded bg-ink px-1 py-px font-sans text-[10px] uppercase tracking-wide">{m.language}</span>}
                     </div>
                   </div>
                   <button
                     disabled={installing === m.name}
-                    onClick={() => handleInstall(m.name)}
+                    onClick={() => handleInstall(m._downloadUrl ? m : m.name)}
                     className="ml-2 shrink-0 rounded bg-verdigris/80 px-2 py-1 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
                   >
                     {installing === m.name ? 'installing…' : 'install'}
@@ -586,6 +693,7 @@ function ModulesTab() {
     </div>
   );
 }
+
 
 function PostsTab() {
   const [posts, setPosts] = useState([]);
@@ -863,6 +971,370 @@ function Stat({ label, value }) {
     <div className="flex items-baseline justify-between">
       <span className="text-sm text-muted">{label}</span>
       <span className="font-display text-lg text-parchment">{value}</span>
+    </div>
+  );
+}
+
+const SCHEDULE_PLACEHOLDER = `[
+  { "day": 1, "label": "Genesis 1–2", "passages": ["Gen 1", "Gen 2"] },
+  { "day": 2, "label": "Genesis 3–5", "passages": ["Gen 3", "Gen 4", "Gen 5"] }
+]`;
+
+function parseSchedule(raw) {
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.trim());
+  } catch {
+    throw new Error('Invalid JSON — check for missing commas, quotes, or brackets');
+  }
+  if (!Array.isArray(parsed)) throw new Error('Schedule must be a JSON array');
+  for (const entry of parsed) {
+    if (typeof entry.day !== 'number') throw new Error('Each entry needs a numeric "day" field');
+    if (!Array.isArray(entry.passages)) throw new Error('Each entry needs a "passages" array');
+  }
+  return parsed;
+}
+
+function ReadingPlansTab() {
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // create
+  const [showCreate, setShowCreate] = useState(false);
+  const [cName, setCName] = useState('');
+  const [cDesc, setCDesc] = useState('');
+  const [cSchedule, setCSchedule] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
+
+  // edit
+  const [editId, setEditId] = useState(null);
+  const [eName, setEName] = useState('');
+  const [eDesc, setEDesc] = useState('');
+  const [eSchedule, setESchedule] = useState('');
+  const [eOrigSchedule, setEOrigSchedule] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState(null);
+
+  // delete
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+
+  function refresh() {
+    setLoading(true);
+    api.listReadingPlans()
+      .then(setPlans)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }
+  useEffect(refresh, []);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setCreateError(null);
+    let schedule;
+    try {
+      schedule = parseSchedule(cSchedule);
+    } catch (err) {
+      setCreateError(`Invalid schedule JSON: ${err.message}`);
+      return;
+    }
+    setCreating(true);
+    try {
+      await api.createReadingPlan({ name: cName, description: cDesc || undefined, schedule });
+      setCName(''); setCDesc(''); setCSchedule('');
+      setShowCreate(false);
+      refresh();
+    } catch (err) {
+      setCreateError(err.message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function startEdit(plan) {
+    setEditId(plan.id);
+    setEName(plan.name);
+    setEDesc(plan.description || '');
+    setESchedule('');
+    setEOrigSchedule('');
+    setEditError(null);
+    try {
+      const full = await api.getReadingPlan(plan.id);
+      const pretty = JSON.stringify(full.schedule, null, 2);
+      setESchedule(pretty);
+      setEOrigSchedule(pretty);
+    } catch {
+      // non-fatal — schedule textarea just stays empty
+    }
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setEditError(null);
+    const data = { name: eName, description: eDesc || null };
+    if (eSchedule.trim() && eSchedule !== eOrigSchedule) {
+      try {
+        data.schedule = parseSchedule(eSchedule);
+      } catch (err) {
+        setEditError(`Invalid schedule JSON: ${err.message}`);
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      await api.updateReadingPlan(editId, data);
+      setEditId(null);
+      refresh();
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id) {
+    setConfirmDelete(null);
+    setDeleting(id);
+    try {
+      await api.deleteReadingPlan(id);
+      setPlans((prev) => prev.filter((p) => p.id !== id));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  if (loading) return <p className="text-sm text-muted">Loading…</p>;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-xs text-muted">{plans.length} plan{plans.length === 1 ? '' : 's'}</p>
+        <button
+          onClick={() => { setShowCreate((v) => !v); setCreateError(null); }}
+          className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass"
+        >
+          {showCreate ? 'cancel' : '+ create plan'}
+        </button>
+      </div>
+
+      {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
+
+      {showCreate && (
+        <form onSubmit={handleCreate} className="mb-4 space-y-2 rounded-md border border-rule p-3">
+          <input
+            value={cName}
+            onChange={(e) => setCName(e.target.value)}
+            placeholder="Plan name"
+            required
+            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+          />
+          <input
+            value={cDesc}
+            onChange={(e) => setCDesc(e.target.value)}
+            placeholder="Description (optional)"
+            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+          />
+          <div>
+            <label className="mb-1 block text-xs text-muted">
+              Schedule (JSON array of <code className="font-mono">{`{ day, label, passages[] }`}</code>)
+            </label>
+            <textarea
+              value={cSchedule}
+              onChange={(e) => setCSchedule(e.target.value)}
+              placeholder={SCHEDULE_PLACEHOLDER}
+              rows={6}
+              required
+              className="w-full rounded border border-rule bg-ink px-3 py-2 font-mono text-xs text-parchment placeholder:text-muted/50 focus:border-brass focus:outline-none"
+            />
+          </div>
+          {createError && <p className="text-sm text-red-400">{createError}</p>}
+          <button
+            type="submit"
+            disabled={creating}
+            className="rounded bg-verdigris/80 px-3 py-1.5 text-xs text-parchment hover:bg-verdigris disabled:opacity-50"
+          >
+            {creating ? 'creating…' : 'create'}
+          </button>
+        </form>
+      )}
+
+      <div className="overflow-hidden rounded-md border border-rule">
+        {plans.length === 0 && <p className="p-4 text-sm text-muted">No reading plans yet.</p>}
+        {plans.map((plan) => (
+          <div key={plan.id} className="border-b border-rule last:border-0">
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-parchment">{plan.name}</span>
+                  {plan.isBuiltIn && (
+                    <span className="rounded border border-brass/40 px-1.5 py-px text-[10px] uppercase tracking-wide text-brass">
+                      built-in
+                    </span>
+                  )}
+                  <span className="text-xs text-muted">{plan.dayCount} days</span>
+                </div>
+                {plan.description && (
+                  <p className="mt-0.5 text-xs text-muted">{plan.description}</p>
+                )}
+              </div>
+              <div className="flex shrink-0 gap-1">
+                {!plan.isBuiltIn && (
+                  <button
+                    onClick={() => editId === plan.id ? setEditId(null) : startEdit(plan)}
+                    className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment"
+                  >
+                    {editId === plan.id ? 'cancel' : 'edit'}
+                  </button>
+                )}
+                {!plan.isBuiltIn && (
+                  confirmDelete === plan.id ? (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="text-xs text-muted">Delete?</span>
+                      <button
+                        onClick={() => handleDelete(plan.id)}
+                        disabled={deleting === plan.id}
+                        className="rounded border border-red-500/60 px-2 py-0.5 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                      >
+                        {deleting === plan.id ? '…' : 'yes'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(null)}
+                        className="rounded border border-rule px-2 py-0.5 text-xs text-muted hover:text-parchment"
+                      >
+                        no
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(plan.id)}
+                      className="rounded border border-rule px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-400"
+                    >
+                      delete
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+
+            {editId === plan.id && (
+              <form onSubmit={handleSave} className="border-t border-rule bg-panel/30 px-4 py-3 space-y-2">
+                <input
+                  value={eName}
+                  onChange={(e) => setEName(e.target.value)}
+                  placeholder="Plan name"
+                  required
+                  className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+                />
+                <input
+                  value={eDesc}
+                  onChange={(e) => setEDesc(e.target.value)}
+                  placeholder="Description (optional)"
+                  className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+                />
+                <div>
+                  <label className="mb-1 block text-xs text-muted">
+                    Schedule JSON — edit to change, leave unmodified to keep as-is
+                  </label>
+                  <textarea
+                    value={eSchedule}
+                    onChange={(e) => setESchedule(e.target.value)}
+                    rows={8}
+                    className="w-full rounded border border-rule bg-ink px-3 py-2 font-mono text-xs text-parchment placeholder:text-muted/50 focus:border-brass focus:outline-none"
+                  />
+                </div>
+                {editError && <p className="text-sm text-red-400">{editError}</p>}
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
+                >
+                  {saving ? 'saving…' : 'save'}
+                </button>
+              </form>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DevotionalsTab() {
+  const [modules, setModules] = useState([]);
+  const [selected, setSelected] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    Promise.all([api.listDevotionalModules(), api.getDevotionalSettings()])
+      .then(([mods, settings]) => {
+        setModules(mods);
+        setSelected(settings.moduleCode || '');
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      await api.setDevotionalModule(selected);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <p className="text-sm text-muted">Loading…</p>;
+
+  return (
+    <div className="max-w-md">
+      <form onSubmit={handleSave} className="space-y-3 rounded-md border border-rule p-4">
+        <div>
+          <label htmlFor="dev-module" className="mb-1 block text-xs uppercase tracking-wide text-muted">
+            Active devotional module
+          </label>
+          {modules.length === 0 ? (
+            <p className="text-sm text-muted">No devotional modules installed. Install a SWORD devotional (e.g. Daily Light, Spurgeon's Morning &amp; Evening) from the Modules tab.</p>
+          ) : (
+            <select
+              id="dev-module"
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+              className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass focus:outline-none"
+            >
+              <option value="">— select module —</option>
+              {modules.map((m) => (
+                <option key={m.name} value={m.name}>{m.description || m.name}</option>
+              ))}
+            </select>
+          )}
+          <p className="mt-1 text-xs text-muted">Shown on the home screen daily reading. All users see the same module.</p>
+        </div>
+
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        {saved && <p className="text-sm text-verdigris">Saved.</p>}
+
+        <button
+          type="submit"
+          disabled={saving || modules.length === 0}
+          className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
+        >
+          {saving ? 'saving…' : 'save'}
+        </button>
+      </form>
     </div>
   );
 }

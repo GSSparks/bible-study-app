@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, StickyNote } from 'lucide-react';
+import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, StickyNote, PenLine } from 'lucide-react';
 import SearchBar from './SearchBar.jsx';
 import WorkspaceLayout from './WorkspaceLayout.jsx';
 import { api } from '../api/client.js';
@@ -15,6 +15,7 @@ const WINDOW_TOGGLES = [
   { type: 'document',     Icon: FileText,    title: 'Documents' },
   { type: 'search',       Icon: Search,      title: 'Search Results' },
   { type: 'notes',        Icon: StickyNote,  title: 'Notes' },
+  { type: 'personal_commentary', Icon: PenLine, title: 'My Commentary' },
 ];
 
 export default function CellView({
@@ -459,10 +460,10 @@ export default function CellView({
 
   return (
     <div className="flex h-full w-full flex-col">
-      {/* Navigation bar */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-rule px-4 py-2">
-        {/* History back/forward — hidden on mobile (tab strip handles pane switching) */}
-        <div className="hidden lg:flex shrink-0 gap-1">
+      {/* Navigation bar — hidden on mobile (search pane replaces search bar; tab strip handles pane switching) */}
+      <div className="hidden lg:flex shrink-0 items-center gap-2 border-b border-rule px-4 py-2">
+        {/* History back/forward */}
+        <div className="flex shrink-0 gap-1">
           <button
             onClick={goBack}
             disabled={navHistory.index <= 0}
@@ -486,8 +487,8 @@ export default function CellView({
           <SearchBar ref={searchInputRef} activeModule={firstBibleTab?.module} onJump={navigateFocus} onSearch={routeToSearch} onCommentarySearch={routeToCommentarySearch} />
         </div>
 
-        {/* Window toggles — hidden on mobile (tab strip handles open/close/switch) */}
-        <div className="hidden lg:flex shrink-0 items-center gap-0.5">
+        {/* Window toggles */}
+        <div className="flex shrink-0 items-center gap-0.5">
           {WINDOW_TOGGLES.map(({ type, Icon, title }) => {
             const isActive = layout.columns.some((c) => c.rows.some((r) => r.type === type));
             return (

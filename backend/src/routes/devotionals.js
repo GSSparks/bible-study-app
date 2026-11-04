@@ -31,6 +31,14 @@ devotionalsRouter.get('/debug', requireAdmin, async (req, res) => {
   }
 });
 
+devotionalsRouter.get('/settings', requireAdmin, async (req, res, next) => {
+  try {
+    res.json({ moduleCode: await getActiveModule() });
+  } catch (err) {
+    next(err);
+  }
+});
+
 devotionalsRouter.post('/settings', requireAdmin, async (req, res, next) => {
   try {
     const { moduleCode } = req.body;
