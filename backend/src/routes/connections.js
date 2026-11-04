@@ -101,7 +101,7 @@ connectionsRouter.get('/search', async (req, res, next) => {
   try {
     const { q } = req.query;
     if (!q || q.length < 2) return res.json([]);
-    res.json(await searchUsers(req.user.id, q));
+    res.json(await searchUsers(q, req.user.id));
   } catch (err) {
     next(err);
   }
