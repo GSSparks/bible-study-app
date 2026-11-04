@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireLogin, attachUser } from '../middleware/auth.js';
+import { requireLogin } from '../middleware/auth.js';
 import {
   sendRequest,
   respondToRequest,
@@ -19,12 +19,6 @@ export const connectionsRouter = Router();
 // login for the entire router, same reasoning as notes/context/etc.
 connectionsRouter.use(requireLogin);
 
-// GET /api/connections/search?q=...
-search: (q, module, searchType = 'multiWord') => {
-  const params = new URLSearchParams({ q, searchType });
-  if (module) params.set('module', module);
-  return request(`/search?${params}`);
-},
 
 // GET /api/connections — accepted connections
 connectionsRouter.get('/', async (req, res, next) => {
