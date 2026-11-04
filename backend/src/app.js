@@ -69,10 +69,11 @@ export function createApp() {
     res.setHeader('Content-Security-Policy', [
       "default-src 'self'",
       "base-uri 'self'",
-      "script-src 'self'",
+      "script-src 'self' 'wasm-unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
-      "connect-src 'self'",
+      "worker-src 'self' blob:",
+      "connect-src 'self' data:",
       "font-src 'self' https://fonts.gstatic.com",
       `frame-src ${frameSrc}`,
       "frame-ancestors 'self'",
