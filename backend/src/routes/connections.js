@@ -8,22 +8,18 @@ import {
   listPendingReceived,
   listPendingSent,
   searchUsers,
+  searchFellows,
 } from '../services/connectionService.js';
 
 export const connectionsRouter = Router();
+
+
 
 // Fellows are inherently tied to having an account — gated behind
 // login for the entire router, same reasoning as notes/context/etc.
 connectionsRouter.use(requireLogin);
 
-// GET /api/connections/search?q=...
-connectionsRouter.get('/search', async (req, res, next) => {
-  try {
-    res.json(await searchUsers(req.query.q, req.user.id));
-  } catch (err) {
-    next(err);
-  }
-});
+
 
 // GET /api/connections — accepted connections
 connectionsRouter.get('/', async (req, res, next) => {
@@ -86,6 +82,26 @@ connectionsRouter.delete('/:id', async (req, res, next) => {
   try {
     await removeConnection(req.user.id, req.params.id);
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/connections/fellows/search?q=...
+connectionsRouter.get('/fellows/search', async (req, res, next) => {
+  try {
+    const isAdmin = req.user.role === 'admin';
+    res.json(await searchFellows(req.query.q, req.user.id, { isAdmin }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+connectionsRouter.get('/search', async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 2) return res.json([]);
+    res.json(await searchUsers(q, req.user.id));
   } catch (err) {
     next(err);
   }
