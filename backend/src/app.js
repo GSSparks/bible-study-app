@@ -184,7 +184,6 @@ export function createApp() {
   // /uploads path doesn't get swallowed by the catch-all.
   app.use('/uploads', express.static(UPLOADS_PATH));
 
-  // This is where I think this goes ~lectric1
   app.use('/api/calendar', calendarRouter);
 
   // Serve the built React app for everything else (SPA fallback)

@@ -7,7 +7,8 @@ import rrule from 'rrule';
 import fs from 'fs';
 import path from 'path';
 
-const DAY_BG_DIR = path.join(process.cwd(), 'uploads', 'calendar', 'day-bg');
+const UPLOADS_PATH = process.env.UPLOADS_PATH || path.join(process.cwd(), 'uploads');
+const DAY_BG_DIR = path.join(UPLOADS_PATH, 'calendar', 'day-bg');
 if (!fs.existsSync(DAY_BG_DIR)) fs.mkdirSync(DAY_BG_DIR, { recursive: true });
 const { RRule } = rrule;
 const MAX_LAYER_NAME_LENGTH = 60;
@@ -18,25 +19,24 @@ const MAX_COVER_VERSE_REF_LENGTH = 50;
 const JULIAN_OFFSET = 13; // valid 1900–2099
 
 export function listFontFiles() {
-  const dir = path.join(process.env.UPLOADS_PATH, 'calendar', 'fonts');
+  const dir = path.join(UPLOADS_PATH, 'calendar', 'fonts');
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).filter(f => /\.(ttf|otf|woff2?)$/i.test(f));
 }
 
 export function saveFontFile(filename) {
-  const dir = path.join(process.env.UPLOADS_PATH, 'calendar', 'fonts');
+  const dir = path.join(UPLOADS_PATH, 'calendar', 'fonts');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, filename);
 }
 
 export function deleteFontFile(filename) {
-  const filePath = path.join(process.env.UPLOADS_PATH, 'calendar', 'fonts', filename);
+  const filePath = path.join(UPLOADS_PATH, 'calendar', 'fonts', filename);
   if (!fs.existsSync(filePath)) return false;
   fs.unlinkSync(filePath);
   return true;
 }
 
-// add to your module.exports
 export function julianToGregorian(year, month, day) {
   const d = new Date(Date.UTC(year, month - 1, day + JULIAN_OFFSET));
   return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
@@ -166,15 +166,12 @@ export async function removeDayImage(userId, year, month, day, layerId) {
 }
 
 export function listDayBgFiles() {
-  const uploadsPath = process.env.UPLOADS_PATH || path.join(process.cwd(), 'uploads');
-  const dir = path.join(uploadsPath, 'calendar', 'day-bg');
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir).filter(f => /\.(jpe?g|png|webp|gif)$/i.test(f));
+  if (!fs.existsSync(DAY_BG_DIR)) return [];
+  return fs.readdirSync(DAY_BG_DIR).filter(f => /\.(jpe?g|png|webp|gif)$/i.test(f));
 }
 
 export function deleteDayBgFile(filename) {
-  const uploadsPath = process.env.UPLOADS_PATH || path.join(process.cwd(), 'uploads');
-  const filePath = path.join(uploadsPath, 'calendar', 'day-bg', filename);
+  const filePath = path.join(DAY_BG_DIR, filename);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 

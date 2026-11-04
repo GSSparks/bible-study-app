@@ -1,7 +1,7 @@
 // backend/src/routes/calendar.js
 
 import { Router } from 'express';
-import { requireLogin } from '../middleware/auth.js';
+import { requireLogin, requireAdmin } from '../middleware/auth.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -256,7 +256,7 @@ calendarRouter.get('/images/day-bg', (req, res) => {
   res.json(files.map(f => `/uploads/calendar/day-bg/${f}`));
 });
 
-calendarRouter.delete('/images/day-bg/:filename', (req, res) => {
+calendarRouter.delete('/images/day-bg/:filename', requireAdmin, (req, res) => {
   deleteDayBgFile(req.params.filename);
   res.json({ ok: true });
 });
@@ -288,7 +288,7 @@ calendarRouter.get('/fonts', (req, res) => {
   })));
 });
 
-calendarRouter.post('/fonts', fontUpload.single('font'), (req, res) => {
+calendarRouter.post('/fonts', requireAdmin, fontUpload.single('font'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   res.json({
     filename: req.file.filename,
@@ -297,7 +297,7 @@ calendarRouter.post('/fonts', fontUpload.single('font'), (req, res) => {
   });
 });
 
-calendarRouter.delete('/fonts/:filename', (req, res) => {
+calendarRouter.delete('/fonts/:filename', requireAdmin, (req, res) => {
   deleteFontFile(req.params.filename);
   res.json({ ok: true });
 });

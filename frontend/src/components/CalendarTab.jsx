@@ -52,10 +52,7 @@ const COLORS = ['#6366f1', '#ef4444', '#22c55e', '#f59e0b', '#ec4899', '#06b6d4'
 
 
 function currentHebrewYear() {
-  const now = new Date();
-  // Tishrei (Hebrew New Year) falls ~Sep 25–30
-  const beforeRoshHashanah = now.getMonth() < 8 || (now.getMonth() === 8 && now.getDate() < 25);
-  return now.getFullYear() + (beforeRoshHashanah ? 3760 : 3761);
+  return new HDate(new Date()).getFullYear();
 }
 
 function getCellHebrewDate(system, day, year, month, hebYear) {
@@ -78,7 +75,7 @@ function getCellHebrewDate(system, day, year, month, hebYear) {
     }
 }
 
-// ── DayCellContentt ────────────────────────────────────────────────────────
+// ── DayCellContent ─────────────────────────────────────────────────────────
 function DayCellContent({ day, entries, hebrewDate, hebrewLayerVisible, compact, image }) {
     return (
         <div className={`relative w-full h-full ${image ? '' : ''}`}>
