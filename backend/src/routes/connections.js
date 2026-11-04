@@ -11,6 +11,24 @@ import {
   searchFellows,
 } from '../services/connectionService.js';
 
+connectionsRouter.get('/search', attachUser, async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 2) return res.json([]);
+
+    const { rows } = await pool.query(
+      `SELECT id, username, display_name
+      FROM users
+      WHERE username ILIKE '%' || $1 || '%'
+      AND id != $2
+      ORDER BY username
+      LIMIT 20`,
+      [q, req.user.id]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
 export const connectionsRouter = Router();
 
 // Fellows are inherently tied to having an account — gated behind
