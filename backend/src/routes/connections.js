@@ -11,6 +11,8 @@ import {
   searchFellows,
 } from '../services/connectionService.js';
 
+export const connectionsRouter = Router();
+
 connectionsRouter.get('/search', attachUser, async (req, res, next) => {
   try {
     const { q } = req.query;
@@ -28,8 +30,6 @@ connectionsRouter.get('/search', attachUser, async (req, res, next) => {
     res.json(rows);
   } catch (err) { next(err); }
 });
-
-export const connectionsRouter = Router();
 
 // Fellows are inherently tied to having an account — gated behind
 // login for the entire router, same reasoning as notes/context/etc.
