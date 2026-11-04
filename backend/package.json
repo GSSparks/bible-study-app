@@ -31,7 +31,9 @@
     "multer": "^2.0.0",
     "node-sword-interface": "^1.0.124",
     "mammoth": "^1.8.0",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "@hebcal/core": "^5.0.0",
+    "rrule": "^2.8.0"   
   },
   "devDependencies": {
     "prisma": "^5.20.0",
