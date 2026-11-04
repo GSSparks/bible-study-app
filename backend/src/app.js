@@ -65,10 +65,11 @@ export function createApp() {
       directives: {
         defaultSrc: ["'self'"],
         baseUri: ["'self'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-        connectSrc: ["'self'"],
+        workerSrc: ["'self'", 'blob:'],
+        connectSrc: ["'self'", "data:"],
         fontSrc: ["'self'", 'https://fonts.gstatic.com'],
         frameSrc: ["'none'"],
         frameAncestors: ["'self'"],

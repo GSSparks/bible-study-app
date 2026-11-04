@@ -173,6 +173,7 @@ export const api = {
 
   // Connections (Fellows)
   searchConnections: (q) => request(`/connections/search?q=${encodeURIComponent(q)}`),
+  searchFellows: (q) => request(`/connections/fellows/search?q=${encodeURIComponent(q)}`),
   listConnections: () => request('/connections'),
   listConnectionRequests: () => request('/connections/requests'),
   listSentConnectionRequests: () => request('/connections/sent'),
@@ -302,44 +303,6 @@ export const api = {
   likeStudyComment: (commentId) => request(`/studies/comments/${commentId}/like`, { method: 'POST' }),
   unlikeStudyComment: (commentId) => request(`/studies/comments/${commentId}/like`, { method: 'DELETE' }),
 
-  // Devotionals
-  getTodaysDevotional: () => request('/devotionals/today'),
-  listDevotionalModules: () => request('/devotionals/modules'),
-  setDevotionalModule: (moduleCode) => request('/devotionals/settings', { method: 'POST', body: JSON.stringify({ moduleCode }) }),
-  debugDevotional: (moduleCode) => request(`/devotionals/debug${moduleCode ? `?module=${encodeURIComponent(moduleCode)}` : ''}`),
-
-  // Reading plans
-  listReadingPlans: () => request('/reading-plans'),
-  getReadingPlan: (id) => request(`/reading-plans/${id}`),
-  createReadingPlan: (data) => request('/reading-plans', { method: 'POST', body: JSON.stringify(data) }),
-  updateReadingPlan: (id, data) => request(`/reading-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  deleteReadingPlan: (id) => request(`/reading-plans/${id}`, { method: 'DELETE' }),
-  getReadingPlanProgress: (id) => request(`/reading-plans/${id}/progress`),
-  markReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress`, { method: 'POST', body: JSON.stringify({ dayNumber }) }),
-  unmarkReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress/${dayNumber}`, { method: 'DELETE' }),
-  resetReadingPlanProgress: (id) => request(`/reading-plans/${id}/progress`, { method: 'DELETE' }),
-
-  // Calendar
-  listCalendarLayers: () => request('/calendar/layers'),
-  createCalendarLayer: (payload) => request('/calendar/layers', { method: 'POST', body: JSON.stringify(payload) }),
-  updateCalendarLayer: (id, patch) => request(`/calendar/layers/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
-  deleteCalendarLayer: (id) => request(`/calendar/layers/${id}`, { method: 'DELETE' }),
-  listLayerShares: (layerId) => request(`/calendar/layers/${layerId}/shares`),
-  shareCalendarLayer: (layerId, { username, role }) => request(`/calendar/layers/${layerId}/share`, { method: 'POST', body: JSON.stringify({ username, role }) }),
-  unshareCalendarLayer: (layerId, userId) => request(`/calendar/layers/${layerId}/share/${userId}`, { method: 'DELETE' }),
-  listCalendarEntries: (year, month) => request(`/calendar/entries/${year}/${month}`),
-  createCalendarEntry: (payload) => request('/calendar/entries', { method: 'POST', body: JSON.stringify(payload) }),
-  updateCalendarEntry: (id, patch) => request(`/calendar/entries/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
-  deleteCalendarEntry: (id) => request(`/calendar/entries/${id}`, { method: 'DELETE' }),
-  getPrintConfig: (year) => request(`/calendar/print-config/${year}`),
-  savePrintConfig: (year, payload) => request(`/calendar/print-config/${year}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deletePrintConfig: (year) => request(`/calendar/print-config/${year}`, { method: 'DELETE' }),
-  uploadCalendarImage: (subdir, file) => {
-    const fd = new FormData();
-    fd.append('image', file);
-    return request(`/calendar/images/${subdir}`, { method: 'POST', body: fd });
-  },
-
   listStudyReflections: (studyId) => request(`/studies/${studyId}/reflections`),
   listStudyResources: (studyId) => request(`/studies/${studyId}/resources`),
   addStudyResource: (studyId, payload) => request(`/studies/${studyId}/resources`, { method: 'POST', body: JSON.stringify(payload) }),
@@ -370,28 +333,69 @@ export const api = {
   getMapsForReference: (ref) =>
   request(`/bible-maps/for-reference?ref=${encodeURIComponent(ref)}`),
 
+  // Devotionals
+  getTodaysDevotional: () => request('/devotionals/today'),
+  listDevotionalModules: () => request('/devotionals/modules'),
+  setDevotionalModule: (moduleCode) => request('/devotionals/settings', { method: 'POST', body: JSON.stringify({ moduleCode }) }),
+  debugDevotional: (moduleCode) => request(`/devotionals/debug${moduleCode ? `?module=${encodeURIComponent(moduleCode)}` : ''}`),
+
+  // Reading plans
+  listReadingPlans: () => request('/reading-plans'),
+  getReadingPlan: (id) => request(`/reading-plans/${id}`),
+  createReadingPlan: (data) => request('/reading-plans', { method: 'POST', body: JSON.stringify(data) }),
+  updateReadingPlan: (id, data) => request(`/reading-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteReadingPlan: (id) => request(`/reading-plans/${id}`, { method: 'DELETE' }),
+  getReadingPlanProgress: (id) => request(`/reading-plans/${id}/progress`),
+  markReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress`, { method: 'POST', body: JSON.stringify({ dayNumber }) }),
+  unmarkReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress/${dayNumber}`, { method: 'DELETE' }),
+  resetReadingPlanProgress: (id) => request(`/reading-plans/${id}/progress`, { method: 'DELETE' }),
+
+  // Calendar
+  listCalendarLayers: () => request('/calendar/layers'),
+  createCalendarLayer: (payload) => request('/calendar/layers', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCalendarLayer: (id, patch) => request(`/calendar/layers/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
+  deleteCalendarLayer: (id) => request(`/calendar/layers/${id}`, { method: 'DELETE' }),
+  listLayerShares: (layerId) => request(`/calendar/layers/${layerId}/shares`),
+  shareCalendarLayer: (layerId, username, role) =>
+  request(`/calendar/layers/${layerId}/share`, { method: 'POST', body: JSON.stringify({ username, role }) }),
+  listCalendarEntries: (year, month) => request(`/calendar/entries/${year}/${month}`),
   listLayerEntries: (layerId, startYear, startMonth, endYear, endMonth) =>
-  fetch(`/api/calendar/layers/${layerId}/entries?startYear=${startYear}&startMonth=${startMonth}&endYear=${endYear}&endMonth=${endMonth}`)
-  .then(r => r.json()),
-  createEntry: (data) => fetch('/api/calendar/entries', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  }).then(r => r.json()),
-
-  createLayer: (data) => fetch('/api/calendar/layers', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  }).then(r => r.json()),
-
-  deleteLayer: (id) => fetch(`/api/calendar/layers/${id}`, {
-    method: 'DELETE',
-  }).then(r => r.json()),
-  deleteLayer: (id) => fetch(`/api/calendar/layers/${id}`, {
-    method: 'DELETE',
-  }).then(r => {
-    if (!r.ok) throw new Error(`Delete failed: ${r.status}`);
-    return r;
-  }),
+  request(`/calendar/layers/${layerId}/entries?startYear=${startYear}&startMonth=${startMonth}&endYear=${endYear}&endMonth=${endMonth}`),
+  createCalendarEntry: (payload) => request('/calendar/entries', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCalendarEntry: (id, patch) => request(`/calendar/entries/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
+  deleteCalendarEntry: (id) => request(`/calendar/entries/${id}`, { method: 'DELETE' }),
+  getPrintConfig: (year) => request(`/calendar/print-config/${year}`),
+  savePrintConfig: (year, payload) => request(`/calendar/print-config/${year}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deletePrintConfig: (year) => request(`/calendar/print-config/${year}`, { method: 'DELETE' }),
+  uploadCalendarImage: (subdir, file) => {
+    const fd = new FormData();
+    fd.append('image', file);
+    return request(`/calendar/images/${subdir}`, { method: 'POST', body: fd });
+  },
+  removeSharedLayer: (layerId, sharedByUserId) =>
+  request(`/calendar/layers/${layerId}/share/${sharedByUserId}`, { method: 'DELETE' }),
+  unshareCalendarLayer: (layerId, userId) =>
+  request(`/calendar/layers/${layerId}/share/${userId}`, { method: 'DELETE' }),
+  listDayImages: (year, month) => request(`/calendar/day-images/${year}/${month}`),
+  setDayImage: (year, month, day, imageUrl, layerId) =>
+  request(`/calendar/day-images/${year}/${month}/${day}`, { method: 'PUT', body: JSON.stringify({ imageUrl, layerId }) }),
+  removeDayImage: (year, month, day, layerId) =>
+  request(`/calendar/day-images/${year}/${month}/${day}${layerId ? `?layerId=${layerId}` : ''}`, { method: 'DELETE' }),
+  listDayBgImages: () => request('/calendar/images/day-bg'),
+  deleteDayBgImage: (filename) =>
+  request(`/calendar/images/day-bg/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
+  listFonts: () => fetch('/api/calendar/fonts').then(r => r.json()),
+  uploadFont: (file) => {
+    const fd = new FormData();
+    fd.append('font', file);
+    return fetch('/api/calendar/fonts', { method: 'POST', body: fd }).then(r => r.json());
+  },
+  deleteFont: (filename) => fetch(`/api/calendar/fonts/${filename}`, { method: 'DELETE' }).then(r => r.json()),
+  getLayerConfig: (layerId) => request(`/calendar/layers/${layerId}/config`),
+  saveLayerConfig: (layerId, config) => request(`/calendar/layers/${layerId}/config`, { method: 'PUT', body: JSON.stringify({ config }) }),
+  listCountries: () => request('/calendar/countries'),
+  generateLayer: (layerId, body) => request(`/calendar/layers/${layerId}/generate`, { method: 'POST', body: JSON.stringify(body) }),
+  listFeasts: (tradition, year) => request(`/calendar/feasts/${tradition}/${year}`),
+  getPresetKeys: (preset, tradition, year) =>
+  request(`/calendar/feasts/${tradition}/${year}?preset=${preset}`).then(d => d.keys),
 };

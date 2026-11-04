@@ -149,6 +149,9 @@ model User {
   calendarLayers      CalendarLayer[]
   calendarLayerShares CalendarLayerShare[]
   calendarPrintConfigs CalendarPrintConfig[]
+  calendarLayerVisibilities    UserLayerVisibility[]
+  dayImages DayImage[]
+  layerConfigs UserLayerConfig[]
 }
 
 // Mutual-acceptance connections ("Fellows" in the UI). One row per
@@ -525,8 +528,8 @@ model StudyHighlight {
 
 model CalendarLayer {
   id             String   @id @default(cuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String?  // null = system/built-in layer
+  user           User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String
   color          String
   calendarSystem String   @default("gregorian") // "gregorian" | "hebrew"
@@ -537,9 +540,21 @@ model CalendarLayer {
 
   entries    CalendarEntry[]
   shares     CalendarLayerShare[]
+  userLayerVisibilities UserLayerVisibility[]
+  userConfigs UserLayerConfig[]
 
   @@unique([userId, name])
   @@index([userId])
+}
+
+model UserLayerVisibility {
+  userId    String
+  layerId   String
+  visible   Boolean  @default(true)
+  ser      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  layer     CalendarLayer @relation(fields: [layerId], references: [id], onDelete: Cascade)
+
+  @@id([userId, layerId])
 }
 
 model CalendarEntry {
@@ -596,3 +611,33 @@ model CalendarPrintConfig {
   @@index([userId, year])
 
 }
+
+model DayImage {
+  id        String   @id @default(cuid())
+  year      Int
+  month     Int
+  day       Int
+  imageUrl  String
+  layerId   String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([year, month, day, layerId])
+  @@index([userId, year, month])
+}
+
+model UserLayerConfig {
+  userId    String
+  layerId   String
+  config    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  layer CalendarLayer @relation(fields: [layerId], references: [id], onDelete: Cascade)
+
+  @@id([userId, layerId])
+  @@index([layerId])
+}
+

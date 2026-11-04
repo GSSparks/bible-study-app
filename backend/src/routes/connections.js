@@ -8,6 +8,7 @@ import {
   listPendingReceived,
   listPendingSent,
   searchUsers,
+  searchFellows,
 } from '../services/connectionService.js';
 
 export const connectionsRouter = Router();
@@ -17,13 +18,11 @@ export const connectionsRouter = Router();
 connectionsRouter.use(requireLogin);
 
 // GET /api/connections/search?q=...
-connectionsRouter.get('/search', async (req, res, next) => {
-  try {
-    res.json(await searchUsers(req.query.q, req.user.id));
-  } catch (err) {
-    next(err);
-  }
-});
+search: (q, module, searchType = 'multiWord') => {
+  const params = new URLSearchParams({ q, searchType });
+  if (module) params.set('module', module);
+  return request(`/search?${params}`);
+},
 
 // GET /api/connections — accepted connections
 connectionsRouter.get('/', async (req, res, next) => {
@@ -90,3 +89,14 @@ connectionsRouter.delete('/:id', async (req, res, next) => {
     next(err);
   }
 });
+
+// GET /api/connections/fellows/search?q=...
+connectionsRouter.get('/fellows/search', async (req, res, next) => {
+  try {
+    const isAdmin = req.user.role === 'admin';
+    res.json(await searchFellows(req.query.q, req.user.id, { isAdmin }));
+  } catch (err) {
+    next(err);
+  }
+});
+

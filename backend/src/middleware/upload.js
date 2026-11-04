@@ -68,7 +68,18 @@ export function mimeToType(mimetype) {
   return VIDEO_TYPES.has(mimetype) ? 'video' : 'image';
 }
 export const uploadCalendarImage = multer({
-  storage: makeStorage('calendar'),
-                                          limits: { fileSize: 10 * 1024 * 1024 },
-                                          fileFilter: imageOnly,
+  storage: multer.diskStorage({
+    destination: (req, _file, cb) => {
+      const subdir = req.params.subdir === 'day-bg' ? 'calendar/day-bg' : 'calendar/cover';
+      const dest = path.join(UPLOADS_PATH, subdir);
+      ensureDir(dest);
+      cb(null, dest);
+    },
+    filename: (_req, file, cb) => {
+      const ext = EXT[file.mimetype.split(';')[0]] || path.extname(file.originalname).toLowerCase();
+      cb(null, `${randomUUID()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: imageOnly,
 }).single('image');
