@@ -553,7 +553,7 @@ model UserLayerVisibility {
   userId    String
   layerId   String
   visible   Boolean  @default(true)
-  ser      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   layer     CalendarLayer @relation(fields: [layerId], references: [id], onDelete: Cascade)
 
   @@id([userId, layerId])
