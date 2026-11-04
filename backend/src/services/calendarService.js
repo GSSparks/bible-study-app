@@ -334,8 +334,8 @@ export async function updateLayer(layerId, userId, { name, color, visible }) {
     where: { id: layerId },
     data: {
       ...(name !== undefined && { name: name.trim() }),
-                                     ...(color !== undefined && { color }),
-                                     ...(visible !== undefined && { visible }),
+      ...(color !== undefined && { color }),
+      ...(visible !== undefined && { visible }),
     },
   });
 }
@@ -409,11 +409,19 @@ export async function listEntriesForMonth(userId, year, month) {
     orderBy: { day: 'asc' },
   });
 
-  // Auto-generate system layer entries on first load for the year
+  // Auto-generate system layer entries on first load for the year (single batch check)
   const currentYear = year;
-  for (const l of allLayers.filter(l => l.isBuiltIn)) {
-    const count = await prisma.calendarEntry.count({ where: { layerId: l.id, year: currentYear } });
-    if (count === 0) {
+  const builtInLayers = allLayers.filter(l => l.isBuiltIn);
+  if (builtInLayers.length > 0) {
+    const existingRows = await prisma.calendarEntry.findMany({
+      where: { layerId: { in: builtInLayers.map(l => l.id) }, year: currentYear },
+      select: { layerId: true },
+      distinct: ['layerId'],
+    });
+    const layersWithEntries = new Set(existingRows.map(e => e.layerId));
+
+    for (const l of builtInLayers) {
+      if (layersWithEntries.has(l.id)) continue;
       if (l.name === 'Civil') {
         const cfg = await prisma.userLayerConfig.findUnique({
           where: { userId_layerId: { userId, layerId: l.id } },
@@ -429,7 +437,7 @@ export async function listEntriesForMonth(userId, year, month) {
           where: { userId_layerId: { userId, layerId: l.id } },
         });
         let enabledKeys = cfg?.config?.enabledHolidays ?? null;
-        // Default: Western → Protestant, Eastern → all (they're all Eastern anyway)
+        // Default: Western → Protestant, Eastern → all
         if (enabledKeys === null && tradition === 'western') {
           enabledKeys = getPresetKeys('protestant', tradition, currentYear);
         }

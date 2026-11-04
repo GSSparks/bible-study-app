@@ -55,26 +55,6 @@ function currentHebrewYear() {
   return new HDate(new Date()).getFullYear();
 }
 
-function getCellHebrewDate(system, day, year, month, hebYear) {
-    if (system === 'hebrew') return null;
-
-    let gregDate;
-    if (system === 'gregorian') {
-        gregDate = new Date(year, month - 1, day);
-    } else if (system === 'julian') {
-        gregDate = new Date(year, month - 1, day + 13);
-    } else {
-        return null;
-    }
-
-    try {
-        const hd = new HDate(gregDate);
-        return `${hd.getMonthName()} ${hd.getDate()}, ${hd.getFullYear()}`;
-    } catch {
-        return null;
-    }
-}
-
 // ── DayCellContent ─────────────────────────────────────────────────────────
 function DayCellContent({ day, entries, hebrewDate, hebrewLayerVisible, compact, image }) {
     return (
@@ -386,12 +366,9 @@ export default function CalendarTab({ isLoggedIn }) {
     const gridRef = useRef(null);
     const justOpened = useRef(false);
 
-    // ── State (add to CalendarTab) ──
     const [newLayerName, setNewLayerName] = useState('');
     const [newLayerColor, setNewLayerColor] = useState('#6366f1');
     const [newLayerSystem, setNewLayerSystem] = useState('gregorian');
-    // State
-    // ── State (replace the old entry state) ──
     const [selectedLayerId, setSelectedLayerId] = useState(null);
     const [layerEntries, setLayerEntries] = useState([]);
     const [showAddEntry, setShowAddEntry] = useState(false);
@@ -473,7 +450,7 @@ export default function CalendarTab({ isLoggedIn }) {
 
     const handleRemoveSharedLayer = async (layer) => {
         try {
-            await api.removeSharedLayer(layer.id, layer.sharedBy);
+            await api.leaveCalendarLayerShare(layer.id);
             await loadLayers();
             await loadEntries();
         } catch (err) {
@@ -1033,10 +1010,9 @@ export default function CalendarTab({ isLoggedIn }) {
                 onChange={e => setNewLayerSystem(e.target.value)}
                 className="mb-1.5 w-full rounded border border-rule bg-ink/30 px-1 py-0.5 text-xs text-parchment"
                 >
-                <option value="gregorian">Civil</option>
-                <option value="gregorian">Christian</option>
+                <option value="gregorian">Gregorian</option>
                 <option value="hebrew">Hebrew</option>
-                <option value="julian">Eastern Christian</option>
+                <option value="julian">Julian</option>
                 </select>
                 <div className="flex justify-end gap-2">
                 <button onClick={() => setShowNewLayer(false)} className="text-xs text-muted hover:text-parchment">
@@ -1080,9 +1056,9 @@ export default function CalendarTab({ isLoggedIn }) {
                         onChange={e => setEditLayerSystem(e.target.value)}
                         className="w-full rounded border border-rule bg-ink/30 px-1 py-0.5 text-xs text-parchment"
                         >
-                        <option value="gregorian">Civil</option>
+                        <option value="gregorian">Gregorian</option>
                         <option value="hebrew">Hebrew</option>
-                        <option value="julian">Eastern Christian</option>
+                        <option value="julian">Julian</option>
                         </select>
                         <div className="flex justify-end gap-2">
                         <button onClick={() => setEditingLayerId(null)} className="text-[11px] text-muted hover:text-parchment">

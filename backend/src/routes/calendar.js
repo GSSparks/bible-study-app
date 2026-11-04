@@ -104,6 +104,19 @@ calendarRouter.delete('/layers/:id/share/:userId', async (req, res, next) => {
   }
 });
 
+// Recipient removes themselves from a share they received
+calendarRouter.delete('/layers/:id/shares/me', async (req, res, next) => {
+  try {
+    const { prisma } = await import('../db/prisma.js');
+    await prisma.calendarLayerShare.deleteMany({
+      where: { layerId: req.params.id, userId: req.user.id },
+    });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── Entries ──────────────────────────────────────────────────────────────────
 
 calendarRouter.get('/entries/:year/:month', async (req, res, next) => {
@@ -199,7 +212,6 @@ calendarRouter.post('/images/:subdir', uploadCalendarImage, (req, res, next) => 
   }
 });
 
-// calendar.js routes
 calendarRouter.get('/layers/:id/entries', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -207,7 +219,7 @@ calendarRouter.get('/layers/:id/entries', async (req, res, next) => {
     const entries = await listEntriesForLayerInRange(
       id,
       parseInt(startYear, 10), parseInt(startMonth, 10),
-                                                     parseInt(endYear, 10), parseInt(endMonth, 10),
+      parseInt(endYear, 10), parseInt(endMonth, 10),
     );
     res.json(entries);
   } catch (err) {

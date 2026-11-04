@@ -410,6 +410,8 @@ export const api = {
   },
   unshareCalendarLayer: (layerId, userId) =>
   request(`/calendar/layers/${layerId}/share/${userId}`, { method: 'DELETE' }),
+  leaveCalendarLayerShare: (layerId) =>
+  request(`/calendar/layers/${layerId}/shares/me`, { method: 'DELETE' }),
   listDayImages: (year, month) => request(`/calendar/day-images/${year}/${month}`),
   setDayImage: (year, month, day, imageUrl, layerId) =>
   request(`/calendar/day-images/${year}/${month}/${day}`, { method: 'PUT', body: JSON.stringify({ imageUrl, layerId }) }),
