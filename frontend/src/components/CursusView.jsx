@@ -18,6 +18,7 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
     {/* Tab bar */}
     <div className="flex shrink-0 border-b border-rule bg-panel">
     <div className="flex items-center gap-1 px-4 py-2">
+    <BookMarked size={16} className="mr-1 text-brass" />
     <h1 className="font-display mr-3 text-base font-semibold text-parchment">Cursus</h1>
     {TABS.map((tab) => {
       const Icon = tab.icon;
