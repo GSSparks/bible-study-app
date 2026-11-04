@@ -213,8 +213,3 @@ export async function searchUsers(query, currentUserId) {
   });
 }
 
-export default function ShareDialog({ layer, open, onClose }) {
-  if (!open || !layer) return null;
-  // ...rest of component
-}
-
