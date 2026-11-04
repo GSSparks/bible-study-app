@@ -20,6 +20,7 @@ export const connectionsRouter = Router();
 connectionsRouter.use(requireLogin);
 
 
+
 // GET /api/connections — accepted connections
 connectionsRouter.get('/', async (req, res, next) => {
   try {
@@ -96,7 +97,7 @@ connectionsRouter.get('/fellows/search', async (req, res, next) => {
   }
 });
 
-connectionsRouter.get('/search', attachUser, async (req, res, next) => {
+connectionsRouter.get('/search', async (req, res, next) => {
   try {
     const { q } = req.query;
     if (!q || q.length < 2) return res.json([]);
