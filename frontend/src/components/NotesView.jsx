@@ -33,7 +33,7 @@ const FILTER_TABS = [
   { key: 'personal', label: 'Personal' },
 ];
 
-export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bibleModule }) {
+export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bibleModule, isActive }) {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -68,6 +68,8 @@ export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bib
   }
 
   useEffect(() => { refresh(); }, []);
+
+  useEffect(() => { if (isActive) refresh(); }, [isActive]);
 
   useEffect(() => {
     if (!search.trim()) { refresh(); return; }

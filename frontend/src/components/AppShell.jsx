@@ -424,6 +424,7 @@ export default function AppShell({ auth }) {
             onOpenInCell={(ref) => openInPassages(null, ref)}
             onOpenInBible={(ref) => openBiblePanel(ref, null)}
             bibleModule={defaultBibleModule}
+            isActive={activeView === 'notes'}
           />
         </div>
         {activeView === 'fellows' && (
