@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api/client.js';
-import { getAdjacentChapter } from '../utils/bibleBooks.js';
+import { getAdjacentChapter, BIBLE_BOOKS } from '../utils/bibleBooks.js';
 import { parseVerseTokens, collectStrongsKeys } from '../utils/parseInterlinear.js';
 import { annotateCodexRefs } from '../utils/codexAnnotate.js';
 import VerseCommentaryEditor from './VerseCommentaryEditor.jsx';
 import ShareFindingModal from './ShareFindingModal.jsx';
+
+const BOOK_BY_OSIS = Object.fromEntries(BIBLE_BOOKS.map((b) => [b.osis, b]));
 
 // Shared across all ReaderPane instances — fetched once, then reused.
 let _codexEntriesCache = null;
@@ -51,6 +53,7 @@ function groupVerses(verses) {
       prev &&
       prev.bibleBookShortTitle === v.bibleBookShortTitle &&
       prev.chapter === v.chapter;
+    const sameBook = prev && prev.bibleBookShortTitle === v.bibleBookShortTitle;
     const contiguous =
       sameChapter && Number(v.absoluteVerseNr) === Number(prev.absoluteVerseNr) + 1;
     const hasTitles = v.titles && v.titles.length > 0;
@@ -58,7 +61,9 @@ function groupVerses(verses) {
       segments.push({
         key: `${v.bibleBookShortTitle}-${v.chapter}-${v.verseNr}`,
         showHeader: !sameChapter,
-        header: `${v.bibleBookShortTitle} ${v.chapter}`,
+        showBookTitle: !sameBook && Number(v.chapter) === 1,
+        bookOsis: v.bibleBookShortTitle,
+        chapter: Number(v.chapter),
         sectionTitles: hasTitles ? v.titles : [],
         verses: [],
       });
@@ -853,11 +858,25 @@ export default function ReaderPane({
           onMouseUp={handleContentMouseUp}
           onContextMenu={handleContextMenu}
         >
-          {segments.map((seg) => (
+          {segments.map((seg, segIdx) => {
+            const bookInfo = BOOK_BY_OSIS[seg.bookOsis];
+            return (
             <div key={seg.key}>
+              {seg.showBookTitle && (
+                <div className={['mb-2 text-center', segIdx === 0 ? 'mt-2' : 'mt-12'].join(' ')}>
+                  <p className="mb-1 font-sans text-[11px] uppercase tracking-widest text-pageMuted">
+                    {bookInfo?.testament === 'NT' ? 'New Testament' : 'Old Testament'}
+                  </p>
+                  <h1 className="font-display text-3xl text-pageText">{bookInfo?.name ?? seg.bookOsis}</h1>
+                  <div className="mx-auto mt-3 h-px w-16 bg-pageBorder" />
+                </div>
+              )}
               {seg.showHeader && (
-                <h2 className="mb-1 mt-4 border-t border-pageBorder pt-4 font-sans text-xs uppercase tracking-wide text-verdigris first:mt-0 first:border-t-0 first:pt-0">
-                  {seg.header}
+                <h2 className={[
+                  'mb-3 font-sans text-[11px] uppercase tracking-widest text-pageMuted',
+                  seg.showBookTitle ? 'mt-4' : segIdx === 0 ? 'mt-0' : 'mt-10 border-t border-pageBorder pt-6',
+                ].join(' ')}>
+                  Chapter {seg.chapter}
                 </h2>
               )}
               {seg.sectionTitles.length > 0 && (
@@ -944,7 +963,7 @@ export default function ReaderPane({
                 </p>
               )}
             </div>
-          ))}
+          ); })}
         </div>
       )}
 
