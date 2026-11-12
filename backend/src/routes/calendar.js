@@ -5,7 +5,7 @@ import { requireLogin, requireAdmin } from '../middleware/auth.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { uploadCalendarImage } from '../middleware/upload.js';
+import { uploadCalendarImage, UPLOADS_PATH } from '../middleware/upload.js';
 import {
   listLayers,
   createLayer,
@@ -275,7 +275,7 @@ calendarRouter.delete('/images/day-bg/:filename', requireAdmin, (req, res) => {
 const fontUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
-      const dir = path.join(process.env.UPLOADS_PATH || path.join(process.cwd(), 'uploads'), 'calendar', 'fonts');
+      const dir = path.join(UPLOADS_PATH, 'calendar', 'fonts');
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       cb(null, dir);
     },

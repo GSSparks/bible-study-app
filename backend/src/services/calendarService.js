@@ -2,12 +2,11 @@
 
 import { prisma } from '../db/prisma.js';
 import { swordService } from './swordService.js';
-import { HebrewCalendar, HDate, months } from '@hebcal/core';
+import { HebrewCalendar, HDate } from '@hebcal/core';
 import rrule from 'rrule';
 import fs from 'fs';
 import path from 'path';
-
-const UPLOADS_PATH = process.env.UPLOADS_PATH || path.join(process.cwd(), 'uploads');
+import { UPLOADS_PATH } from '../middleware/upload.js';
 const DAY_BG_DIR = path.join(UPLOADS_PATH, 'calendar', 'day-bg');
 if (!fs.existsSync(DAY_BG_DIR)) fs.mkdirSync(DAY_BG_DIR, { recursive: true });
 const { RRule } = rrule;
