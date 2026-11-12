@@ -170,7 +170,7 @@ export function listDayBgFiles() {
 }
 
 export function deleteDayBgFile(filename) {
-  const filePath = path.join(DAY_BG_DIR, filename);
+  const filePath = path.join(DAY_BG_DIR, path.basename(filename));
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }
 

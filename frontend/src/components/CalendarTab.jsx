@@ -599,7 +599,7 @@ export default function CalendarTab({ isLoggedIn }) {
                 2000, 1, 2099, 12
             );
             const data = {
-                type: 'gssparks-calendar-layer',
+                type: 'scriptorium-calendar-layer',
                 version: 1,
                 layer: {
                     name: layer.name,
@@ -633,7 +633,7 @@ export default function CalendarTab({ isLoggedIn }) {
     async function importLayer(file) {
         const text = await file.text();
         const data = JSON.parse(text);
-        if (data.type !== 'gssparks-calendar-layer') {
+        if (data.type !== 'scriptorium-calendar-layer') {
             throw new Error('Not a valid layer export file.');
         }
 

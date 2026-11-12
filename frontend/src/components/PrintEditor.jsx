@@ -236,7 +236,7 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `gssparks-calendar-${selectedMonths.join(',')}-${printYear}.pdf`;
+            a.download = `scriptorium-calendar-${selectedMonths.join(',')}-${printYear}.pdf`;
             a.click();
             URL.revokeObjectURL(url);
         } catch (err) {
