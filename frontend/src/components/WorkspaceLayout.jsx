@@ -242,12 +242,12 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
               </div>
             )}
 
-            {/* Content — shared scroll container; columns side-by-side, scroll together */}
-            <div className="flex min-h-0 flex-1 overflow-y-auto bg-page">
+            {/* Content — single column: shared scroll; parallel: each column scrolls independently */}
+            <div className={`flex min-h-0 flex-1 bg-page${allColumns.length === 1 ? ' overflow-y-auto' : ''}`}>
               <div className="flex min-h-full w-full">
                 {!activeTab && <EmptyPaneContent label="No Bible tab open — click + above to add one." />}
                 {allColumns.map((item, i) => (
-                  <div key={item.id} className="flex min-w-0 flex-1 flex-col">
+                  <div key={item.id} className={`flex min-w-0 flex-1 flex-col${allColumns.length > 1 ? ' overflow-y-auto' : ''}`}>
                     {allColumns.length > 1 && (
                       <div className="sticky top-0 z-10 flex items-center border-b border-pageBorder bg-page px-3 py-1">
                         <ModulePicker

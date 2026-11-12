@@ -148,6 +148,7 @@ export default function ReaderPane({
   interlinearMode: interlinearModeProp,
   onInterlinearToggle,
   onSearchTopical,
+  secondary = false,
 }) {
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -413,7 +414,7 @@ export default function ReaderPane({
     if (!el) return;
     pendingScroll.current = false;
     programmaticActive.current = true;
-    lastEmittedKey.current = null;
+    lastEmittedKey.current = focusedVerseKey;
     scrollEmittedRefs.current.clear();
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(() => { programmaticActive.current = false; }, 600);
@@ -501,8 +502,10 @@ export default function ReaderPane({
       lastEmittedKey.current = verseKey;
       const parts = verseKey.split('-');
       const refString = `${parts.slice(0, -2).join('-')} ${parts[parts.length - 2]}:${parts[parts.length - 1]}`;
-      scrollEmittedRefs.current.add(refString);
-      emit(refString);
+      if (!secondary) {
+        scrollEmittedRefs.current.add(refString);
+        emit(refString);
+      }
       setFocusedVerseKey(verseKey);
     }
 
@@ -528,7 +531,7 @@ export default function ReaderPane({
       if (c) c.removeEventListener('scroll', onScroll);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [focusMode, onNavigate, onScrollNavigate]);
+  }, [focusMode, onNavigate, onScrollNavigate, secondary]);
 
   // ── scroll position compensation after prepend / trim ───────────────────
   // Runs synchronously after commit so the correction is invisible to the user.
