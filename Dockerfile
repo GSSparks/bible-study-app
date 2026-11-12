@@ -4,6 +4,7 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
+RUN rm -rf node_modules/.vite dist
 RUN npm run build
 
 # --- Stage 2: build the backend, including native SWORD compilation ---

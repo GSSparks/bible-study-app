@@ -38,6 +38,7 @@ import { codexRouter } from './routes/factbook.js';
 import { bibleMapsRouter } from './routes/bibleMaps.js';
 import { eswordLibraryRouter } from './routes/eswordLibrary.js';
 import { UPLOADS_PATH } from './middleware/upload.js';
+import { calendarRouter } from './routes/calendar.js';
 import { getFrameSrcOrigins } from './services/frameSrcCache.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -68,10 +69,11 @@ export function createApp() {
     res.setHeader('Content-Security-Policy', [
       "default-src 'self'",
       "base-uri 'self'",
-      "script-src 'self'",
+      "script-src 'self' 'wasm-unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
-      "connect-src 'self'",
+      "worker-src 'self' blob:",
+      "connect-src 'self' data:",
       "font-src 'self' https://fonts.gstatic.com",
       `frame-src ${frameSrc}`,
       "frame-ancestors 'self'",
@@ -181,6 +183,8 @@ export function createApp() {
   // User-uploaded files — served before the SPA static files so the
   // /uploads path doesn't get swallowed by the catch-all.
   app.use('/uploads', express.static(UPLOADS_PATH));
+
+  app.use('/api/calendar', calendarRouter);
 
   // Serve the built React app for everything else (SPA fallback)
   app.use(express.static(FRONTEND_DIST));

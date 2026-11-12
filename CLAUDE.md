@@ -208,3 +208,4 @@ Defined in `frontend/tailwind.config.js`:
 - PDF search uses basic `ILIKE`; not yet upgraded to Postgres full-text search.
 - No built-in TLS — deploy behind a reverse proxy if exposed publicly.
 - Book highlight re-application uses first-match text search; highlights on duplicate text passages always land on the first occurrence.
+- Civil holiday generation calls the public nager.date API (`https://date.nager.at`); requests will fail silently if the instance has no outbound internet access.

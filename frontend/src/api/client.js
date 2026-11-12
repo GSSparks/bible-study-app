@@ -4,7 +4,7 @@ async function request(path, options = {}) {
   const isFormData = options.body instanceof FormData;
   const res = await fetch(`${BASE}${path}`, {
     ...(isFormData ? {} : { headers: { 'Content-Type': 'application/json' } }),
-    ...options,
+                          ...options,
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -21,9 +21,9 @@ export const api = {
   listInstalledModules: (type = 'BIBLE') => request(`/modules/installed?type=${type}`),
   listRepositories: () => request('/modules/repositories'),
   listAvailableModules: (repo, type = 'BIBLE') =>
-    request(`/modules/available?repo=${encodeURIComponent(repo)}&type=${type}`),
+  request(`/modules/available?repo=${encodeURIComponent(repo)}&type=${type}`),
   installModule: (repo, moduleCode) =>
-    request('/modules/install', { method: 'POST', body: JSON.stringify({ repo, moduleCode }) }),
+  request('/modules/install', { method: 'POST', body: JSON.stringify({ repo, moduleCode }) }),
   removeModule: (moduleCode) => request(`/modules/${encodeURIComponent(moduleCode)}`, { method: 'DELETE' }),
 
   // Bible text
@@ -116,14 +116,14 @@ export const api = {
   getStrongsEntry: (key) => request(`/strongs/${encodeURIComponent(key)}`),
   listDictionaryKeys: (module) => request(`/dictionary/${encodeURIComponent(module)}/keys`),
   getDictionaryEntry: (module, key) =>
-    request(`/dictionary/${encodeURIComponent(module)}/entry?key=${encodeURIComponent(key)}`),
+  request(`/dictionary/${encodeURIComponent(module)}/entry?key=${encodeURIComponent(key)}`),
 
   // Books (SWORD RawGenBook modules)
   listInstalledBooks: () => request('/books/installed'),
   getBookContent: (module) => request(`/books/${encodeURIComponent(module)}/content`),
   getBookKeys: (module) => request(`/books/${encodeURIComponent(module)}/keys`),
   getBookEntry: (module, key) =>
-    request(`/books/${encodeURIComponent(module)}/entry?key=${encodeURIComponent(key)}`),
+  request(`/books/${encodeURIComponent(module)}/entry?key=${encodeURIComponent(key)}`),
 
   // Study assistant
   buildContext: (payload) => request('/context/build', { method: 'POST', body: JSON.stringify(payload) }),
@@ -140,7 +140,7 @@ export const api = {
   askPhraseStudy: (payload) => request('/phrase-study/ask', { method: 'POST', body: JSON.stringify(payload) }),
   savePersonalModule: (payload) => request('/personal-modules/save', { method: 'POST', body: JSON.stringify(payload) }),
   listPersonalCommentaryRefs: (prefix) =>
-    request(`/personal-modules/commentary-refs?${new URLSearchParams({ prefix })}`),
+  request(`/personal-modules/commentary-refs?${new URLSearchParams({ prefix })}`),
   getCommentaryEntry: (reference) => request(`/personal-modules/commentary-entry?reference=${encodeURIComponent(reference)}`),
   saveCommentaryNote: ({ reference, title, bodyMd }) =>
     request('/personal-modules/commentary-entry', { method: 'PUT', body: JSON.stringify({ reference, title, bodyMd }) }),
@@ -179,10 +179,10 @@ export const api = {
   getAdminMetrics: () => request('/admin/metrics'),
   listModuleVisibility: (type) => request(`/admin/modules/visibility?type=${type}`),
   setModuleVisibility: (moduleCode, availableToUsers) =>
-    request(`/admin/modules/${encodeURIComponent(moduleCode)}/visibility`, {
-      method: 'POST',
-      body: JSON.stringify({ availableToUsers }),
-    }),
+  request(`/admin/modules/${encodeURIComponent(moduleCode)}/visibility`, {
+    method: 'POST',
+    body: JSON.stringify({ availableToUsers }),
+  }),
   listAdminPosts: () => request('/admin/posts'),
   deleteAdminPost: (id) => request(`/admin/posts/${id}`, { method: 'DELETE' }),
   listAdminMedia: () => request('/admin/media'),
@@ -196,6 +196,7 @@ export const api = {
 
   // Connections (Fellows)
   searchConnections: (q) => request(`/connections/search?q=${encodeURIComponent(q)}`),
+  searchFellows: (q) => request(`/connections/fellows/search?q=${encodeURIComponent(q)}`),
   listConnections: () => request('/connections'),
   listConnectionRequests: () => request('/connections/requests'),
   listSentConnectionRequests: () => request('/connections/sent'),
@@ -307,11 +308,11 @@ export const api = {
   getStudyLesson: (lessonId) => request(`/studies/lessons/${lessonId}`),
   createStudyLesson: (studyId, payload) => request(`/studies/${studyId}/lessons`, { method: 'POST', body: JSON.stringify(payload) }),
   bulkCreateStudyLessons: (studyId, lessons) =>
-    request(`/studies/${studyId}/lessons/bulk`, { method: 'POST', body: JSON.stringify({ lessons }) }),
+  request(`/studies/${studyId}/lessons/bulk`, { method: 'POST', body: JSON.stringify({ lessons }) }),
   updateStudyLesson: (lessonId, payload) => request(`/studies/lessons/${lessonId}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteStudyLesson: (lessonId) => request(`/studies/lessons/${lessonId}`, { method: 'DELETE' }),
   generateStudyLessonDrafts: (studyId, payload) =>
-    request(`/studies/${studyId}/generate-lessons`, { method: 'POST', body: JSON.stringify(payload) }),
+  request(`/studies/${studyId}/generate-lessons`, { method: 'POST', body: JSON.stringify(payload) }),
 
   markStudyLessonComplete: (lessonId) => request(`/studies/lessons/${lessonId}/complete`, { method: 'POST' }),
   unmarkStudyLessonComplete: (lessonId) => request(`/studies/lessons/${lessonId}/complete`, { method: 'DELETE' }),
@@ -324,24 +325,6 @@ export const api = {
   deleteStudyComment: (commentId) => request(`/studies/comments/${commentId}`, { method: 'DELETE' }),
   likeStudyComment: (commentId) => request(`/studies/comments/${commentId}/like`, { method: 'POST' }),
   unlikeStudyComment: (commentId) => request(`/studies/comments/${commentId}/like`, { method: 'DELETE' }),
-
-  // Devotionals
-  getTodaysDevotional: () => request('/devotionals/today'),
-  listDevotionalModules: () => request('/devotionals/modules'),
-  getDevotionalSettings: () => request('/devotionals/settings'),
-  setDevotionalModule: (moduleCode) => request('/devotionals/settings', { method: 'POST', body: JSON.stringify({ moduleCode }) }),
-  debugDevotional: (moduleCode) => request(`/devotionals/debug${moduleCode ? `?module=${encodeURIComponent(moduleCode)}` : ''}`),
-
-  // Reading plans
-  listReadingPlans: () => request('/reading-plans'),
-  getReadingPlan: (id) => request(`/reading-plans/${id}`),
-  createReadingPlan: (data) => request('/reading-plans', { method: 'POST', body: JSON.stringify(data) }),
-  updateReadingPlan: (id, data) => request(`/reading-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  deleteReadingPlan: (id) => request(`/reading-plans/${id}`, { method: 'DELETE' }),
-  getReadingPlanProgress: (id) => request(`/reading-plans/${id}/progress`),
-  markReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress`, { method: 'POST', body: JSON.stringify({ dayNumber }) }),
-  unmarkReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress/${dayNumber}`, { method: 'DELETE' }),
-  resetReadingPlanProgress: (id) => request(`/reading-plans/${id}/progress`, { method: 'DELETE' }),
 
   listStudyReflections: (studyId) => request(`/studies/${studyId}/reflections`),
   listStudyResources: (studyId) => request(`/studies/${studyId}/resources`),
@@ -384,4 +367,71 @@ export const api = {
   fetchESwordCatalog: () => request('/esword-library/catalog'),
   installFromESwordLibrary: (downloadUrl) =>
     request('/esword-library/install', { method: 'POST', body: JSON.stringify({ downloadUrl }) }),
+
+  // Devotionals
+  getTodaysDevotional: () => request('/devotionals/today'),
+  listDevotionalModules: () => request('/devotionals/modules'),
+  getDevotionalSettings: () => request('/devotionals/settings'),
+  setDevotionalModule: (moduleCode) => request('/devotionals/settings', { method: 'POST', body: JSON.stringify({ moduleCode }) }),
+  debugDevotional: (moduleCode) => request(`/devotionals/debug${moduleCode ? `?module=${encodeURIComponent(moduleCode)}` : ''}`),
+
+  // Reading plans
+  listReadingPlans: () => request('/reading-plans'),
+  getReadingPlan: (id) => request(`/reading-plans/${id}`),
+  createReadingPlan: (data) => request('/reading-plans', { method: 'POST', body: JSON.stringify(data) }),
+  updateReadingPlan: (id, data) => request(`/reading-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteReadingPlan: (id) => request(`/reading-plans/${id}`, { method: 'DELETE' }),
+  getReadingPlanProgress: (id) => request(`/reading-plans/${id}/progress`),
+  markReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress`, { method: 'POST', body: JSON.stringify({ dayNumber }) }),
+  unmarkReadingPlanDay: (id, dayNumber) => request(`/reading-plans/${id}/progress/${dayNumber}`, { method: 'DELETE' }),
+  resetReadingPlanProgress: (id) => request(`/reading-plans/${id}/progress`, { method: 'DELETE' }),
+
+  // Calendar
+  listCalendarLayers: () => request('/calendar/layers'),
+  createCalendarLayer: (payload) => request('/calendar/layers', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCalendarLayer: (id, patch) => request(`/calendar/layers/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
+  deleteCalendarLayer: (id) => request(`/calendar/layers/${id}`, { method: 'DELETE' }),
+  listLayerShares: (layerId) => request(`/calendar/layers/${layerId}/shares`),
+  shareCalendarLayer: (layerId, username, role) =>
+  request(`/calendar/layers/${layerId}/share`, { method: 'POST', body: JSON.stringify({ username, role }) }),
+  listCalendarEntries: (year, month) => request(`/calendar/entries/${year}/${month}`),
+  listLayerEntries: (layerId, startYear, startMonth, endYear, endMonth) =>
+  request(`/calendar/layers/${layerId}/entries?startYear=${startYear}&startMonth=${startMonth}&endYear=${endYear}&endMonth=${endMonth}`),
+  createCalendarEntry: (payload) => request('/calendar/entries', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCalendarEntry: (id, patch) => request(`/calendar/entries/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
+  deleteCalendarEntry: (id) => request(`/calendar/entries/${id}`, { method: 'DELETE' }),
+  getPrintConfig: (year) => request(`/calendar/print-config/${year}`),
+  savePrintConfig: (year, payload) => request(`/calendar/print-config/${year}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deletePrintConfig: (year) => request(`/calendar/print-config/${year}`, { method: 'DELETE' }),
+  uploadCalendarImage: (subdir, file) => {
+    const fd = new FormData();
+    fd.append('image', file);
+    return request(`/calendar/images/${subdir}`, { method: 'POST', body: fd });
+  },
+  unshareCalendarLayer: (layerId, userId) =>
+  request(`/calendar/layers/${layerId}/share/${userId}`, { method: 'DELETE' }),
+  leaveCalendarLayerShare: (layerId) =>
+  request(`/calendar/layers/${layerId}/shares/me`, { method: 'DELETE' }),
+  listDayImages: (year, month) => request(`/calendar/day-images/${year}/${month}`),
+  setDayImage: (year, month, day, imageUrl, layerId) =>
+  request(`/calendar/day-images/${year}/${month}/${day}`, { method: 'PUT', body: JSON.stringify({ imageUrl, layerId }) }),
+  removeDayImage: (year, month, day, layerId) =>
+  request(`/calendar/day-images/${year}/${month}/${day}${layerId ? `?layerId=${layerId}` : ''}`, { method: 'DELETE' }),
+  listDayBgImages: () => request('/calendar/images/day-bg'),
+  deleteDayBgImage: (filename) =>
+  request(`/calendar/images/day-bg/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
+  listFonts: () => fetch('/api/calendar/fonts').then(r => r.json()),
+  uploadFont: (file) => {
+    const fd = new FormData();
+    fd.append('font', file);
+    return fetch('/api/calendar/fonts', { method: 'POST', body: fd }).then(r => r.json());
+  },
+  deleteFont: (filename) => fetch(`/api/calendar/fonts/${filename}`, { method: 'DELETE' }).then(r => r.json()),
+  getLayerConfig: (layerId) => request(`/calendar/layers/${layerId}/config`),
+  saveLayerConfig: (layerId, config) => request(`/calendar/layers/${layerId}/config`, { method: 'PUT', body: JSON.stringify({ config }) }),
+  listCountries: () => request('/calendar/countries'),
+  generateLayer: (layerId, body) => request(`/calendar/layers/${layerId}/generate`, { method: 'POST', body: JSON.stringify(body) }),
+  listFeasts: (tradition, year) => request(`/calendar/feasts/${tradition}/${year}`),
+  getPresetKeys: (preset, tradition, year) =>
+  request(`/calendar/feasts/${tradition}/${year}?preset=${preset}`).then(d => d.keys),
 };

@@ -66,6 +66,41 @@ export async function sendRequest(requesterId, recipientUsername) {
   return prisma.connection.create({ data: { requesterId, recipientId: recipient.id, status: 'pending' } });
 }
 
+
+/** Fellows-only search for sharing (calendar layers, etc.).
+ *  Admins can search all users; regular users only see accepted Fellows. */
+export async function searchFellows(query, currentUserId, { isAdmin = false } = {}) {
+  const trimmed = (query || '').trim();
+  if (trimmed.length < 2) return [];
+
+  const where = {
+    OR: [
+      { username: { contains: trimmed, mode: 'insensitive' } },
+      { displayName: { contains: trimmed, mode: 'insensitive' } },
+    ],
+    id: { not: currentUserId },
+  };
+
+  if (!isAdmin) {
+    const fellows = await prisma.connection.findMany({
+      where: { status: 'accepted', OR: [{ requesterId: currentUserId }, { recipientId: currentUserId }] },
+      select: { requesterId: true, recipientId: true },
+    });
+    const fellowIds = fellows
+    .flatMap(c => [c.requesterId, c.recipientId])
+    .filter(id => id !== currentUserId);
+    if (fellowIds.length === 0) return [];
+    where.id = { in: fellowIds };
+  }
+
+  return prisma.user.findMany({
+    where,
+    select: { id: true, username: true, displayName: true, avatarUrl: true },
+    take: 20,
+    orderBy: { username: 'asc' },
+  });
+}
+
 /** Only the recipient can accept/decline — 404 (not 403) on a
  *  mismatch, same reasoning as every other ownership check in this
  *  app: it should look identical to the request simply not existing,
@@ -177,3 +212,4 @@ export async function searchUsers(query, currentUserId) {
     return { id: u.id, username: u.username, status, connectionId: rel?.id || null };
   });
 }
+
