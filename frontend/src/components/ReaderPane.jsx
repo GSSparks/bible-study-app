@@ -414,7 +414,7 @@ export default function ReaderPane({
     if (!el) return;
     pendingScroll.current = false;
     programmaticActive.current = true;
-    lastEmittedKey.current = null;
+    lastEmittedKey.current = focusedVerseKey;
     scrollEmittedRefs.current.clear();
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(() => { programmaticActive.current = false; }, 600);
