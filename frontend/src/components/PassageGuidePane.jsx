@@ -441,7 +441,7 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
             className="flex w-full items-center gap-1 rounded border border-pageBorder px-2 py-1 font-mono text-xs text-pageText hover:border-brass"
           >
             <span className="min-w-0 flex-1 truncate text-left">{displayTitle}</span>
-            <span className="shrink-0 text-[10px] text-pageMuted">▾</span>
+            <span className="shrink-0 text-micro text-pageMuted">▾</span>
           </button>
           {dropdownOpen && (
             <>
@@ -465,7 +465,7 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
                   </button>
                   {!sessionSearch && sessionsByRef.length > 0 && (
                     <div className="border-t border-pageBorder">
-                      <p className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-widest text-pageMuted">
+                      <p className="px-3 pt-2 pb-0.5 text-micro uppercase tracking-widest text-pageMuted">
                         This Passage
                       </p>
                       {sessionsByRef.map((s) => (
@@ -484,7 +484,7 @@ export default function PassageGuidePane({ reference, module, isLoggedIn, pendin
                   {filteredSessions.length > 0 && (
                     <div className="border-t border-pageBorder">
                       {!sessionSearch && sessionsByRef.length > 0 && (
-                        <p className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-widest text-pageMuted">
+                        <p className="px-3 pt-2 pb-0.5 text-micro uppercase tracking-widest text-pageMuted">
                           Recent
                         </p>
                       )}

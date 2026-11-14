@@ -22,7 +22,7 @@ export default function AvatarRoll({ members, total, max = 5, onMemberClick, onO
       {overflow > 0 && (
         <button
           onClick={onOverflowClick}
-          className="relative flex items-center justify-center rounded-full bg-panel text-[10px] font-semibold text-muted ring-2 ring-ink hover:ring-brass hover:text-parchment"
+          className="relative flex items-center justify-center rounded-full bg-panel text-micro font-semibold text-muted ring-2 ring-ink hover:ring-brass hover:text-parchment"
           style={{ marginLeft: -8, zIndex: 0, width: 28, height: 28 }}
         >
           +{overflow}

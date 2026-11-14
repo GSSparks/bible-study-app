@@ -264,7 +264,7 @@ export default function AppShell({ auth }) {
           {visibleGroups.map((group, groupIndex) => (
             <div key={groupIndex} className={groupIndex > 0 ? 'mt-2 border-t border-rule pt-2' : ''}>
               {group.label && (
-                <p className="px-5 pb-1 pt-2 text-[9px] font-semibold uppercase tracking-widest text-muted/50">
+                <p className="px-5 pb-1 pt-2 text-nano font-semibold uppercase tracking-widest text-muted/50">
                   {group.label}
                 </p>
               )}

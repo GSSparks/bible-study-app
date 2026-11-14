@@ -193,7 +193,7 @@ function MonthGridPreview({
       {DAY_LABELS.map(d => (
         <div
         key={d}
-        className="bg-gray-100 text-center text-[10px] font-bold py-1"
+        className="bg-gray-100 text-center text-micro font-bold py-1"
         style={{ color: fontColor, fontFamily }}
         >
         {d}
@@ -224,7 +224,7 @@ function MonthGridPreview({
         )}
 
         <span
-        className="absolute top-0.5 left-1 text-[10px] font-medium"
+        className="absolute top-0.5 left-1 text-micro font-medium"
         style={{ color: hasImage ? '#fff' : fontColor, fontFamily }}
         >
         {cell.day}

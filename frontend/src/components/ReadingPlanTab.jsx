@@ -170,15 +170,15 @@ export default function ReadingPlanTab({ isLoggedIn, isAdmin, onOpenInBible }) {
                   className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${active ? 'border-brass bg-ink/40 text-brass' : 'border-transparent text-muted hover:bg-ink/30 hover:text-parchment'}`}>
                   <div className="flex items-start gap-1.5">
                     <p className="flex-1 truncate text-sm leading-snug">{plan.name}</p>
-                    {plan.isBuiltIn && <span className="mt-0.5 shrink-0 text-[10px] text-muted/50">Built-in</span>}
+                    {plan.isBuiltIn && <span className="mt-0.5 shrink-0 text-micro text-muted/50">Built-in</span>}
                   </div>
-                  {plan.description && <p className="mt-0.5 truncate text-[11px] text-muted/70">{plan.description}</p>}
+                  {plan.description && <p className="mt-0.5 truncate text-label text-muted/70">{plan.description}</p>}
                   {pct !== null && (
                     <div className="mt-1.5 flex items-center gap-2">
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-rule">
                         <div className="h-full rounded-full bg-brass transition-all" style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="shrink-0 font-mono text-[10px] text-muted/70">{set.size} / {plan.dayCount}</span>
+                      <span className="shrink-0 font-mono text-micro text-muted/70">{set.size} / {plan.dayCount}</span>
                     </div>
                   )}
                 </button>
@@ -257,7 +257,7 @@ export default function ReadingPlanTab({ isLoggedIn, isAdmin, onOpenInBible }) {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-xs text-muted">Day {day.day}</span>
-                          {isUpNext && <span className="rounded bg-brass/15 px-1.5 py-0.5 text-[10px] text-brass">Up Next</span>}
+                          {isUpNext && <span className="rounded bg-brass/15 px-1.5 py-0.5 text-micro text-brass">Up Next</span>}
                         </div>
                         <p className={`text-sm ${done ? 'text-muted line-through' : 'text-parchment'}`}>{day.label}</p>
                         {Array.isArray(day.passages) && day.passages.length > 0 && (
@@ -293,7 +293,7 @@ export default function ReadingPlanTab({ isLoggedIn, isAdmin, onOpenInBible }) {
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Schedule</label>
                 <textarea value={editForm.schedule} onChange={(e) => setEditForm((f) => ({ ...f, schedule: e.target.value }))} rows={10}
                   className="w-full rounded border border-rule bg-ink/60 px-3 py-2 font-mono text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none" placeholder="Matthew 1–3 | Matt 1, Matt 2, Matt 3" />
-                <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+                <p className="mt-1.5 text-label leading-relaxed text-muted">
                   One day per line. Format: <span className="font-mono text-muted/80">Label | passage1, passage2</span>
                 </p>
               </div>

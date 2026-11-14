@@ -195,7 +195,7 @@ export default function PersonalCommentaryPane({ reference, onNavigate, isLogged
                   {t}
                 </button>
               ))}
-              <span className="ml-auto py-1 pr-1 text-[10px] text-pageMuted/60">Markdown · Cmd+Enter to save</span>
+              <span className="ml-auto py-1 pr-1 text-micro text-pageMuted/60">Markdown · Cmd+Enter to save</span>
             </div>
             {editorTab === 'write' ? (
               <textarea
@@ -241,7 +241,7 @@ export default function PersonalCommentaryPane({ reference, onNavigate, isLogged
       {/* ── All entries ──────────────────────────────────────────── */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="px-3 py-2">
-          <p className="mb-2 text-[10px] uppercase tracking-wide text-pageMuted">All entries</p>
+          <p className="mb-2 text-micro uppercase tracking-wide text-pageMuted">All entries</p>
           {loadingAll ? (
             <p className="text-xs text-pageMuted">Loading…</p>
           ) : allEntries.length === 0 ? (
@@ -260,7 +260,7 @@ export default function PersonalCommentaryPane({ reference, onNavigate, isLogged
                       : 'text-pageMuted hover:text-pageText'
                   }`}
                 >
-                  <span className="font-mono text-[10px] text-pageAccent">{e.reference}</span>
+                  <span className="font-mono text-micro text-pageAccent">{e.reference}</span>
                   {e.title && e.title !== `Note on ${e.reference}` && (
                     <span className="ml-2 text-pageText/70">{e.title}</span>
                   )}

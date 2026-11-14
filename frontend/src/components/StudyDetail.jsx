@@ -177,7 +177,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
             <BookOpen size={16} className="shrink-0 text-brass" />
             <h1 className="font-display truncate text-base font-semibold text-parchment">{study.title}</h1>
           </div>
-          <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">
+          <p className="mt-0.5 font-sans text-micro uppercase tracking-widest text-muted">
             {study.scriptoriumId ? 'Group Study' : 'Solo Study'}
           </p>
         </div>
@@ -187,7 +187,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
             <div className="flex items-center gap-3">
               <div className="relative flex shrink-0 items-center justify-center">
                 <ProgressRing percent={percent} size={40} />
-                <span className="absolute text-[9px] font-medium text-parchment">{percent}%</span>
+                <span className="absolute text-nano font-medium text-parchment">{percent}%</span>
               </div>
               <p className="text-xs text-muted">
                 {progress ? `Lesson ${progress.completed} of ${progress.total}` : 'Not started'}
@@ -209,7 +209,7 @@ export default function StudyDetail({ studyId, currentUserId, onBack, onOpenBuil
                 }`}
               >
                 <span className="min-w-0 flex-1 truncate">{l.title}</span>
-                {isComplete && <span className="shrink-0 text-[10px] text-brass">✓</span>}
+                {isComplete && <span className="shrink-0 text-micro text-brass">✓</span>}
               </button>
             );
           })}
@@ -1290,7 +1290,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
       {/* Your Response */}
       {lesson.reflectionPrompt && (
         <div className="space-y-4 border-t border-pageBorder pt-5">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-pageMuted">Your Response</p>
+          <p className="text-micro font-semibold uppercase tracking-widest text-pageMuted">Your Response</p>
 
           <div className="rounded-xl border border-pageBorder bg-page p-6">
             <h4 className="mb-1 text-xs font-semibold uppercase tracking-widest text-pageMuted">Reflection</h4>
@@ -1359,7 +1359,7 @@ function LessonContent({ lesson, isOwner, onLessonsChanged, onOpenInPassages, on
 
           {groupReflections.length > 0 && (
             <div className="mt-4 space-y-3">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-pageMuted">From Your Group</p>
+              <p className="text-micro font-semibold uppercase tracking-widest text-pageMuted">From Your Group</p>
               {groupReflections.map((r) => (
                 <div key={r.id} className="rounded-lg border border-pageBorder/50 bg-white/30 px-4 py-3">
                   <div className="mb-1.5 flex items-center gap-2">
@@ -1425,7 +1425,7 @@ function MembersTab({ studyId, isOwner }) {
                       <div className="flex items-center gap-2">
                         <Avatar username={p.username} avatarUrl={p.avatarUrl} size={20} />
                         <span className="text-pageText">{p.displayName || p.username}</span>
-                        {p.role === 'owner' && <span className="text-[10px] text-pageAccent">owner</span>}
+                        {p.role === 'owner' && <span className="text-micro text-pageAccent">owner</span>}
                       </div>
                     </td>
                     {progress.lessons.map((l) => (
@@ -1637,7 +1637,7 @@ function ResourceCard({ resource, onClick, onRemove, isOwner }) {
       </div>
       <div className="px-3 py-2.5">
         <p className="truncate font-display text-sm text-pageText">{resource.label}</p>
-        {hostname && <p className="mt-0.5 font-mono text-[10px] text-pageMuted">{hostname}</p>}
+        {hostname && <p className="mt-0.5 font-mono text-micro text-pageMuted">{hostname}</p>}
         {isNote && resource.body && (
           <p className="mt-0.5 line-clamp-2 text-xs text-pageMuted/70">
             {resource.body.replace(/^#{1,6}\s+.+\n?/, '').replace(/[#*_`[\]]/g, '').slice(0, 80)}
@@ -2315,7 +2315,7 @@ function AddResourceModal({ studyId, onClose, onAdded, isSuggestion = false }) {
               {(['BIBLE', 'COMMENTARY', 'DICT']).map((mtype) =>
                 allModules[mtype]?.length > 0 && (
                   <div key={mtype}>
-                    <p className="mb-1 text-[10px] uppercase tracking-wider text-muted/60">
+                    <p className="mb-1 text-micro uppercase tracking-wider text-muted/60">
                       {mtype === 'BIBLE' ? 'Bibles' : mtype === 'COMMENTARY' ? 'Commentaries' : 'Dictionaries & Lexicons'}
                     </p>
                     <div className="space-y-1">
@@ -2376,7 +2376,7 @@ function AddResourceModal({ studyId, onClose, onAdded, isSuggestion = false }) {
                       className={`w-full rounded border px-3 py-2 text-left transition-colors ${body === n.body ? 'border-brass bg-brass/10 text-brass' : 'border-rule text-muted hover:border-parchment/30 hover:text-parchment'}`}
                     >
                       <p className="truncate text-xs font-medium">{n.title || n.reference || 'Untitled'}</p>
-                      {n.reference && <p className="text-[10px] opacity-60">{n.reference}</p>}
+                      {n.reference && <p className="text-micro opacity-60">{n.reference}</p>}
                     </button>
                   ))}
                 </div>
@@ -2401,7 +2401,7 @@ function AddResourceModal({ studyId, onClose, onAdded, isSuggestion = false }) {
                       className={`w-full rounded border px-3 py-2 text-left transition-colors ${url === api.documentFileUrl(d.id) ? 'border-brass bg-brass/10 text-brass' : 'border-rule text-muted hover:border-parchment/30 hover:text-parchment'}`}
                     >
                       <p className="truncate text-xs font-medium">{d.title}</p>
-                      {d.author && <p className="text-[10px] opacity-60">{d.author}</p>}
+                      {d.author && <p className="text-micro opacity-60">{d.author}</p>}
                     </button>
                   ))}
                 </div>

@@ -114,7 +114,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
       {!controlled && (
       <div className="flex shrink-0 items-center gap-2 border-b border-rule bg-panel px-3 py-2">
         <Map size={15} className="shrink-0 text-brass" />
-        <span className="flex-1 font-ui text-sm text-parchment">Scripture Map</span>
+        <span className="flex-1 font-sans text-sm text-parchment">Scripture Map</span>
         <button
           onClick={toggleControls}
           title="Toggle controls"
@@ -162,7 +162,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
               <button
                 key={tab.id}
                 onClick={() => setControlsTab(tab.id)}
-                className={`flex-1 py-2 font-ui text-xs transition-colors ${
+                className={`flex-1 py-2 font-sans text-xs transition-colors ${
                   controlsTab === tab.id
                     ? 'border-b-2 border-brass text-brass'
                     : 'text-muted hover:text-parchment'
@@ -176,7 +176,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
           {/* Era */}
           {controlsTab === 'era' && (
             <div className="min-h-0 flex-1 overflow-y-auto py-2">
-              <p className="px-4 pb-1 pt-2 font-ui text-[9px] uppercase tracking-widest text-muted/70">Select Time Period</p>
+              <p className="px-4 pb-1 pt-2 font-sans text-nano uppercase tracking-widest text-muted/70">Select Time Period</p>
               {TIME_PERIODS.map((p) => (
                 <button
                   key={p.id}
@@ -187,15 +187,15 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                       : 'border-l-2 border-transparent text-parchment/80 hover:bg-ink/30 hover:text-parchment'
                   }`}
                 >
-                  <div className="font-ui text-sm font-medium">{p.label}</div>
-                  <div className="font-ui text-[10px] text-muted">{p.range}</div>
+                  <div className="font-sans text-sm font-medium">{p.label}</div>
+                  <div className="font-sans text-micro text-muted">{p.range}</div>
                 </button>
               ))}
               {period && (
                 <div className="border-t border-rule px-4 py-3 mt-2">
-                  <p className="font-ui text-[10px] font-semibold text-brass">{period.label}</p>
-                  <p className="font-ui text-[10px] text-muted">{period.range}</p>
-                  <p className="mt-1 font-ui text-[10px] leading-relaxed text-muted/80">{period.description}</p>
+                  <p className="font-sans text-micro font-semibold text-brass">{period.label}</p>
+                  <p className="font-sans text-micro text-muted">{period.range}</p>
+                  <p className="mt-1 font-sans text-micro leading-relaxed text-muted/80">{period.description}</p>
                 </div>
               )}
             </div>
@@ -209,15 +209,15 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                   <div className="flex items-start gap-2">
                     <div className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: activeJourney.color }} />
                     <div>
-                      <p className="font-ui text-xs font-semibold text-parchment">{activeJourney.title}</p>
-                      <p className="mt-0.5 font-ui text-[10px] text-muted">{activeJourney.reference}</p>
+                      <p className="font-sans text-xs font-semibold text-parchment">{activeJourney.title}</p>
+                      <p className="mt-0.5 font-sans text-micro text-muted">{activeJourney.reference}</p>
                     </div>
                   </div>
-                  <p className="mt-2 font-ui text-[11px] leading-relaxed text-muted/90">{activeJourney.summary}</p>
+                  <p className="mt-2 font-sans text-label leading-relaxed text-muted/90">{activeJourney.summary}</p>
                   <div className="mt-3">
                     <button
                       onClick={() => setJourneyExpanded((e) => !e)}
-                      className="flex items-center gap-1 font-ui text-[10px] uppercase tracking-widest text-muted hover:text-parchment"
+                      className="flex items-center gap-1 font-sans text-micro uppercase tracking-widest text-muted hover:text-parchment"
                     >
                       {journeyExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
                       Waypoints ({activeJourney.waypoints.length})
@@ -226,10 +226,10 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                       <ol className="mt-2 space-y-1.5">
                         {activeJourney.waypoints.map((wp, i) => (
                           <li key={i} className="flex gap-2">
-                            <span className="mt-px shrink-0 font-ui text-[9px] text-muted">{i + 1}.</span>
+                            <span className="mt-px shrink-0 font-sans text-nano text-muted">{i + 1}.</span>
                             <div>
-                              <p className="font-ui text-[11px] font-medium text-parchment/90">{wp.label}</p>
-                              <p className="font-ui text-[10px] leading-snug text-muted/80">{wp.note}</p>
+                              <p className="font-sans text-label font-medium text-parchment/90">{wp.label}</p>
+                              <p className="font-sans text-micro leading-snug text-muted/80">{wp.note}</p>
                             </div>
                           </li>
                         ))}
@@ -239,11 +239,11 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                 </div>
               )}
               <div className="min-h-0 flex-1 overflow-y-auto">
-                <p className="px-4 pb-1 pt-3 font-ui text-[9px] uppercase tracking-widest text-muted/70">
+                <p className="px-4 pb-1 pt-3 font-sans text-nano uppercase tracking-widest text-muted/70">
                   {period?.label} — {periodJourneys.length} {periodJourneys.length === 1 ? 'Journey' : 'Journeys'}
                 </p>
                 {periodJourneys.length === 0 && (
-                  <p className="px-4 py-3 font-ui text-xs text-muted">No journeys recorded for this era.</p>
+                  <p className="px-4 py-3 font-sans text-xs text-muted">No journeys recorded for this era.</p>
                 )}
                 {periodJourneys.map((journey) => (
                   <button
@@ -258,10 +258,10 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: journey.color }} />
                       <div className="min-w-0">
-                        <p className={`truncate font-ui text-xs font-medium ${selectedJourney === journey.id ? 'text-brass' : 'text-parchment/80'}`}>
+                        <p className={`truncate font-sans text-xs font-medium ${selectedJourney === journey.id ? 'text-brass' : 'text-parchment/80'}`}>
                           {journey.title}
                         </p>
-                        <p className="truncate font-ui text-[10px] text-muted">{journey.reference}</p>
+                        <p className="truncate font-sans text-micro text-muted">{journey.reference}</p>
                       </div>
                     </div>
                   </button>
@@ -274,13 +274,13 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
           {controlsTab === 'layers' && (
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-5">
               <div>
-                <p className="mb-2 font-ui text-[9px] uppercase tracking-widest text-muted/70">Base Map</p>
+                <p className="mb-2 font-sans text-nano uppercase tracking-widest text-muted/70">Base Map</p>
                 <div className="space-y-1">
                   {TILE_LAYERS.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => setTileLayer(t.id)}
-                      className={`flex w-full items-center gap-2 rounded px-2 py-1.5 font-ui text-xs transition-colors ${
+                      className={`flex w-full items-center gap-2 rounded px-2 py-1.5 font-sans text-xs transition-colors ${
                         tileLayer === t.id ? 'bg-brass/20 text-brass' : 'text-muted hover:bg-ink/40 hover:text-parchment'
                       }`}
                     >
@@ -292,7 +292,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
               </div>
 
               <div>
-                <p className="mb-2 font-ui text-[9px] uppercase tracking-widest text-muted/70">Overlays</p>
+                <p className="mb-2 font-sans text-nano uppercase tracking-widest text-muted/70">Overlays</p>
                 <div className="space-y-1">
                   {[
                     { key: 'showEmpires', label: 'Empire Boundaries', state: showEmpires, setter: setShowEmpires },
@@ -302,7 +302,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                     <button
                       key={layer.key}
                       onClick={() => layer.setter((v) => !v)}
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 font-ui text-xs text-muted transition-colors hover:bg-ink/40 hover:text-parchment"
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 font-sans text-xs text-muted transition-colors hover:bg-ink/40 hover:text-parchment"
                     >
                       <div className={`h-3 w-3 rounded border transition-colors ${layer.state ? 'border-brass bg-brass' : 'border-muted'}`}>
                         {layer.state && <span className="block h-full w-full text-[8px] leading-none text-ink text-center font-bold">✓</span>}
@@ -315,7 +315,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
 
               {showEmpires && periodEmpires.length > 0 && (
                 <div>
-                  <p className="mb-2 font-ui text-[9px] uppercase tracking-widest text-muted/70">Empires — {period?.label}</p>
+                  <p className="mb-2 font-sans text-nano uppercase tracking-widest text-muted/70">Empires — {period?.label}</p>
                   <div className="space-y-1.5">
                     {periodEmpires.map((emp) => (
                       <div key={emp.id} className="flex items-center gap-2">
@@ -323,7 +323,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                           className="h-3 w-5 shrink-0 rounded-sm border"
                           style={{ backgroundColor: emp.color + '55', borderColor: emp.color }}
                         />
-                        <span className="font-ui text-xs text-muted">{emp.label}</span>
+                        <span className="font-sans text-xs text-muted">{emp.label}</span>
                       </div>
                     ))}
                   </div>
@@ -332,7 +332,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
 
               {showCities && (
                 <div>
-                  <p className="mb-2 font-ui text-[9px] uppercase tracking-widest text-muted/70">City Types</p>
+                  <p className="mb-2 font-sans text-nano uppercase tracking-widest text-muted/70">City Types</p>
                   <div className="space-y-1.5">
                     {[
                       { color: '#E8A441', label: 'Major City', r: 7 },
@@ -343,7 +343,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                         <svg width="16" height="16">
                           <circle cx="8" cy="8" r={item.r * 0.7} fill={item.color + '55'} stroke={item.color} strokeWidth="1.5" />
                         </svg>
-                        <span className="font-ui text-xs text-muted">{item.label}</span>
+                        <span className="font-sans text-xs text-muted">{item.label}</span>
                       </div>
                     ))}
                   </div>
@@ -371,9 +371,9 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                 <div>
                   <div className="flex items-center gap-1.5">
                     <MapPin size={12} className="text-brass" />
-                    <p className="font-ui text-sm font-semibold text-parchment">{selectedCity.label}</p>
+                    <p className="font-sans text-sm font-semibold text-parchment">{selectedCity.label}</p>
                   </div>
-                  <p className="mt-1 font-ui text-[10px] uppercase tracking-widest text-muted">
+                  <p className="mt-1 font-sans text-micro uppercase tracking-widest text-muted">
                     {selectedCity.type.charAt(0).toUpperCase() + selectedCity.type.slice(1)} City
                   </p>
                 </div>
@@ -381,14 +381,14 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                   <X size={14} />
                 </button>
               </div>
-              <p className="mt-2 font-ui text-xs leading-relaxed text-muted/90">{selectedCity.note}</p>
-              <p className="mt-2 font-ui text-[10px] text-muted/60">
+              <p className="mt-2 font-sans text-xs leading-relaxed text-muted/90">{selectedCity.note}</p>
+              <p className="mt-2 font-sans text-micro text-muted/60">
                 Active in: {selectedCity.periods.map((pid) => TIME_PERIODS.find((p) => p.id === pid)?.label).filter(Boolean).join(', ')}
               </p>
               {onOpenInCodex && (
                 <button
                   onClick={() => onOpenInCodex(selectedCity.label)}
-                  className="mt-3 w-full rounded border border-rule px-2 py-1 font-ui text-[10px] text-muted transition-colors hover:border-brass hover:text-parchment"
+                  className="mt-3 w-full rounded border border-rule px-2 py-1 font-sans text-micro text-muted transition-colors hover:border-brass hover:text-parchment"
                 >
                   Search in Codex
                 </button>
@@ -403,7 +403,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                 key={p.id}
                 onClick={() => selectPeriod(p.id)}
                 title={`${p.label} (${p.range})`}
-                className={`rounded-full px-2 py-0.5 font-ui text-[9px] uppercase tracking-wide transition-colors ${
+                className={`rounded-full px-2 py-0.5 font-sans text-nano uppercase tracking-wide transition-colors ${
                   selectedPeriod === p.id
                     ? 'bg-brass text-ink'
                     : 'bg-panel/80 text-muted hover:bg-panel hover:text-parchment'
@@ -444,7 +444,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                 }}
               >
                 <Tooltip sticky className="leaflet-tooltip-dark">
-                  <span className="font-ui text-xs font-semibold">{emp.label}</span>
+                  <span className="font-sans text-xs font-semibold">{emp.label}</span>
                 </Tooltip>
               </Polygon>
             ))}
@@ -467,7 +467,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                   }}
                 >
                   <Tooltip sticky>
-                    <span className="font-ui text-xs">{journey.title}</span>
+                    <span className="font-sans text-xs">{journey.title}</span>
                   </Tooltip>
                 </Polyline>
               );
@@ -486,19 +486,19 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                 }}
               >
                 <Popup className="leaflet-popup-dark" maxWidth={280}>
-                  <div className="font-ui">
+                  <div className="font-sans">
                     <div className="flex items-center gap-1.5 mb-1">
                       <div className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: activeJourney.color }} />
                       <span className="text-xs font-semibold" style={{ color: '#d4cebf' }}>{wp.label}</span>
-                      {i === 0 && <span className="ml-auto rounded px-1 py-px text-[9px]" style={{ background: 'rgba(232,164,65,0.2)', color: '#E8A441' }}>Start</span>}
-                      {i === activeJourney.waypoints.length - 1 && <span className="ml-auto rounded px-1 py-px text-[9px]" style={{ background: 'rgba(16,185,129,0.2)', color: '#10B981' }}>End</span>}
+                      {i === 0 && <span className="ml-auto rounded px-1 py-px text-nano" style={{ background: 'rgba(232,164,65,0.2)', color: '#E8A441' }}>Start</span>}
+                      {i === activeJourney.waypoints.length - 1 && <span className="ml-auto rounded px-1 py-px text-nano" style={{ background: 'rgba(16,185,129,0.2)', color: '#10B981' }}>End</span>}
                     </div>
-                    <p className="text-[11px] leading-snug" style={{ color: '#9ca3af' }}>{wp.note}</p>
-                    <p className="mt-1.5 text-[10px]" style={{ color: '#6b7b8a' }}>{activeJourney.reference} · Stop {i + 1} of {activeJourney.waypoints.length}</p>
+                    <p className="text-label leading-snug" style={{ color: '#9ca3af' }}>{wp.note}</p>
+                    <p className="mt-1.5 text-micro" style={{ color: '#6b7b8a' }}>{activeJourney.reference} · Stop {i + 1} of {activeJourney.waypoints.length}</p>
                     {onOpenInCell && (
                       <button
                         onClick={() => onOpenInCell(activeJourney.reference)}
-                        className="mt-2 w-full rounded px-2 py-1 text-[10px] text-left transition-colors"
+                        className="mt-2 w-full rounded px-2 py-1 text-micro text-left transition-colors"
                         style={{ background: 'rgba(232,164,65,0.1)', color: '#E8A441', border: '1px solid rgba(232,164,65,0.25)' }}
                       >
                         Open passage in Cell ↗
@@ -530,7 +530,7 @@ export default function BibleMapView({ pendingMapContext, onOpenInCell, onOpenIn
                   }}
                 >
                   <Tooltip direction="top" offset={[0, -radius]} className="leaflet-tooltip-city">
-                    <span className="font-ui text-xs">{city.label}</span>
+                    <span className="font-sans text-xs">{city.label}</span>
                   </Tooltip>
                 </CircleMarker>
               );

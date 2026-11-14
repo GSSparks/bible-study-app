@@ -386,7 +386,7 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
         <input type="color" value={config.titleColor} onChange={e => set('titleColor', e.target.value)} className="w-8 h-6 rounded border border-rule cursor-pointer" />
         </Row>
         <Row label="Upload TTF">
-        <button onClick={() => fontFileRef.current?.click()} className="text-[11px] text-brass hover:underline">
+        <button onClick={() => fontFileRef.current?.click()} className="text-label text-brass hover:underline">
         Upload
         </button>
         </Row>
@@ -416,7 +416,7 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
         />
         </Row>
         <Toggle label="Verse fills header height" checked={config.verseFillHeight || false} onChange={v => set('verseFillHeight', v)} />
-        <p className="text-[10px] text-muted">Recommended: Header 1200×300px · Verse 400×400px</p>
+        <p className="text-micro text-muted">Recommended: Header 1200×300px · Verse 400×400px</p>
         </Section>
 
         {/* Visual */}
@@ -430,19 +430,19 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
 
         {/* Month Settings (per-month) */}
         <Section title="Month Settings">
-        <p className="text-[10px] text-muted">Per-month header &amp; verse. Recommended: Header 1200×300px · Verse 400×400px</p>
+        <p className="text-micro text-muted">Per-month header &amp; verse. Recommended: Header 1200×300px · Verse 400×400px</p>
         {selectedMonths.sort((a, b) => a - b).map(m => (
             <div key={m} className="border border-rule rounded p-2 flex flex-col gap-2">
-            <h4 className="text-[11px] font-semibold text-parchment">{monthLabel(m)}</h4>
+            <h4 className="text-label font-semibold text-parchment">{monthLabel(m)}</h4>
 
             {/* Header image */}
             <Row label="Header img">
             <div className="flex gap-2">
-            <button onClick={() => headerBgRefs.current[m]?.click()} className="text-[11px] text-brass hover:underline">
+            <button onClick={() => headerBgRefs.current[m]?.click()} className="text-label text-brass hover:underline">
             {getMonthSetting(m, 'headerBgImageUrl') ? 'Change' : 'Upload'}
             </button>
             {getMonthSetting(m, 'headerBgImageUrl') && (
-                <button onClick={() => setMonthSetting(m, 'headerBgImageUrl', null)} className="text-[11px] text-red-400 hover:underline">Remove</button>
+                <button onClick={() => setMonthSetting(m, 'headerBgImageUrl', null)} className="text-label text-red-400 hover:underline">Remove</button>
             )}
             </div>
             </Row>
@@ -462,11 +462,11 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
             {/* Verse image */}
             <Row label="Verse img">
             <div className="flex gap-2">
-            <button onClick={() => verseImgRefs.current[m]?.click()} className="text-[11px] text-brass hover:underline">
+            <button onClick={() => verseImgRefs.current[m]?.click()} className="text-label text-brass hover:underline">
             {getMonthSetting(m, 'verseImageUrl') ? 'Change' : 'Upload'}
             </button>
             {getMonthSetting(m, 'verseImageUrl') && (
-                <button onClick={() => setMonthSetting(m, 'verseImageUrl', null)} className="text-[11px] text-red-400 hover:underline">Remove</button>
+                <button onClick={() => setMonthSetting(m, 'verseImageUrl', null)} className="text-label text-red-400 hover:underline">Remove</button>
             )}
             </div>
             </Row>
@@ -493,7 +493,7 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
 
             {/* Verse ref */}
             <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-muted font-medium">Verse ref</label>
+            <label className="text-micro text-muted font-medium">Verse ref</label>
             <input
             value={getMonthSetting(m, 'verseRef')}
             onChange={e => setMonthSetting(m, 'verseRef', e.target.value)}
@@ -514,13 +514,13 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
             onChange={e => set('verseRefFontSize', parseInt(e.target.value))}
             className="flex-1 accent-brass"
             />
-            <span className="text-[10px] text-muted w-8 text-right">{config.verseRefFontSize}pt</span>
+            <span className="text-micro text-muted w-8 text-right">{config.verseRefFontSize}pt</span>
             </div>
             </div>
 
             {/* Verse text */}
             <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-muted font-medium">Verse text</label>
+            <label className="text-micro text-muted font-medium">Verse text</label>
             <textarea
             value={getMonthSetting(m, 'verseText')}
             onChange={e => setMonthSetting(m, 'verseText', e.target.value)}
@@ -542,7 +542,7 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
             onChange={e => set('verseTextFontSize', parseInt(e.target.value))}
             className="flex-1 accent-brass"
             />
-            <span className="text-[10px] text-muted w-8 text-right">{config.verseTextFontSize}pt</span>
+            <span className="text-micro text-muted w-8 text-right">{config.verseTextFontSize}pt</span>
             </div>
             {/* Generate verse */}
             <div className="flex items-center gap-1">
@@ -567,7 +567,7 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
                 }
             }}
             disabled={!getMonthSetting(m, 'verseRef')}
-            className="text-[10px] px-2 py-1 rounded border border-brass text-brass hover:bg-brass/20 disabled:opacity-40 shrink-0"
+            className="text-micro px-2 py-1 rounded border border-brass text-brass hover:bg-brass/20 disabled:opacity-40 shrink-0"
             >
             Generate
             </button>
@@ -621,7 +621,7 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
                         layerFontSizes: { ...prev.layerFontSizes, [l.id]: v },
                     }));
                 }}
-                className="w-10 rounded border border-rule bg-ink/30 px-1 py-0.5 text-[10px] text-parchment text-center"
+                className="w-10 rounded border border-rule bg-ink/30 px-1 py-0.5 text-micro text-parchment text-center"
                 title="Font size (pt)"
                 />
                 <input
@@ -656,7 +656,7 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
 
             {/* Verse picker */}
             <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-muted">Verse</label>
+            <label className="text-micro text-muted">Verse</label>
             <div className="flex gap-1">
             <select
             value={coverModule}
@@ -687,7 +687,7 @@ export default function PrintEditor({ year, calSystem, hebYear, layers, month, o
                 }
             }}
             disabled={fetchingVerse || !config.coverVerseRef}
-            className="text-[11px] px-2 py-1 rounded border border-brass text-brass hover:bg-brass/20 disabled:opacity-40 shrink-0"
+            className="text-label px-2 py-1 rounded border border-brass text-brass hover:bg-brass/20 disabled:opacity-40 shrink-0"
             >
             {fetchingVerse ? '…' : 'Fetch'}
             </button>
@@ -738,8 +738,8 @@ function Section({ title, children, defaultOpen = true }) {
         onClick={() => setOpen(!open)}
         className="flex items-center justify-between w-full text-left"
         >
-        <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted">{title}</h3>
-        <span className={`text-[10px] text-muted transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
+        <h3 className="text-micro font-semibold uppercase tracking-wide text-muted">{title}</h3>
+        <span className={`text-micro text-muted transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
         </button>
         {open && <div className="flex flex-col gap-2 mt-2">{children}</div>}
         </div>
@@ -749,7 +749,7 @@ function Section({ title, children, defaultOpen = true }) {
 function Row({ label, children }) {
     return (
         <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] text-muted shrink-0">{label}</span>
+        <span className="text-label text-muted shrink-0">{label}</span>
         {children}
         </div>
     );
@@ -758,7 +758,7 @@ function Row({ label, children }) {
 function Toggle({ label, checked, onChange }) {
     return (
         <label className="flex items-center justify-between cursor-pointer">
-        <span className="text-[11px] text-parchment/80">{label}</span>
+        <span className="text-label text-parchment/80">{label}</span>
         <input
         type="checkbox"
         checked={checked}
@@ -769,5 +769,5 @@ function Toggle({ label, checked, onChange }) {
     );
 }
 
-const selectCls = 'rounded border border-rule bg-ink/30 px-1.5 py-0.5 text-[11px] text-parchment';
-const inputCls = 'w-full rounded border border-rule bg-ink/30 px-2 py-1 text-[11px] text-parchment placeholder:text-muted/50';
+const selectCls = 'rounded border border-rule bg-ink/30 px-1.5 py-0.5 text-label text-parchment';
+const inputCls = 'w-full rounded border border-rule bg-ink/30 px-2 py-1 text-label text-parchment placeholder:text-muted/50';

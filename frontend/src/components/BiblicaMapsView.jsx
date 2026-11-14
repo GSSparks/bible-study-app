@@ -135,7 +135,7 @@ export default function BiblicaMapsView() {
         {grouped && Object.keys(grouped).length > 0 && (
           CATEGORY_ORDER.filter((c) => grouped[c]?.length).map((cat) => (
             <div key={cat} className="mb-8">
-              <h2 className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-pageMuted">{cat}</h2>
+              <h2 className="mb-3 text-micro font-semibold uppercase tracking-widest text-pageMuted">{cat}</h2>
               <MapGrid maps={grouped[cat]} onSelect={setLightboxMap} />
             </div>
           ))
@@ -159,7 +159,7 @@ export default function BiblicaMapsView() {
           >
             <div className="flex items-start justify-between border-b border-pageBorder px-5 py-3">
               <div className="min-w-0 pr-4">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-pageMuted">
+                <p className="text-micro font-semibold uppercase tracking-widest text-pageMuted">
                   {getCategoryFromTitle(lightboxMap.title)}
                 </p>
                 <p className="mt-0.5 font-display text-base leading-snug text-pageText">

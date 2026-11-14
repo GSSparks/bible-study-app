@@ -415,7 +415,7 @@ export default function CommentaryPane({
                       className="flex h-4 w-4 items-center justify-center rounded-full ring-1 ring-rule/60 hover:bg-red-900/30 hover:ring-red-400"
                       title="Remove highlight"
                     >
-                      <span className="text-[9px] leading-none text-muted">✕</span>
+                      <span className="text-nano leading-none text-muted">✕</span>
                     </button>
                   )}
                 </div>

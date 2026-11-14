@@ -69,7 +69,7 @@ export default function DailyDevotional({ isAdmin, onOpenBiblePanel }) {
       <div className="flex items-center justify-between border-b border-rule/40 bg-brass/5 px-4 py-2.5">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-brass">Daily Devotional</p>
-          <p className="text-[11px] text-muted">{DATE_FORMAT.format(new Date())}</p>
+          <p className="text-label text-muted">{DATE_FORMAT.format(new Date())}</p>
         </div>
         <div className="flex items-center gap-2">
           {hasMultiple && (
@@ -121,7 +121,7 @@ export default function DailyDevotional({ isAdmin, onOpenBiblePanel }) {
             Read more
           </button>
         )}
-        <p className="mt-3 text-[10px] uppercase tracking-wider text-muted/40">{data.moduleCode}</p>
+        <p className="mt-3 text-micro uppercase tracking-wider text-muted/40">{data.moduleCode}</p>
       </div>
 
       {showFullText && (
@@ -193,7 +193,7 @@ function FullTextModal({ entry, label, moduleCode, onClose, onOpenBiblePanel }) 
           ) : (
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-parchment/85">{entry?.text}</p>
           )}
-          <p className="mt-5 text-[10px] uppercase tracking-wider text-muted/40">{moduleCode}</p>
+          <p className="mt-5 text-micro uppercase tracking-wider text-muted/40">{moduleCode}</p>
         </div>
       </div>
     </div>,

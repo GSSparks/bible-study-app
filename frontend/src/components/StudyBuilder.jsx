@@ -177,7 +177,7 @@ export default function StudyBuilder({ studyId, scriptoriumId, onDone, onDeleted
 
         {/* Lesson list header */}
         <div className="flex shrink-0 items-center justify-between border-b border-rule px-4 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">Lessons</p>
+          <p className="text-micro font-semibold uppercase tracking-widest text-muted">Lessons</p>
           <button onClick={addLesson} disabled={adding} className="text-xs text-muted hover:text-parchment disabled:opacity-50">
             {adding ? '…' : '+ add'}
           </button>
@@ -198,7 +198,7 @@ export default function StudyBuilder({ studyId, scriptoriumId, onDone, onDeleted
                   onClick={() => switchLesson(l.id)}
                   className={`min-w-0 flex-1 truncate text-left text-sm leading-snug ${isActive ? 'text-brass' : 'text-muted hover:text-parchment'}`}
                 >
-                  <span className="mr-1.5 text-[10px] opacity-40">{l.order}.</span>
+                  <span className="mr-1.5 text-micro opacity-40">{l.order}.</span>
                   {l.title || 'Untitled'}
                 </button>
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
@@ -220,7 +220,7 @@ export default function StudyBuilder({ studyId, scriptoriumId, onDone, onDeleted
 
         {/* Settings */}
         <div className="shrink-0 space-y-3 border-t border-rule px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">Settings</p>
+          <p className="text-micro font-semibold uppercase tracking-widest text-muted">Settings</p>
 
           {/* Banner */}
           <div>
@@ -228,12 +228,12 @@ export default function StudyBuilder({ studyId, scriptoriumId, onDone, onDeleted
             <div className="flex gap-2">
               <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
               <button onClick={() => bannerInputRef.current?.click()} disabled={uploadingBanner || generatingBanner}
-                className="flex items-center gap-1 rounded border border-rule px-2 py-1 text-[11px] text-muted hover:border-brass hover:text-parchment disabled:opacity-50">
+                className="flex items-center gap-1 rounded border border-rule px-2 py-1 text-label text-muted hover:border-brass hover:text-parchment disabled:opacity-50">
                 <Camera size={11} />
                 {uploadingBanner ? 'uploading…' : 'banner'}
               </button>
               <button onClick={handleGenerateBanner} disabled={generatingBanner || uploadingBanner}
-                className="flex items-center gap-1 rounded border border-rule px-2 py-1 text-[11px] text-muted hover:border-brass hover:text-parchment disabled:opacity-50">
+                className="flex items-center gap-1 rounded border border-rule px-2 py-1 text-label text-muted hover:border-brass hover:text-parchment disabled:opacity-50">
                 <Sparkles size={11} />
                 {generatingBanner ? 'generating…' : 'AI banner'}
               </button>
@@ -533,7 +533,7 @@ function LessonEditor({ lesson, studyId, onSaved, pendingBodyRef, pendingBodyDir
         {/* Reference + Module */}
         <div className="flex gap-3">
           <div className="flex-1">
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-widest text-pageMuted">Reference</label>
+            <label className="mb-1.5 block text-micro font-semibold uppercase tracking-widest text-pageMuted">Reference</label>
             <input
               value={reference}
               onChange={(e) => setReference(e.target.value)}
@@ -543,7 +543,7 @@ function LessonEditor({ lesson, studyId, onSaved, pendingBodyRef, pendingBodyDir
             />
           </div>
           <div className="w-32">
-            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-widest text-pageMuted">Module</label>
+            <label className="mb-1.5 block text-micro font-semibold uppercase tracking-widest text-pageMuted">Module</label>
             <input
               value={module}
               onChange={(e) => setModule(e.target.value)}
@@ -558,12 +558,12 @@ function LessonEditor({ lesson, studyId, onSaved, pendingBodyRef, pendingBodyDir
         <div>
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <label className="text-[10px] font-semibold uppercase tracking-widest text-pageMuted">Study Notes</label>
+              <label className="text-micro font-semibold uppercase tracking-widest text-pageMuted">Study Notes</label>
               <button
                 type="button"
                 onClick={() => setShowOutlinePrompt((v) => !v)}
                 title="Generate outline with AI"
-                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-pageMuted hover:bg-pageAccent/10 hover:text-pageAccent"
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-micro text-pageMuted hover:bg-pageAccent/10 hover:text-pageAccent"
               >
                 <Sparkles size={10} />
                 AI outline
@@ -606,7 +606,7 @@ function LessonEditor({ lesson, studyId, onSaved, pendingBodyRef, pendingBodyDir
 
         {/* Reflection prompt */}
         <div>
-          <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-widest text-pageMuted">
+          <label className="mb-1.5 block text-micro font-semibold uppercase tracking-widest text-pageMuted">
             Reflection Prompt{' '}
             <span className="font-normal normal-case text-pageMuted/50">(optional)</span>
           </label>
@@ -621,7 +621,7 @@ function LessonEditor({ lesson, studyId, onSaved, pendingBodyRef, pendingBodyDir
 
         {/* Video */}
         <div>
-          <label className="mb-2 block text-[10px] font-semibold uppercase tracking-widest text-pageMuted">Video</label>
+          <label className="mb-2 block text-micro font-semibold uppercase tracking-widest text-pageMuted">Video</label>
           <input ref={videoInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden" onChange={handleVideoChange} />
           {videoUrl && !cameraMode ? (
             <div className="overflow-hidden rounded-xl border border-pageBorder bg-white/30">
@@ -693,13 +693,13 @@ function LessonEditor({ lesson, studyId, onSaved, pendingBodyRef, pendingBodyDir
                 className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-pageBorder py-8 text-pageMuted hover:border-pageAccent hover:text-pageText disabled:opacity-50">
                 <Video size={20} strokeWidth={1.5} />
                 <span className="text-xs">{uploadingVideo ? 'uploading…' : 'upload file'}</span>
-                <span className="text-[10px] text-pageMuted/50">mp4, webm, or mov</span>
+                <span className="text-micro text-pageMuted/50">mp4, webm, or mov</span>
               </button>
               <button onClick={startCamera}
                 className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-pageBorder py-8 text-pageMuted hover:border-pageAccent hover:text-pageText">
                 <Camera size={20} strokeWidth={1.5} />
                 <span className="text-xs">use camera</span>
-                <span className="text-[10px] text-pageMuted/50">record with webcam</span>
+                <span className="text-micro text-pageMuted/50">record with webcam</span>
               </button>
             </div>
           )}

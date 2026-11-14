@@ -602,7 +602,7 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
                 <Bookmark size={12} className={currentPageBookmark ? 'fill-pageAccent' : ''} />
                 <span className="hidden sm:inline">Bookmarks</span>
                 {docBookmarks.length > 0 && (
-                  <span className="hidden rounded-full bg-pageAccent/20 px-1.5 py-px text-[10px] text-pageAccent sm:inline">
+                  <span className="hidden rounded-full bg-pageAccent/20 px-1.5 py-px text-micro text-pageAccent sm:inline">
                     {docBookmarks.length}
                   </span>
                 )}
@@ -624,7 +624,7 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
           >
             <BookMarked size={12} />
             {pageRefs.length > 0 && (
-              <span className="font-mono text-[10px]">{pageRefs.length}</span>
+              <span className="font-mono text-micro">{pageRefs.length}</span>
             )}
           </button>
 
@@ -655,7 +655,7 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
         {showToc && tocItems.length > 0 && (
           <div className="shrink-0 max-h-[40vh] overflow-y-auto border-b border-pageBorder bg-page shadow-sm">
             <div className="px-2 py-2">
-              <p className="mb-1 px-2 font-ui text-[10px] font-semibold uppercase tracking-widest text-pageMuted/60">
+              <p className="mb-1 px-2 font-sans text-micro font-semibold uppercase tracking-widest text-pageMuted/60">
                 Contents
               </p>
               {tocItems.map((item, i) => (
@@ -669,7 +669,7 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
         {showBookmarks && (
           <div className="shrink-0 max-h-[40vh] overflow-y-auto border-b border-pageBorder bg-page shadow-sm">
             <div className="flex items-center justify-between px-4 py-2">
-              <p className="font-ui text-[10px] font-semibold uppercase tracking-widest text-pageMuted/60">
+              <p className="font-sans text-micro font-semibold uppercase tracking-widest text-pageMuted/60">
                 Bookmarks
               </p>
               <button
@@ -695,7 +695,7 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
                         bm.module === String(pageNumber) ? 'bg-pageAccent/8' : ''
                       }`}
                     >
-                      <span className="w-9 shrink-0 rounded bg-pageBorder/60 px-1.5 py-0.5 text-center font-mono text-[11px] text-pageMuted">
+                      <span className="w-9 shrink-0 rounded bg-pageBorder/60 px-1.5 py-0.5 text-center font-mono text-label text-pageMuted">
                         {bm.module}
                       </span>
                       {editingBmId === bm.id ? (
@@ -776,7 +776,7 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
                       page === pageNumber ? 'bg-pageAccent/8' : ''
                     }`}
                   >
-                    <span className="mt-0.5 w-9 shrink-0 rounded bg-pageBorder/60 px-1 py-0.5 text-center font-mono text-[11px] text-pageMuted">
+                    <span className="mt-0.5 w-9 shrink-0 rounded bg-pageBorder/60 px-1 py-0.5 text-center font-mono text-label text-pageMuted">
                       {page}
                     </span>
                     <p className="flex-1 truncate text-xs leading-relaxed text-pageMuted">
@@ -835,13 +835,13 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
       {/* ── Reference sidebar ── */}
       <aside className={`w-52 shrink-0 flex-col border-l border-pageBorder bg-page ${showRefPanel ? 'flex' : 'hidden'} lg:flex`}>
         <div className="shrink-0 border-b border-pageBorder px-3 py-2.5">
-          <p className="font-ui text-[10px] font-semibold uppercase tracking-widest text-pageMuted">
+          <p className="font-sans text-micro font-semibold uppercase tracking-widest text-pageMuted">
             Passages on page {pageNumber}
           </p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto py-2">
           {pageRefs.length === 0 ? (
-            <p className="px-3 pt-3 font-ui text-xs text-pageMuted/60">No Bible references detected on this page.</p>
+            <p className="px-3 pt-3 font-sans text-xs text-pageMuted/60">No Bible references detected on this page.</p>
           ) : (
             pageRefs.map(({ display, ref }) => (
               <button
@@ -852,9 +852,9 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
                 title={onOpenInCell ? `Open ${display} in Cell` : display}
               >
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-verdigris/60" />
-                <span className="font-ui text-xs leading-snug text-pageText">{display}</span>
+                <span className="font-sans text-xs leading-snug text-pageText">{display}</span>
                 {onOpenInCell && (
-                  <span className="ml-auto shrink-0 font-ui text-[9px] text-pageMuted opacity-0 transition-opacity group-hover:opacity-100">↗</span>
+                  <span className="ml-auto shrink-0 font-sans text-nano text-pageMuted opacity-0 transition-opacity group-hover:opacity-100">↗</span>
                 )}
               </button>
             ))
@@ -862,15 +862,15 @@ export default function PDFBody({ documentId, doc, isAdmin, isLoggedIn, onOcr, o
         </div>
         {isAdmin && !doc?.extractedText && (
           <div className="shrink-0 border-t border-pageBorder p-3">
-            <p className="mb-2 font-ui text-[10px] leading-snug text-pageMuted">
+            <p className="mb-2 font-sans text-micro leading-snug text-pageMuted">
               Reference detection requires selectable text. Run OCR for scanned PDFs.
             </p>
             <button onClick={onOcr} disabled={ocrRunning}
-              className="flex w-full items-center justify-center gap-1.5 rounded border border-pageAccent/40 bg-pageAccent/10 px-2 py-1.5 font-ui text-xs text-pageAccent hover:bg-pageAccent/20 disabled:opacity-60">
+              className="flex w-full items-center justify-center gap-1.5 rounded border border-pageAccent/40 bg-pageAccent/10 px-2 py-1.5 font-sans text-xs text-pageAccent hover:bg-pageAccent/20 disabled:opacity-60">
               <ScanText size={12} />
               {ocrRunning ? 'Running…' : 'Run OCR'}
             </button>
-            {ocrError && <p className="mt-1 font-ui text-[10px] text-red-500">{ocrError}</p>}
+            {ocrError && <p className="mt-1 font-sans text-micro text-red-500">{ocrError}</p>}
           </div>
         )}
       </aside>

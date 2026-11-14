@@ -36,7 +36,7 @@ export default function BooksView({ bookReader, onBookChange, isLoggedIn = false
             <BookOpen size={16} className="text-brass" />
             <h1 className="font-display text-base font-semibold text-parchment">Books</h1>
           </div>
-          <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">Prose & Reference Books</p>
+          <p className="mt-0.5 font-sans text-micro uppercase tracking-widest text-muted">Prose & Reference Books</p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loadingList ? (

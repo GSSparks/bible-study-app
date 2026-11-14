@@ -44,7 +44,7 @@ export default function PassageMapsModal({ reference, onClose }) {
         {/* Header */}
         <div className="flex shrink-0 items-center gap-3 border-b border-pageBorder px-4 py-3">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-pageMuted">Bible Maps</p>
+            <p className="text-micro font-semibold uppercase tracking-widest text-pageMuted">Bible Maps</p>
             <p className="truncate font-display text-base text-pageText">{reference}</p>
           </div>
           <button

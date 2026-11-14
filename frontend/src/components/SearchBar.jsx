@@ -170,7 +170,7 @@ const SearchBar = forwardRef(function SearchBar(
               )}
               {item.kind === 'verse' && (
                 <>
-                  <span className="w-20 shrink-0 font-mono text-[11px] font-semibold text-verdigris">
+                  <span className="w-20 shrink-0 font-mono text-label font-semibold text-verdigris">
                     {item.ref}
                   </span>
                   <span className="line-clamp-1 min-w-0 text-sm text-parchment/80">

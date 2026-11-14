@@ -118,7 +118,7 @@ export default function StrongsPopup({
                     : lex.firstParagraph;
                   return (
                     <div key={lex.moduleCode} className="mt-2 border-t border-pageBorder/50 pt-2">
-                      <p className="mb-1 text-[10px] uppercase tracking-widest text-pageMuted">{lex.name}</p>
+                      <p className="mb-1 text-micro uppercase tracking-widest text-pageMuted">{lex.name}</p>
                       {lex.lemma && (
                         <p className="font-display text-sm text-pageText">
                           {lex.lemma}
@@ -131,7 +131,7 @@ export default function StrongsPopup({
                         {lex.hasMore && !expanded && (
                           <button
                             onClick={() => setExpandedLexicons((s) => new Set([...s, snippetKey]))}
-                            className="text-[11px] text-pageMuted hover:text-pageText"
+                            className="text-label text-pageMuted hover:text-pageText"
                           >
                             Show more ↓
                           </button>
@@ -139,7 +139,7 @@ export default function StrongsPopup({
                         {onOpenInDictionary && (
                           <button
                             onClick={() => onOpenInDictionary(key, lex.moduleCode)}
-                            className="text-[11px] text-verdigris hover:text-brass"
+                            className="text-label text-verdigris hover:text-brass"
                           >
                             Full entry in {lex.name.split("'")[0].trim()} →
                           </button>

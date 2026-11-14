@@ -150,7 +150,7 @@ export default function FellowsView({ isLoggedIn }) {
         {/* Incoming requests */}
         {requests.length > 0 && (
           <section className="mb-8">
-            <h2 className="mb-3 font-ui text-xs font-semibold uppercase tracking-widest text-muted">
+            <h2 className="mb-3 font-sans text-xs font-semibold uppercase tracking-widest text-muted">
               Requests{' '}
               <span className="ml-1 rounded-full bg-brass/20 px-1.5 py-0.5 text-brass">
                 {requests.length}
@@ -181,7 +181,7 @@ export default function FellowsView({ isLoggedIn }) {
 
         {/* Fellows list */}
         <section>
-          <h2 className="mb-3 font-ui text-xs font-semibold uppercase tracking-widest text-muted">
+          <h2 className="mb-3 font-sans text-xs font-semibold uppercase tracking-widest text-muted">
             Your Fellows{' '}
             {!loading && <span className="text-muted/60">({fellows.length})</span>}
           </h2>

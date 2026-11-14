@@ -67,7 +67,7 @@ export default function ScriptoriumsView({ currentUserId, currentUserRole, urlSc
             </div>
             <button onClick={() => setShowCreateModal(true)} className="text-xs text-muted hover:text-parchment">+ new</button>
           </div>
-          <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">Study Groups</p>
+          <p className="mt-0.5 font-sans text-micro uppercase tracking-widest text-muted">Study Groups</p>
         </div>
         <ScriptoriumSidebar
           selectedId={urlScriptoriumId}
@@ -177,7 +177,7 @@ function ScriptoriumSidebar({ selectedId, onSelect, refreshKey }) {
 
         {!loading && invites.length > 0 && (
           <div className="mx-3 mb-2 mt-1 rounded-lg border border-brass/30 bg-brass/5 px-3 py-2.5">
-            <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-brass">Pending Invites</p>
+            <p className="mb-2 text-micro font-medium uppercase tracking-wider text-brass">Pending Invites</p>
             {invites.map((i) => (
               <div key={i.inviteId} className="mb-1.5 flex items-center justify-between gap-2 text-xs last:mb-0">
                 <span className="min-w-0 truncate text-parchment">{i.name}</span>
@@ -192,7 +192,7 @@ function ScriptoriumSidebar({ selectedId, onSelect, refreshKey }) {
 
         {!loading && filteredMine.length > 0 && (
           <>
-            <p className="px-4 py-1 text-[10px] font-medium uppercase tracking-wider text-muted/60">Mine</p>
+            <p className="px-4 py-1 text-micro font-medium uppercase tracking-wider text-muted/60">Mine</p>
             {filteredMine.map((s) => (
               <SidebarScriptoriumItem key={s.id} s={s} selectedId={selectedId} onSelect={onSelect} />
             ))}
@@ -201,12 +201,12 @@ function ScriptoriumSidebar({ selectedId, onSelect, refreshKey }) {
 
         {!loading && filteredBrowse.length > 0 && (
           <>
-            <p className="mt-2 px-4 py-1 text-[10px] font-medium uppercase tracking-wider text-muted/60">Browse</p>
+            <p className="mt-2 px-4 py-1 text-micro font-medium uppercase tracking-wider text-muted/60">Browse</p>
             {filteredBrowse.map((s) => (
               <SidebarScriptoriumItem key={s.id} s={s} selectedId={selectedId} onSelect={onSelect}
                 joinButton={
                   <button disabled={joining === s.id} onClick={(e) => { e.stopPropagation(); handleJoin(s.id); }}
-                    className="shrink-0 rounded border border-rule px-1.5 py-0.5 text-[10px] text-muted hover:border-brass hover:text-parchment disabled:opacity-50">
+                    className="shrink-0 rounded border border-rule px-1.5 py-0.5 text-micro text-muted hover:border-brass hover:text-parchment disabled:opacity-50">
                     {joining === s.id ? '…' : 'join'}
                   </button>
                 }
@@ -237,7 +237,7 @@ function SidebarScriptoriumItem({ s, selectedId, onSelect, joinButton }) {
       <div className="min-w-0 flex-1">
         <div className={`truncate text-sm ${isActive ? 'text-brass' : 'text-parchment'}`}>{s.name}</div>
         {s.memberCount != null && (
-          <div className="mt-0.5 text-[10px] text-muted">{s.memberCount} {s.memberCount === 1 ? 'member' : 'members'}</div>
+          <div className="mt-0.5 text-micro text-muted">{s.memberCount} {s.memberCount === 1 ? 'member' : 'members'}</div>
         )}
       </div>
       {joinButton}
@@ -283,7 +283,7 @@ function ScriptoriumCard({ s, onOpen, badge, joinButton }) {
       {s.tags?.length > 0 && (
         <div className="flex flex-wrap gap-1 px-4 pb-2">
           {s.tags.map((tag) => (
-            <span key={tag} className="rounded-full border border-rule/60 px-2 py-0.5 text-[10px] text-muted/70">
+            <span key={tag} className="rounded-full border border-rule/60 px-2 py-0.5 text-micro text-muted/70">
               #{tag}
             </span>
           ))}
@@ -555,7 +555,7 @@ function EditModal({ scriptorium, onClose, onSaved, bannerUrl, uploadingBanner, 
                     key={s}
                     type="button"
                     onClick={() => { addTag(s); setSuggestions(suggestions.filter((x) => x !== s)); }}
-                    className="rounded-full border border-rule/50 px-2 py-0.5 text-[10px] text-muted/70 hover:border-brass/60 hover:text-parchment"
+                    className="rounded-full border border-rule/50 px-2 py-0.5 text-micro text-muted/70 hover:border-brass/60 hover:text-parchment"
                   >
                     + #{s}
                   </button>
@@ -804,7 +804,7 @@ function ResourcesSection({ scriptoriumId, isMember, currentUserId, isOwner, bib
               </div>
               <div className="px-3 py-2.5">
                 <p className="truncate font-display text-sm text-parchment">{r.label}</p>
-                {hostname && <p className="mt-0.5 font-mono text-[10px] text-muted">{hostname}</p>}
+                {hostname && <p className="mt-0.5 font-mono text-micro text-muted">{hostname}</p>}
                 {isNote && r.body && (
                   <p className="mt-0.5 line-clamp-2 text-xs text-muted/60">
                     {r.body.replace(/[#*_`[\]]/g, '').slice(0, 80)}
@@ -1223,7 +1223,7 @@ function ScriptoriumDetail({ id, onBack, currentUserId, onOpenInPassages, onAskA
               <span className="capitalize">{scriptorium.visibility}</span>
               {scriptorium.weeklyVerse && <><span>·</span><span>✦ {scriptorium.weeklyVerse}</span></>}
               {scriptorium.tags?.length > 0 && (
-                <><span>·</span>{scriptorium.tags.slice(0, 3).map((t) => <span key={t} className="rounded-full border border-rule/50 px-1.5 py-0.5 text-[10px]">#{t}</span>)}</>
+                <><span>·</span>{scriptorium.tags.slice(0, 3).map((t) => <span key={t} className="rounded-full border border-rule/50 px-1.5 py-0.5 text-micro">#{t}</span>)}</>
               )}
             </div>
           </div>

@@ -99,7 +99,7 @@ export default function VerseCommentaryEditor({ reference, x, y, onClose, onSave
               {t}
             </button>
           ))}
-          <span className="ml-auto px-3 py-1.5 text-[10px] text-muted/50">Markdown</span>
+          <span className="ml-auto px-3 py-1.5 text-micro text-muted/50">Markdown</span>
         </div>
 
         {/* Editor / Preview */}
@@ -131,7 +131,7 @@ export default function VerseCommentaryEditor({ reference, x, y, onClose, onSave
           {error ? (
             <p className="text-xs text-red-400">{error}</p>
           ) : (
-            <p className="text-[10px] text-muted/60">Appears in Commentary → My Studies</p>
+            <p className="text-micro text-muted/60">Appears in Commentary → My Studies</p>
           )}
           <div className="ml-auto flex gap-2">
             <button onClick={onClose} className="text-xs text-muted hover:text-parchment">

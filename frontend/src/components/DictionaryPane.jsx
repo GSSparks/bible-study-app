@@ -389,7 +389,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
             ].join(' ')}
           >
             <div className="w-52 shrink-0 overflow-y-auto px-3 py-4">
-              <p className="mb-2 font-ui text-[9px] uppercase tracking-widest text-pageMuted">Contents</p>
+              <p className="mb-2 font-sans text-nano uppercase tracking-widest text-pageMuted">Contents</p>
               <nav className="space-y-0.5">
                 {toc.map((item) => (
                   <button
@@ -397,7 +397,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
                     onClick={() => jumpToSection(item.id)}
                     className={`block w-full text-left text-xs leading-snug transition-colors hover:text-pageAccent ${
                       item.major
-                        ? 'py-1 font-ui font-semibold text-pageText/80'
+                        ? 'py-1 font-sans font-semibold text-pageText/80'
                         : 'py-0.5 pl-3 text-pageMuted'
                     }`}
                   >
@@ -430,7 +430,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
           >
             <div className="px-3 py-3">
               <div className="mb-2 flex items-center justify-between">
-                <p className="font-ui text-[9px] uppercase tracking-widest text-pageMuted">Contents</p>
+                <p className="font-sans text-nano uppercase tracking-widest text-pageMuted">Contents</p>
                 <button onClick={() => setTocOpen(false)} className="rounded p-0.5 text-pageMuted hover:text-pageAccent">
                   <X size={11} />
                 </button>
@@ -442,7 +442,7 @@ export default function DictionaryPane({ module, focusedReference, onVerseRefCli
                     onClick={() => jumpToSection(item.id)}
                     className={`block w-full text-left text-xs leading-snug transition-colors hover:text-pageAccent ${
                       item.major
-                        ? 'py-1 font-ui font-semibold text-pageText/80'
+                        ? 'py-1 font-sans font-semibold text-pageText/80'
                         : 'py-0.5 pl-3 text-pageMuted'
                     }`}
                   >

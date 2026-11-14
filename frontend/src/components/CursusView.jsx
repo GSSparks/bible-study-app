@@ -35,7 +35,7 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
         >
         <Icon size={14} />
         {tab.label}
-        {tab.soon && <span className="text-[10px] text-muted">soon</span>}
+        {tab.soon && <span className="text-micro text-muted">soon</span>}
         </button>
       );
     })}

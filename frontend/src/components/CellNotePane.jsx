@@ -340,10 +340,10 @@ export default function CellNotePane({ isLoggedIn = false, focusedReference = nu
                         {mode === 'passage' ? (n.reference || 'No reference') : (n.title || 'Untitled')}
                       </p>
                       {mode === 'passage' && n.title && n.title !== `Note on ${n.reference}` && (
-                        <p className="truncate text-[10px] text-muted">{n.title}</p>
+                        <p className="truncate text-micro text-muted">{n.title}</p>
                       )}
                       {mode === 'notes' && (
-                        <p className="truncate text-[10px] text-muted">{n.body?.slice(0, 60) || 'Empty'}</p>
+                        <p className="truncate text-micro text-muted">{n.body?.slice(0, 60) || 'Empty'}</p>
                       )}
                     </div>
                     <button

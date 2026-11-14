@@ -197,7 +197,7 @@ export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bib
             New
           </button>
           </div>
-          <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">Personal Study Notes</p>
+          <p className="mt-0.5 font-sans text-micro uppercase tracking-widest text-muted">Personal Study Notes</p>
         </div>
 
         {/* Search */}
@@ -227,7 +227,7 @@ export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bib
             <button
               key={key}
               onClick={() => setFilter(key)}
-              className={`flex-1 py-2 font-ui text-xs transition-colors ${
+              className={`flex-1 py-2 font-sans text-xs transition-colors ${
                 filter === key
                   ? 'border-b-2 border-brass text-brass'
                   : 'text-muted hover:text-parchment'
@@ -266,10 +266,10 @@ export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bib
                 >
                   <p className="truncate text-sm">{title}</p>
                   {isBibleRef(n.reference) && (
-                    <p className="mt-0.5 font-mono text-[10px] text-muted">{n.reference}</p>
+                    <p className="mt-0.5 font-mono text-micro text-muted">{n.reference}</p>
                   )}
                   {n.fromAssistant && (
-                    <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted">
+                    <p className="mt-0.5 flex items-center gap-1 text-micro text-muted">
                       <Bot size={9} />
                       AI generated
                     </p>
@@ -363,7 +363,7 @@ function NoteViewer({ note, onEdit, onDelete, onOpenInCell, onNavigate, onNaviga
                 <span className="font-mono text-xs text-pageMuted">{note.reference}</span>
               )}
               {note.fromAssistant && (
-                <span className="flex items-center gap-1 font-ui text-xs text-pageMuted">
+                <span className="flex items-center gap-1 font-sans text-xs text-pageMuted">
                   <Bot size={10} /> AI generated
                 </span>
               )}

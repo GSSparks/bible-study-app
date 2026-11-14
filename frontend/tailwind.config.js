@@ -30,8 +30,17 @@ export default {
       },
       fontFamily: {
         display: ['"Source Serif 4"', 'Georgia', 'serif'],
-        sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
-        mono: ['"IBM Plex Mono"', 'monospace'],
+        ui:      ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+        sans:    ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+        mono:    ['"IBM Plex Mono"', 'monospace'],
+      },
+      // Sub-xs sizes for UI chrome and labels — keep all sizing decisions here,
+      // not scattered as arbitrary text-[Npx] classes in component files.
+      fontSize: {
+        nano:  ['0.5625rem', { lineHeight: '1rem' }],   // 9px  — map chrome, tiny indicators
+        micro: ['0.625rem',  { lineHeight: '1rem' }],   // 10px — metadata, timestamps, range labels
+        label: ['0.6875rem', { lineHeight: '1rem' }],   // 11px — uppercase section headers
+        fine:  ['0.9375rem', { lineHeight: '1.5rem' }], // 15px — document body prose
       },
     },
   },

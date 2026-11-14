@@ -522,7 +522,7 @@ export default function TopicGuidePane({
             <BookText size={16} className="text-brass" />
             <h1 className="font-display text-base font-semibold text-parchment">Codex</h1>
           </div>
-          <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">Topical Reference</p>
+          <p className="mt-0.5 font-sans text-micro uppercase tracking-widest text-muted">Topical Reference</p>
         </div>
 
         {/* Search input */}
@@ -583,7 +583,7 @@ export default function TopicGuidePane({
           {/* DICT / BOOK module results */}
           {grouped.map(({ module, description, keys, moduleType }) => (
             <div key={module} className="mb-2">
-              <p className="px-3 pb-0.5 pt-2 font-sans text-[9px] uppercase tracking-widest text-muted/60">
+              <p className="px-3 pb-0.5 pt-2 font-sans text-nano uppercase tracking-widest text-muted/60">
                 {description}
                 {moduleType === 'BOOK' && <span className="ml-1 opacity-60">· book</span>}
               </p>
@@ -609,7 +609,7 @@ export default function TopicGuidePane({
           {/* Wikipedia result */}
           {(wikipediaResult || loadingWiki) && query.trim().length >= 2 && (
             <div className="mt-1 border-t border-rule/30 pt-1">
-              <p className="px-3 pb-0.5 pt-2 font-sans text-[9px] uppercase tracking-widest text-muted/60">
+              <p className="px-3 pb-0.5 pt-2 font-sans text-nano uppercase tracking-widest text-muted/60">
                 Wikipedia
               </p>
               {loadingWiki && !wikipediaResult && (
@@ -657,7 +657,7 @@ export default function TopicGuidePane({
                 >
                   <span className="truncate">{merriamResult.headword}</span>
                   {merriamResult.groups[0] && (
-                    <span className="shrink-0 font-sans text-[10px] italic text-muted/70">
+                    <span className="shrink-0 font-sans text-micro italic text-muted/70">
                       {merriamResult.groups[0].fl}
                     </span>
                   )}
@@ -680,7 +680,7 @@ export default function TopicGuidePane({
             ].join(' ')}
           >
             <div className="w-52 shrink-0 overflow-y-auto px-3 py-4">
-              <p className="mb-2 font-ui text-[9px] uppercase tracking-widest text-pageMuted">Contents</p>
+              <p className="mb-2 font-sans text-nano uppercase tracking-widest text-pageMuted">Contents</p>
               <nav className="space-y-0.5">
                 {toc.map((item) => (
                   <button
@@ -688,7 +688,7 @@ export default function TopicGuidePane({
                     onClick={() => jumpToSection(item.id)}
                     className={`block w-full truncate text-left text-xs leading-snug transition-colors hover:text-pageAccent ${
                       item.major
-                        ? 'py-1 font-ui font-semibold text-pageText/80'
+                        ? 'py-1 font-sans font-semibold text-pageText/80'
                         : 'py-0.5 pl-3 text-pageMuted'
                     }`}
                   >
@@ -721,7 +721,7 @@ export default function TopicGuidePane({
           >
             <div className="px-3 py-3">
               <div className="mb-2 flex items-center justify-between">
-                <p className="font-ui text-[9px] uppercase tracking-widest text-pageMuted">Contents</p>
+                <p className="font-sans text-nano uppercase tracking-widest text-pageMuted">Contents</p>
                 <button onClick={() => setTocOpen(false)} className="rounded p-0.5 text-pageMuted hover:text-pageAccent">
                   <X size={11} />
                 </button>
@@ -733,7 +733,7 @@ export default function TopicGuidePane({
                     onClick={() => jumpToSection(item.id)}
                     className={`block w-full text-left text-xs leading-snug transition-colors hover:text-pageAccent ${
                       item.major
-                        ? 'py-1 font-ui font-semibold text-pageText/80'
+                        ? 'py-1 font-sans font-semibold text-pageText/80'
                         : 'py-0.5 pl-3 text-pageMuted'
                     }`}
                   >
@@ -837,7 +837,7 @@ export default function TopicGuidePane({
               <p className="mt-1 font-sans text-xs text-pageMuted">
                 AI Overview
                 {summaryState?.cached === false && !summaryState?.loading && (
-                  <span className="ml-2 rounded bg-verdigris/15 px-1.5 py-0.5 text-[10px] text-verdigris">just generated</span>
+                  <span className="ml-2 rounded bg-verdigris/15 px-1.5 py-0.5 text-micro text-verdigris">just generated</span>
                 )}
               </p>
 
@@ -845,7 +845,7 @@ export default function TopicGuidePane({
               {!editing && summaryState?.tags && summaryState.tags.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {summaryState.tags.map((tag) => (
-                    <span key={tag} className="flex items-center gap-1 rounded-full bg-verdigris/15 px-2 py-0.5 font-sans text-[11px] text-verdigris">
+                    <span key={tag} className="flex items-center gap-1 rounded-full bg-verdigris/15 px-2 py-0.5 font-sans text-label text-verdigris">
                       <Tag size={9} />
                       {tag}
                     </span>
@@ -876,10 +876,10 @@ export default function TopicGuidePane({
 
                 {/* Tag editor */}
                 <div>
-                  <p className="mb-2 font-sans text-[10px] uppercase tracking-widest text-pageMuted">Tags</p>
+                  <p className="mb-2 font-sans text-micro uppercase tracking-widest text-pageMuted">Tags</p>
                   <div className="flex flex-wrap gap-1.5">
                     {editTags.map((tag) => (
-                      <span key={tag} className="flex items-center gap-1 rounded-full bg-verdigris/15 px-2 py-0.5 font-sans text-[11px] text-verdigris">
+                      <span key={tag} className="flex items-center gap-1 rounded-full bg-verdigris/15 px-2 py-0.5 font-sans text-label text-verdigris">
                         <Tag size={9} />
                         {tag}
                         <button
@@ -900,7 +900,7 @@ export default function TopicGuidePane({
                         }
                       }}
                       placeholder="Add tag…"
-                      className="min-w-24 rounded border border-pageBorder bg-page px-2 py-0.5 font-sans text-[11px] text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
+                      className="min-w-24 rounded border border-pageBorder bg-page px-2 py-0.5 font-sans text-label text-pageText placeholder:text-pageMuted focus:border-pageAccent focus:outline-none"
                     />
                   </div>
                 </div>
@@ -937,12 +937,12 @@ export default function TopicGuidePane({
             {/* Scripture Uses */}
             {!editing && !summaryState?.loading && !summaryState?.error && selected?.module === SUMMARY_MODULE && (
               <div className="mt-8 max-w-2xl border-t border-pageBorder pt-6">
-                <p className="mb-3 font-ui text-[10px] uppercase tracking-widest text-pageMuted">Scripture Uses</p>
+                <p className="mb-3 font-sans text-micro uppercase tracking-widest text-pageMuted">Scripture Uses</p>
 
                 {summaryState?.occurrences && summaryState.occurrences.length > 0 ? (
                   <>
                     <div className="mb-3 flex items-center gap-3">
-                      <span className="font-ui text-xs text-pageMuted">
+                      <span className="font-sans text-xs text-pageMuted">
                         {summaryState.occurrences.length} occurrence{summaryState.occurrences.length === 1 ? '' : 's'}
                         {summaryState.studyType === 'original' ? ' · original language' : ' · English'}
                       </span>
@@ -950,7 +950,7 @@ export default function TopicGuidePane({
                         <button
                           onClick={() => triggerWordStudy(summaryState.studyType || 'english', true)}
                           disabled={wordStudyLoading}
-                          className="font-ui text-xs text-pageMuted underline-offset-2 hover:text-pageAccent hover:underline disabled:opacity-50"
+                          className="font-sans text-xs text-pageMuted underline-offset-2 hover:text-pageAccent hover:underline disabled:opacity-50"
                         >
                           {wordStudyLoading ? 'Regenerating…' : 'Regenerate with Scripture Search'}
                         </button>
@@ -963,7 +963,7 @@ export default function TopicGuidePane({
                           onClick={() => onOpenInBible?.(occ.reference)}
                           className="group flex w-full items-baseline gap-3 rounded px-2 py-1.5 text-left hover:bg-page/60"
                         >
-                          <span className="w-24 shrink-0 font-ui text-xs font-medium text-pageAccent">
+                          <span className="w-24 shrink-0 font-sans text-xs font-medium text-pageAccent">
                             {occ.reference}
                           </span>
                           <span className="line-clamp-1 font-display text-sm text-pageText/80 group-hover:text-pageText">
@@ -972,7 +972,7 @@ export default function TopicGuidePane({
                         </button>
                       ))}
                       {summaryState.occurrences.length > 50 && (
-                        <p className="px-2 pt-1 font-ui text-xs text-pageMuted">
+                        <p className="px-2 pt-1 font-sans text-xs text-pageMuted">
                           …and {summaryState.occurrences.length - 50} more
                         </p>
                       )}
@@ -984,7 +984,7 @@ export default function TopicGuidePane({
                       Find every place this term appears in Scripture to generate a usage-driven study.
                     </p>
                     <div className="flex items-center gap-2">
-                      <div className="flex rounded border border-pageBorder text-[10px]">
+                      <div className="flex rounded border border-pageBorder text-micro">
                         <button
                           onClick={() => setFindStudyType('english')}
                           className={`px-2.5 py-1 ${findStudyType === 'english' ? 'bg-pageAccent/20 text-pageAccent' : 'text-pageMuted hover:text-pageText'}`}
@@ -1004,16 +1004,16 @@ export default function TopicGuidePane({
                         <button
                           onClick={() => triggerWordStudy(findStudyType)}
                           disabled={wordStudyLoading}
-                          className="rounded bg-pageAccent px-3 py-1 font-ui text-xs font-medium text-ink hover:bg-pageAccent/90 disabled:opacity-50"
+                          className="rounded bg-pageAccent px-3 py-1 font-sans text-xs font-medium text-ink hover:bg-pageAccent/90 disabled:opacity-50"
                         >
                           {wordStudyLoading ? 'Scanning…' : 'Find in Scripture'}
                         </button>
                       ) : (
-                        <span className="font-ui text-xs text-pageMuted">Log in to run a Scripture search</span>
+                        <span className="font-sans text-xs text-pageMuted">Log in to run a Scripture search</span>
                       )}
                     </div>
                     {wordStudyError && (
-                      <p className="font-ui text-xs text-red-500">{wordStudyError}</p>
+                      <p className="font-sans text-xs text-red-500">{wordStudyError}</p>
                     )}
                   </div>
                 )}
@@ -1023,11 +1023,11 @@ export default function TopicGuidePane({
             {/* In Your Study */}
             {!editing && (relatedNotes.length > 0 || relatedSessions.length > 0) && (
               <div className="mt-8 max-w-2xl border-t border-pageBorder pt-6">
-                <p className="mb-4 font-ui text-[10px] uppercase tracking-widest text-pageMuted">In Your Study</p>
+                <p className="mb-4 font-sans text-micro uppercase tracking-widest text-pageMuted">In Your Study</p>
 
                 {relatedNotes.length > 0 && (
                   <div className="mb-5">
-                    <p className="mb-2 flex items-center gap-1.5 font-ui text-xs font-medium text-pageText/70">
+                    <p className="mb-2 flex items-center gap-1.5 font-sans text-xs font-medium text-pageText/70">
                       <StickyNote size={12} />
                       Notes
                     </p>
@@ -1040,7 +1040,7 @@ export default function TopicGuidePane({
                           {note.reference && (
                             <button
                               onClick={() => onOpenInCell?.(note.reference)}
-                              className="mb-1 font-ui text-xs font-medium text-pageAccent hover:underline"
+                              className="mb-1 font-sans text-xs font-medium text-pageAccent hover:underline"
                             >
                               {note.reference.replace(/\./g, ' ')}
                             </button>
@@ -1056,7 +1056,7 @@ export default function TopicGuidePane({
 
                 {relatedSessions.length > 0 && (
                   <div>
-                    <p className="mb-2 flex items-center gap-1.5 font-ui text-xs font-medium text-pageText/70">
+                    <p className="mb-2 flex items-center gap-1.5 font-sans text-xs font-medium text-pageText/70">
                       <MessageSquare size={12} />
                       Study Sessions
                     </p>
@@ -1070,14 +1070,14 @@ export default function TopicGuidePane({
                             <p className="font-display text-sm text-pageText/80">
                               {session.title || session.reference || 'Untitled session'}
                             </p>
-                            <span className="shrink-0 rounded-full bg-pageBorder px-1.5 py-0.5 font-ui text-[10px] text-pageMuted">
+                            <span className="shrink-0 rounded-full bg-pageBorder px-1.5 py-0.5 font-sans text-micro text-pageMuted">
                               {session.kind === 'guide' ? 'guide' : 'chat'}
                             </span>
                           </div>
                           {session.reference && session.title && (
                             <button
                               onClick={() => onOpenInCell?.(session.reference)}
-                              className="mt-0.5 font-ui text-xs text-pageAccent hover:underline"
+                              className="mt-0.5 font-sans text-xs text-pageAccent hover:underline"
                             >
                               {session.reference.replace(/\./g, ' ')}
                             </button>
@@ -1156,7 +1156,7 @@ export default function TopicGuidePane({
 
               {merriamResult.art && (
                 <div className="border-t border-pageBorder pt-4">
-                  <p className="mb-2 font-sans text-[10px] uppercase tracking-widest text-pageMuted">
+                  <p className="mb-2 font-sans text-micro uppercase tracking-widest text-pageMuted">
                     Illustration of {merriamResult.headword}
                   </p>
                   <a href={merriamResult.art.pageUrl} target="_blank" rel="noopener noreferrer">
@@ -1177,7 +1177,7 @@ export default function TopicGuidePane({
 
               {merriamResult.etymology && (
                 <div className="border-t border-pageBorder pt-4">
-                  <p className="mb-1 font-sans text-[10px] uppercase tracking-widest text-pageMuted">Etymology</p>
+                  <p className="mb-1 font-sans text-micro uppercase tracking-widest text-pageMuted">Etymology</p>
                   <p
                     className="font-display text-sm leading-relaxed text-pageText/80"
                     dangerouslySetInnerHTML={{ __html: merriamResult.etymology }}

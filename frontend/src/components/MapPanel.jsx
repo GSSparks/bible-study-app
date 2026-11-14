@@ -6,7 +6,7 @@ import { api } from '../api/client.js';
 function Attribution() {
   return (
     <div className="shrink-0 border-t border-rule bg-panel/60 px-3 py-1.5">
-      <p className="font-ui text-[9px] leading-relaxed text-muted/70">
+      <p className="font-sans text-nano leading-relaxed text-muted/70">
         Biblica Open Bible Maps © 2023–2026 Biblica, Inc.{' '}
         <a
           href="https://creativecommons.org/licenses/by-sa/4.0/"
@@ -97,7 +97,7 @@ function ZoomableImage({ src, alt }) {
           disabled={scale <= 1}
           className="rounded px-1.5 py-0.5 font-mono text-xs text-muted hover:text-parchment disabled:opacity-30"
         >−</button>
-        <span className="min-w-[3ch] text-center font-mono text-[10px] tabular-nums text-muted">
+        <span className="min-w-[3ch] text-center font-mono text-micro tabular-nums text-muted">
           {scale > 1 ? `${Math.round(scale * 100)}%` : ''}
         </span>
         <button
@@ -108,7 +108,7 @@ function ZoomableImage({ src, alt }) {
         {scale > 1 && (
           <button
             onClick={() => setView({ scale: 1, pan: { x: 0, y: 0 } })}
-            className="ml-0.5 rounded px-1.5 py-0.5 font-ui text-[10px] text-muted hover:text-parchment"
+            className="ml-0.5 rounded px-1.5 py-0.5 font-sans text-micro text-muted hover:text-parchment"
           >↺</button>
         )}
       </div>
@@ -152,9 +152,9 @@ function PassageMapView({ passageRef }) {
             value={ref}
             onChange={(e) => setRef(e.target.value)}
             placeholder="e.g. Genesis 4:1"
-            className="min-w-0 flex-1 rounded border border-rule bg-ink/60 px-2 py-1 font-ui text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+            className="min-w-0 flex-1 rounded border border-rule bg-ink/60 px-2 py-1 font-sans text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
           />
-          <button type="submit" className="rounded bg-brass/20 px-3 py-1 font-ui text-xs text-brass hover:bg-brass/30">
+          <button type="submit" className="rounded bg-brass/20 px-3 py-1 font-sans text-xs text-brass hover:bg-brass/30">
             Find
           </button>
         </form>
@@ -163,17 +163,17 @@ function PassageMapView({ passageRef }) {
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {!submitted && (
           <div className="flex h-full items-center justify-center">
-            <p className="font-ui text-sm text-muted">Enter a reference to find a map.</p>
+            <p className="font-sans text-sm text-muted">Enter a reference to find a map.</p>
           </div>
         )}
         {submitted && maps === null && (
           <div className="flex h-full items-center justify-center">
-            <p className="font-ui text-sm text-muted">Loading…</p>
+            <p className="font-sans text-sm text-muted">Loading…</p>
           </div>
         )}
         {submitted && maps?.length === 0 && (
           <div className="flex h-full items-center justify-center px-6 text-center">
-            <p className="font-ui text-sm text-muted">No map available for this passage.</p>
+            <p className="font-sans text-sm text-muted">No map available for this passage.</p>
           </div>
         )}
         {imageUrl && <ZoomableImage key={imageUrl} src={imageUrl} alt={current.title || 'Bible map'} />}
@@ -186,7 +186,7 @@ function PassageMapView({ passageRef }) {
             >
               <ChevronLeft size={14} />
             </button>
-            <span className="font-ui text-[10px] text-muted">{idx + 1}/{maps.length}</span>
+            <span className="font-sans text-micro text-muted">{idx + 1}/{maps.length}</span>
             <button
               onClick={() => setIdx((i) => Math.min(maps.length - 1, i + 1))}
               disabled={idx === maps.length - 1}
@@ -216,19 +216,19 @@ function BrowseView({ maps }) {
         <div className="flex shrink-0 items-center gap-2 border-b border-rule bg-panel px-3 py-2">
           <button
             onClick={() => setSelected(null)}
-            className="flex items-center gap-1 font-ui text-xs text-muted hover:text-parchment"
+            className="flex items-center gap-1 font-sans text-xs text-muted hover:text-parchment"
           >
             <ChevronLeft size={13} />
             All Maps
           </button>
-          <span className="min-w-0 flex-1 truncate font-ui text-xs text-parchment">{selected.title}</span>
+          <span className="min-w-0 flex-1 truncate font-sans text-xs text-parchment">{selected.title}</span>
         </div>
         <div className="relative min-h-0 flex-1 overflow-hidden">
           {selected.imageUrl ? (
             <ZoomableImage src={selected.imageUrl} alt={selected.title} />
           ) : (
             <div className="flex h-full items-center justify-center">
-              <p className="font-ui text-sm text-muted">Image not available.</p>
+              <p className="font-sans text-sm text-muted">Image not available.</p>
             </div>
           )}
         </div>
@@ -245,14 +245,14 @@ function BrowseView({ maps }) {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search maps…"
           autoFocus
-          className="w-full rounded border border-rule bg-ink/60 px-2 py-1 font-ui text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+          className="w-full rounded border border-rule bg-ink/60 px-2 py-1 font-sans text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {maps === null ? (
-          <p className="p-4 font-ui text-xs text-muted">Loading…</p>
+          <p className="p-4 font-sans text-xs text-muted">Loading…</p>
         ) : filtered.length === 0 ? (
-          <p className="p-4 font-ui text-xs text-muted">No maps found.</p>
+          <p className="p-4 font-sans text-xs text-muted">No maps found.</p>
         ) : (
           filtered.map((m) => (
             <button
@@ -260,7 +260,7 @@ function BrowseView({ maps }) {
               onClick={() => setSelected(m)}
               className="flex w-full items-center border-b border-rule/40 px-3 py-2.5 text-left hover:bg-panel/50"
             >
-              <span className="font-ui text-xs leading-snug text-parchment">{m.title}</span>
+              <span className="font-sans text-xs leading-snug text-parchment">{m.title}</span>
             </button>
           ))
         )}
@@ -315,7 +315,7 @@ export default function MapPanel({ open, onClose, pendingMapContext, passageRef,
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`rounded px-2.5 py-1 font-ui text-xs transition-colors ${
+              className={`rounded px-2.5 py-1 font-sans text-xs transition-colors ${
                 tab === id ? 'bg-brass/20 text-brass' : 'text-muted hover:text-parchment'
               }`}
             >

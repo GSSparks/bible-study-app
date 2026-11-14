@@ -184,7 +184,7 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
               </div>
             )}
           </div>
-          <p className="mt-0.5 font-ui text-[10px] uppercase tracking-widest text-muted">Documents & PDFs</p>
+          <p className="mt-0.5 font-sans text-micro uppercase tracking-widest text-muted">Documents & PDFs</p>
           {uploadError && <p className="mt-1 text-xs text-red-400">{uploadError}</p>}
         </div>
 
@@ -286,7 +286,7 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
             <div className="relative inline-block">
               <button
                 onClick={() => setSortOpen((o) => !o)}
-                className="flex items-center gap-1 rounded border border-rule px-2 py-1 text-[11px] text-muted hover:border-brass hover:text-parchment"
+                className="flex items-center gap-1 rounded border border-rule px-2 py-1 text-label text-muted hover:border-brass hover:text-parchment"
               >
                 {activeSortLabel}
                 <ChevronDown size={10} className={`transition-transform ${sortOpen ? 'rotate-180' : ''}`} />
@@ -317,7 +317,7 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
           <div className="shrink-0 flex flex-wrap gap-1 px-3 pb-2">
             <button
               onClick={() => setActiveCollection(null)}
-              className={`rounded-full border px-2 py-0.5 text-[10px] transition-colors ${
+              className={`rounded-full border px-2 py-0.5 text-micro transition-colors ${
                 activeCollection === null
                   ? 'border-brass bg-brass/15 text-brass'
                   : 'border-rule text-muted hover:border-brass/60 hover:text-parchment'
@@ -329,7 +329,7 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
               <button
                 key={c}
                 onClick={() => setActiveCollection(activeCollection === c ? null : c)}
-                className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-colors ${
+                className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-micro transition-colors ${
                   activeCollection === c
                     ? 'border-brass bg-brass/15 text-brass'
                     : 'border-rule text-muted hover:border-brass/60 hover:text-parchment'
@@ -368,10 +368,10 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
                     <p className="truncate text-sm leading-snug">{doc.title}</p>
                   </div>
                   {doc.author && (
-                    <p className="mt-0.5 truncate text-[11px] text-muted/70">{doc.author}</p>
+                    <p className="mt-0.5 truncate text-label text-muted/70">{doc.author}</p>
                   )}
                   {doc.collection && (
-                    <span className="mt-1 inline-flex items-center gap-0.5 text-[10px] text-muted/50">
+                    <span className="mt-1 inline-flex items-center gap-0.5 text-micro text-muted/50">
                       <Folder size={8} />
                       {doc.collection}
                     </span>

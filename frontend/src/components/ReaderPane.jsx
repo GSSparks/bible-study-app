@@ -867,7 +867,7 @@ export default function ReaderPane({
             <div key={seg.key}>
               {seg.showBookTitle && (
                 <div className={['mb-2 text-center', segIdx === 0 ? 'mt-2' : 'mt-12'].join(' ')}>
-                  <p className="mb-1 font-sans text-[11px] uppercase tracking-widest text-pageMuted">
+                  <p className="mb-1 font-sans text-label uppercase tracking-widest text-pageMuted">
                     {bookInfo?.testament === 'NT' ? 'New Testament' : 'Old Testament'}
                   </p>
                   <h1 className="font-display text-3xl text-pageText">{bookInfo?.name ?? seg.bookOsis}</h1>
@@ -876,7 +876,7 @@ export default function ReaderPane({
               )}
               {seg.showHeader && (
                 <h2 className={[
-                  'mb-3 font-sans text-[11px] uppercase tracking-widest text-pageMuted',
+                  'mb-3 font-sans text-label uppercase tracking-widest text-pageMuted',
                   seg.showBookTitle ? 'mt-4' : segIdx === 0 ? 'mt-0' : 'mt-10 border-t border-pageBorder pt-6',
                 ].join(' ')}>
                   Chapter {seg.chapter}
@@ -916,12 +916,12 @@ export default function ReaderPane({
                             <span key={ti} className="inline-flex flex-col items-center gap-0.5 text-center">
                               <span className="font-display text-sm leading-snug text-pageText">{tok.word}</span>
                               <button
-                                className="font-mono text-[10px] leading-none text-verdigris hover:text-brass"
+                                className="font-mono text-micro leading-none text-verdigris hover:text-brass"
                                 onClick={(e) => { e.stopPropagation(); onStrongsClick?.(tok.strong, e, tok.morph, tok.word, module); }}
                               >
                                 {tok.strong.split(',')[0]}
                               </button>
-                              <span className="text-[10px] leading-none italic text-pageMuted">
+                              <span className="text-micro leading-none italic text-pageMuted">
                                 {strongsCache.get(tok.strong.split(',')[0]) ?? '…'}
                               </span>
                             </span>
@@ -1037,7 +1037,7 @@ export default function ReaderPane({
             {/* Footer: verse ref */}
             {contextMenu.verseRef && (
               <div className="border-t border-rule px-2.5 py-1">
-                <span className="font-mono text-[10px] text-muted">{contextMenu.verseRef}</span>
+                <span className="font-mono text-micro text-muted">{contextMenu.verseRef}</span>
               </div>
             )}
           </div>
@@ -1080,12 +1080,12 @@ export default function ReaderPane({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <span className="max-w-[200px] truncate px-1 font-mono text-[10px] text-muted">
+            <span className="max-w-[200px] truncate px-1 font-mono text-micro text-muted">
               "{phraseSelection.text}"
             </span>
             <div className="h-4 w-px bg-rule" />
             {phraseSelection.strongsSequence.length > 0 && (
-              <div className="flex rounded border border-rule text-[10px]">
+              <div className="flex rounded border border-rule text-micro">
                 <button
                   onClick={() => setCodexStudyType('english')}
                   className={`px-2 py-0.5 ${codexStudyType === 'english' ? 'bg-brass text-ink' : 'text-muted hover:text-parchment'}`}

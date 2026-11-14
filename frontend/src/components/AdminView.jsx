@@ -633,7 +633,7 @@ function ModulesTab() {
                     <div className="text-parchment">{m.description || m.name}</div>
                     <div className="flex items-center gap-2 font-mono text-xs text-muted">
                       <span className="truncate">{m.name}</span>
-                      {m.language && <span className="shrink-0 rounded bg-ink px-1 py-px font-sans text-[10px] uppercase tracking-wide">{m.language}</span>}
+                      {m.language && <span className="shrink-0 rounded bg-ink px-1 py-px font-sans text-micro uppercase tracking-wide">{m.language}</span>}
                     </div>
                   </div>
                   <button
@@ -1171,7 +1171,7 @@ function ReadingPlansTab() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-parchment">{plan.name}</span>
                   {plan.isBuiltIn && (
-                    <span className="rounded border border-brass/40 px-1.5 py-px text-[10px] uppercase tracking-wide text-brass">
+                    <span className="rounded border border-brass/40 px-1.5 py-px text-micro uppercase tracking-wide text-brass">
                       built-in
                     </span>
                   )}

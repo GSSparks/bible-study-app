@@ -115,7 +115,7 @@ export default function VerseDrawer({ osisRef, module, onClose, onOpenInTab }) {
               >
                 {displayed.map((v) => (
                   <span key={`${v.chapter}-${v.verseNr}`}>
-                    <sup className="mr-0.5 text-[10px] text-pageMuted">{v.verseNr}</sup>
+                    <sup className="mr-0.5 text-micro text-pageMuted">{v.verseNr}</sup>
                     <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
                   </span>
                 ))}

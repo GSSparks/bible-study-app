@@ -336,7 +336,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
                     {doc.author && <span className="text-sm text-muted">{doc.author}</span>}
                     {doc.pageCount && <span className="font-mono text-xs text-muted/60">{doc.pageCount} pages</span>}
                     {doc.collection && (
-                      <span className="inline-flex items-center rounded-full border border-rule bg-brass/10 px-2 py-0.5 text-[11px] text-brass/80">
+                      <span className="inline-flex items-center rounded-full border border-rule bg-brass/10 px-2 py-0.5 text-label text-brass/80">
                         {doc.collection}
                       </span>
                     )}
@@ -427,7 +427,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
               >
                 <BookOpen size={12} />
                 Contents
-                <span className="font-mono text-[10px] text-muted/70">({tocItems.length})</span>
+                <span className="font-mono text-micro text-muted/70">({tocItems.length})</span>
               </button>
             )}
             <div className="relative flex-1">
@@ -459,7 +459,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
         <div className="shrink-0 border-b border-rule bg-panel/95 backdrop-blur-sm">
           <div className="mx-auto max-w-3xl px-6 py-3">
             <div className="max-h-52 overflow-y-auto">
-              <p className="mb-2 font-sans text-[10px] font-semibold uppercase tracking-widest text-muted/60">
+              <p className="mb-2 font-sans text-micro font-semibold uppercase tracking-widest text-muted/60">
                 Contents
               </p>
               <div className="space-y-0.5">
@@ -550,7 +550,7 @@ export default function DocumentReader({ documentId, isLoggedIn, isAdmin, onAskA
 
           {doc.extractedText && (
             <div className="mx-auto max-w-3xl px-6 py-8">
-              <div className="font-display text-[15px] leading-relaxed text-pageText">
+              <div className="font-display text-fine leading-relaxed text-pageText">
                 {blocks.map((block) => {
                   const anchorId = anchorMap[block.id];
                   if (block.level === 1) {

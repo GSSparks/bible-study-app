@@ -1105,7 +1105,7 @@ export default function WorkspaceLayout({
           </button>
           <button
             onClick={() => addColumn('links')}
-            className="flex flex-1 items-center bg-panel/50 px-1.5 text-[11px] text-muted hover:bg-panel hover:text-parchment"
+            className="flex flex-1 items-center bg-panel/50 px-1.5 text-label text-muted hover:bg-panel hover:text-parchment"
             title="Add Resource Links panel"
           >
             ≡

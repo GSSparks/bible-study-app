@@ -29,7 +29,7 @@ function SourceSection({ label, headerAction, children }) {
   return (
     <div className="border-t border-pageBorder/50 pt-2 first:border-t-0 first:pt-0">
       <div className="mb-1 flex items-center gap-1.5">
-        <p className="text-[10px] uppercase tracking-widest text-pageMuted">{label}</p>
+        <p className="text-micro uppercase tracking-widest text-pageMuted">{label}</p>
         {headerAction}
       </div>
       {children}
@@ -187,7 +187,7 @@ export default function StrongsDrawer({
               )}
 
               {morphCode && (
-                <p className="mb-2 font-mono text-[10px] text-pageMuted">
+                <p className="mb-2 font-mono text-micro text-pageMuted">
                   {morphCode}
                   {morphGloss && <span className="ml-2 font-sans italic">({morphGloss})</span>}
                 </p>
@@ -219,7 +219,7 @@ export default function StrongsDrawer({
                     )}
                     {entry.references?.length > 0 && (
                       <div className="mt-1.5">
-                        <p className="mb-1 text-[10px] uppercase tracking-wide text-pageMuted">See also</p>
+                        <p className="mb-1 text-micro uppercase tracking-wide text-pageMuted">See also</p>
                         <div className="flex flex-wrap gap-1">
                           {entry.references.map((ref) => (
                             <button
@@ -271,7 +271,7 @@ export default function StrongsDrawer({
                         {lex.hasMore && !expanded && (
                           <button
                             onClick={() => setExpandedLexicons((s) => new Set([...s, snippetKey]))}
-                            className="text-[11px] text-pageMuted hover:text-pageText"
+                            className="text-label text-pageMuted hover:text-pageText"
                           >
                             Show more ↓
                           </button>
@@ -279,7 +279,7 @@ export default function StrongsDrawer({
                         {onOpenInDictionary && (
                           <button
                             onClick={() => onOpenInDictionary(key, lex.moduleCode)}
-                            className="text-[11px] text-verdigris hover:text-brass"
+                            className="text-label text-verdigris hover:text-brass"
                           >
                             Full entry in {lex.name.split("'")[0].trim()} →
                           </button>

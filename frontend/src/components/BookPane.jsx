@@ -196,7 +196,7 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
           ].join(' ')}
         >
           <div className="w-52 shrink-0 overflow-y-auto px-3 py-4">
-            <p className="mb-3 font-ui text-[9px] uppercase tracking-widest text-pageMuted">Contents</p>
+            <p className="mb-3 font-sans text-nano uppercase tracking-widest text-pageMuted">Contents</p>
             <nav className="flex flex-col">
               {toc.map((item, i) => (
                 <button
@@ -204,7 +204,7 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
                   onClick={() => jumpToSection(item.id)}
                   className={`block w-full text-left text-xs leading-snug transition-colors hover:text-pageAccent ${
                     item.level === 1
-                      ? `${i > 0 ? 'mt-2 pt-2 border-t border-pageBorder' : ''} py-0.5 font-ui font-semibold text-pageText/90`
+                      ? `${i > 0 ? 'mt-2 pt-2 border-t border-pageBorder' : ''} py-0.5 font-sans font-semibold text-pageText/90`
                       : item.level === 2
                       ? 'py-0.5 pl-3 text-pageMuted'
                       : 'py-0.5 pl-5 text-pageMuted/70'
@@ -239,7 +239,7 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
         >
           <div className="px-3 py-3">
             <div className="mb-2 flex items-center justify-between">
-              <p className="font-ui text-[9px] uppercase tracking-widest text-pageMuted">Contents</p>
+              <p className="font-sans text-nano uppercase tracking-widest text-pageMuted">Contents</p>
               <button onClick={() => setTocOpen(false)} className="rounded p-0.5 text-pageMuted hover:text-pageAccent">
                 <X size={11} />
               </button>
@@ -251,7 +251,7 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
                   onClick={() => { jumpToSection(item.id); setTocOpen(false); }}
                   className={`block w-full text-left text-xs leading-snug transition-colors hover:text-pageAccent ${
                     item.level === 1
-                      ? `${i > 0 ? 'mt-1.5 pt-1.5 border-t border-pageBorder' : ''} py-0.5 font-ui font-semibold text-pageText/90`
+                      ? `${i > 0 ? 'mt-1.5 pt-1.5 border-t border-pageBorder' : ''} py-0.5 font-sans font-semibold text-pageText/90`
                       : item.level === 2
                       ? 'py-0.5 pl-3 text-pageMuted'
                       : 'py-0.5 pl-5 text-pageMuted/70'
@@ -298,15 +298,15 @@ export default function BookPane({ module, initialScrollY = 0, onScrollChange, i
               // h2 — major section from source content (not book-section-heading)
               '[&_h2:not(.book-section-heading)]:mt-16 [&_h2:not(.book-section-heading)]:mb-6 [&_h2:not(.book-section-heading)]:pb-3 [&_h2:not(.book-section-heading)]:font-display [&_h2:not(.book-section-heading)]:text-2xl [&_h2:not(.book-section-heading)]:font-semibold [&_h2:not(.book-section-heading)]:text-center [&_h2:not(.book-section-heading)]:text-ink [&_h2:not(.book-section-heading)]:tracking-tight [&_h2:not(.book-section-heading)]:border-b [&_h2:not(.book-section-heading)]:border-brass/30',
               // .book-section-heading — injected tree-node heading (h2 or h3)
-              '[&_.book-section-heading]:mt-14 [&_.book-section-heading]:mb-4 [&_.book-section-heading]:pb-2 [&_.book-section-heading]:font-ui [&_.book-section-heading]:text-lg [&_.book-section-heading]:font-semibold [&_.book-section-heading]:text-ink [&_.book-section-heading]:border-b [&_.book-section-heading]:border-brass/20',
+              '[&_.book-section-heading]:mt-14 [&_.book-section-heading]:mb-4 [&_.book-section-heading]:pb-2 [&_.book-section-heading]:font-sans [&_.book-section-heading]:text-lg [&_.book-section-heading]:font-semibold [&_.book-section-heading]:text-ink [&_.book-section-heading]:border-b [&_.book-section-heading]:border-brass/20',
               // h3 — sub-section from source content
-              '[&_h3]:mt-8 [&_h3]:mb-2 [&_h3]:font-ui [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-inkMuted [&_h3]:uppercase [&_h3]:tracking-wider',
+              '[&_h3]:mt-8 [&_h3]:mb-2 [&_h3]:font-sans [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-inkMuted [&_h3]:uppercase [&_h3]:tracking-wider',
               // h4 — minor heading
-              '[&_h4]:mt-6 [&_h4]:mb-1 [&_h4]:font-ui [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-inkMuted',
+              '[&_h4]:mt-6 [&_h4]:mb-1 [&_h4]:font-sans [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-inkMuted',
               // Epigraph (scripture citation / motto after a heading)
               '[&_.book-epigraph]:mt-2 [&_.book-epigraph]:mb-8 [&_.book-epigraph]:text-center [&_.book-epigraph]:italic [&_.book-epigraph]:text-sm [&_.book-epigraph]:text-inkMuted',
               // Note marker dot
-              '[&_.book-note-marker]:mx-0.5 [&_.book-note-marker]:cursor-default [&_.book-note-marker]:rounded-full [&_.book-note-marker]:bg-verdigris/80 [&_.book-note-marker]:px-1 [&_.book-note-marker]:py-px [&_.book-note-marker]:text-[10px] [&_.book-note-marker]:font-ui [&_.book-note-marker]:text-white [&_.book-note-marker]:leading-none',
+              '[&_.book-note-marker]:mx-0.5 [&_.book-note-marker]:cursor-default [&_.book-note-marker]:rounded-full [&_.book-note-marker]:bg-verdigris/80 [&_.book-note-marker]:px-1 [&_.book-note-marker]:py-px [&_.book-note-marker]:text-micro [&_.book-note-marker]:font-sans [&_.book-note-marker]:text-white [&_.book-note-marker]:leading-none',
               // Images — centered with auto-sizing
               '[&_img]:mx-auto [&_img]:block [&_img]:max-w-full [&_img]:my-6',
             ].join(' ')}

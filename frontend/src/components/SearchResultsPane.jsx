@@ -332,7 +332,7 @@ export default function SearchResultsPane({ pendingSearch, onNavigate, defaultBi
                     )}
                     {n.title && <span className="text-xs font-medium text-pageText">{n.title}</span>}
                     {n.fromAssistant && (
-                      <span className="rounded border border-brass/40 px-1 py-px text-[10px] text-brass">AI</span>
+                      <span className="rounded border border-brass/40 px-1 py-px text-micro text-brass">AI</span>
                     )}
                   </div>
                   <p className="line-clamp-2 text-sm leading-relaxed text-pageText/80">{stripMarkdown(n.body)}</p>

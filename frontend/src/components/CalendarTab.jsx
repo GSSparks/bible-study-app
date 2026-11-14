@@ -66,7 +66,7 @@ function DayCellContent({ day, entries, hebrewDate, hebrewLayerVisible, compact,
             </>
         )}
         <div className={`relative flex flex-col h-full ${compact ? 'p-0.5' : 'p-1'}`}>
-        <span className={`text-left font-mono ${compact ? 'text-[9px]' : 'text-[11px]'} ${image ? 'text-white' : 'text-muted'}`}>
+        <span className={`text-left font-mono ${compact ? 'text-nano' : 'text-label'} ${image ? 'text-white' : 'text-muted'}`}>
         {day}
         </span>
         <div className={`flex flex-col gap-px overflow-hidden ${compact ? 'mt-px' : 'mt-0.5'}`}>
@@ -76,7 +76,7 @@ function DayCellContent({ day, entries, hebrewDate, hebrewLayerVisible, compact,
             .map(e => (
                 <span
                 key={e.id}
-                className={`truncate leading-tight font-medium ${compact ? 'text-[7px]' : 'text-[9px]'}`}
+                className={`truncate leading-tight font-medium ${compact ? 'text-[7px]' : 'text-nano'}`}
                 style={{ color: image ? '#fff' : (e.layer?.color || '#888') }}
                 title={e.title}
                 >
@@ -131,12 +131,12 @@ function DayImagePicker({ year, month, day, calSystem, hebYear, currentImage, on
 
     return (
         <div className="flex flex-col gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Day Image</span>
+        <span className="text-micro font-semibold uppercase tracking-wide text-muted">Day Image</span>
 
         <select
         value={selectedLayerId}
         onChange={(e) => setSelectedLayerId(e.target.value)}
-        className="w-full rounded border border-rule bg-ink/30 px-1 py-0.5 text-[10px] text-parchment"
+        className="w-full rounded border border-rule bg-ink/30 px-1 py-0.5 text-micro text-parchment"
         >
         {layers.map((l) => (
             <option key={l.id} value={l.id}>{l.name}</option>
@@ -155,7 +155,7 @@ function DayImagePicker({ year, month, day, calSystem, hebYear, currentImage, on
             </button>
             </div>
         ) : (
-            <div className="flex w-24 aspect-square items-center justify-center rounded border border-dashed border-rule text-[10px] text-muted/50">
+            <div className="flex w-24 aspect-square items-center justify-center rounded border border-dashed border-rule text-micro text-muted/50">
             No image
             </div>
         )}
@@ -163,13 +163,13 @@ function DayImagePicker({ year, month, day, calSystem, hebYear, currentImage, on
         <div className="flex gap-2">
         <button
         onClick={() => setShowSelect(v => !v)}
-        className="flex-1 rounded border border-rule px-2 py-1 text-[10px] text-muted hover:border-brass hover:text-parchment"
+        className="flex-1 rounded border border-rule px-2 py-1 text-micro text-muted hover:border-brass hover:text-parchment"
         >
         Select existing
         </button>
         <button
         onClick={() => fileRef.current?.click()}
-        className="flex-1 rounded border border-rule px-2 py-1 text-[10px] text-muted hover:border-brass hover:text-parchment"
+        className="flex-1 rounded border border-rule px-2 py-1 text-micro text-muted hover:border-brass hover:text-parchment"
         >
         Upload new
         </button>
@@ -179,7 +179,7 @@ function DayImagePicker({ year, month, day, calSystem, hebYear, currentImage, on
         {showSelect && (
             <div className="max-h-32 overflow-y-auto rounded border border-rule bg-ink/20 p-1">
             {images.length === 0 ? (
-                <span className="text-[10px] text-muted/60 px-1">No images available.</span>
+                <span className="text-micro text-muted/60 px-1">No images available.</span>
             ) : (
                 <div className="grid grid-cols-4 gap-1">
                 {images.map((url) => (
@@ -1061,10 +1061,10 @@ export default function CalendarTab({ isLoggedIn }) {
                         <option value="julian">Julian</option>
                         </select>
                         <div className="flex justify-end gap-2">
-                        <button onClick={() => setEditingLayerId(null)} className="text-[11px] text-muted hover:text-parchment">
+                        <button onClick={() => setEditingLayerId(null)} className="text-label text-muted hover:text-parchment">
                         Cancel
                         </button>
-                        <button onClick={handleSaveLayer} className="text-[11px] text-brass hover:underline">
+                        <button onClick={handleSaveLayer} className="text-label text-brass hover:underline">
                         Save
                         </button>
                         </div>
@@ -1151,7 +1151,7 @@ export default function CalendarTab({ isLoggedIn }) {
 
                         <button
                         onClick={() => { setShowAddEntry(v => !v); setEditingEntryId(null); }}
-                        className="self-start rounded border border-rule px-2 py-0.5 text-[11px] text-muted hover:border-brass hover:text-parchment"
+                        className="self-start rounded border border-rule px-2 py-0.5 text-label text-muted hover:border-brass hover:text-parchment"
                         >
                         {showAddEntry ? '× Close' : '+ Add Event'}
                         </button>
@@ -1204,7 +1204,7 @@ export default function CalendarTab({ isLoggedIn }) {
                             />
                             </div>
                             {entryDateHint && (
-                                <span className="text-[10px] text-muted/70 -mt-1">= {entryDateHint}</span>
+                                <span className="text-micro text-muted/70 -mt-1">= {entryDateHint}</span>
                             )}
                             <select
                             value={entryRecurrence}
@@ -1250,27 +1250,27 @@ export default function CalendarTab({ isLoggedIn }) {
 
                         {/* ── Entries list ── */}
                         {displayEntries.length === 0 ? (
-                            <span className="text-[11px] text-muted/60 py-1">No entries in this range.</span>
+                            <span className="text-label text-muted/60 py-1">No entries in this range.</span>
                         ) : (
                             displayEntries.map((e) => (
                                 <div key={e.id} className="group/entry flex items-start gap-1.5 py-0.5">
                                 {e.icon && <span className="text-xs leading-none shrink-0">{e.icon}</span>}
                                 <div className="flex flex-col min-w-0 flex-1">
                                 <div className="flex items-baseline gap-1.5">
-                                <span className="font-mono text-[10px] text-muted shrink-0">
+                                <span className="font-mono text-micro text-muted shrink-0">
                                 {isHebrewLayer
                                     ? `${HEBREW_MONTHS.find(h => h.value === e.month)?.label || e.month} ${e.day}, ${e.year}`
                                     : `${MONTH_NAMES[(e.month - 1) % 12].slice(0, 3)} ${e.day}, ${e.year}`}
                                     </span>
-                                    <span className="text-[11px] text-parchment truncate">{e.title}</span>
+                                    <span className="text-label text-parchment truncate">{e.title}</span>
                                     {(e._isRecurring || e.recurrence) && (
-                                        <span className="text-[9px] text-muted/60 shrink-0" title={e.recurrence}>
+                                        <span className="text-nano text-muted/60 shrink-0" title={e.recurrence}>
                                         ↻{e.count > 1 ? ` ×${e.count}` : ''}
                                         </span>
                                     )}
                                     </div>
                                     {e.reference && (
-                                        <span className="text-[10px] text-brass/70 ml-4">{e.reference}</span>
+                                        <span className="text-micro text-brass/70 ml-4">{e.reference}</span>
                                     )}
                                     </div>
                                     <div className="flex gap-1 opacity-0 group-hover/entry:opacity-100 shrink-0">
@@ -1327,7 +1327,7 @@ export default function CalendarTab({ isLoggedIn }) {
             <button
             key={key}
             onClick={() => switchCalSystem(key)}
-            className={`px-2 py-0.5 text-[10px] font-mono uppercase transition-colors ${
+            className={`px-2 py-0.5 text-micro font-mono uppercase transition-colors ${
                 calSystem === key
                 ? 'bg-brass/20 text-brass'
                 : 'text-muted hover:text-parchment'
@@ -1373,7 +1373,7 @@ export default function CalendarTab({ isLoggedIn }) {
         <div className="mx-auto max-w-3xl">
         <div className="grid grid-cols-7 gap-px">
         {DAY_LABELS.map((d, i) => (
-            <div key={i} className="py-1.5 text-center font-mono text-[10px] uppercase tracking-wider text-muted">{d}</div>
+            <div key={i} className="py-1.5 text-center font-mono text-micro uppercase tracking-wider text-muted">{d}</div>
         ))}
         </div>
         <div ref={gridRef} className="relative grid grid-cols-7 gap-px rounded border border-rule bg-rule">
@@ -1484,7 +1484,7 @@ export default function CalendarTab({ isLoggedIn }) {
                 {/* Entries */}
                 <div className="max-h-40 overflow-y-auto px-3 py-2">
                 {(entriesByDay[selectedDay] || []).length === 0 ? (
-                    <span className="text-[11px] text-muted/60">No entries.</span>
+                    <span className="text-label text-muted/60">No entries.</span>
                 ) : (
                     (entriesByDay[selectedDay] || []).map((e) => (
                         <div key={e.id} className="mb-2 last:mb-0">
@@ -1493,10 +1493,10 @@ export default function CalendarTab({ isLoggedIn }) {
                         <span className="text-xs font-medium text-parchment">{e.title}</span>
                         </div>
                         {e.description && (
-                            <p className="mt-0.5 text-[10px] text-muted leading-snug">{e.description}</p>
+                            <p className="mt-0.5 text-micro text-muted leading-snug">{e.description}</p>
                         )}
                         {e.reference && (
-                            <span className="text-[10px] text-brass/70">{e.reference}</span>
+                            <span className="text-micro text-brass/70">{e.reference}</span>
                         )}
                         </div>
                     ))

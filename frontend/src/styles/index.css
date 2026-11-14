@@ -29,15 +29,15 @@
    the background we actually want. */
 .wmde-markdown {
   background-color: transparent !important;
-  font-family: "Source Serif 4", Georgia, serif;
+  font-family: theme('fontFamily.display');
 }
 
 /* Study notes and other markdown content on parchment reading surfaces —
    match the serif font and page text color used by the Bible passage text
    in the same panels so the two feel typographically unified. */
 [data-color-mode='light'] .wmde-markdown {
-  font-family: "Source Serif 4", Georgia, serif;
-  color: #2B2620;
+  font-family: theme('fontFamily.display');
+  color: theme('colors.pageText');
   line-height: 1.75;
 }
 
@@ -124,7 +124,7 @@
 /* Paragraph-level section headings produced by SWORD modules (e.g. ISBE). */
 .dict-section-heading {
   font-family: theme('fontFamily.sans');
-  font-size: 0.875rem;
+  font-size: theme('fontSize.sm');
   font-weight: 600;
   color: theme('colors.pageAccent');
   margin-top: 1.25rem;
@@ -145,10 +145,8 @@
 }
 
 /* SWORD marks words of Christ with this class (confirmed from real
-   module output) — now that verse content's wrapping <div> is flattened
-   to an inline <span> instead of being dropped raw into the DOM, this
-   is renderable. Reads naturally now that reading surfaces use a light
-   page background instead of the dark app chrome. */
+   module output) — deliberately outside the design token palette: this
+   is the conventional red-letter Bible color, not a UI accent. */
 .sword-quote-jesus {
   color: #a3382f;
 }
@@ -214,21 +212,23 @@
    The word itself is untouched so Strong's clicks work normally. */
 .codex-ref-marker {
   cursor: pointer;
-  color: rgba(232, 164, 65, 0.55);
+  color: color-mix(in srgb, theme('colors.brass') 55%, transparent);
   font-size: 0.6em;
   font-weight: 600;
   margin-left: 0.5px;
   user-select: none;
 }
 .codex-ref-marker:hover {
-  color: #E8A441;
+  color: theme('colors.brass');
 }
 
 /* Basic markdown styling for the study assistant's replies — no
    typography plugin installed, so these are the minimal rules needed
    for headings/lists/code/bold to actually look different from
-   paragraph text instead of rendering as plain, undifferentiated text. */
-.markdown-body { font-family: "Source Serif 4", Georgia, serif; }
+   paragraph text instead of rendering as plain, undifferentiated text.
+   Heading sizes form a condensed scale (h1 ≈ 1.05rem … h5 ≈ 0.8rem) so
+   AI responses don't blow out the available panel height. */
+.markdown-body { font-family: theme('fontFamily.display'); }
 .markdown-body :first-child { margin-top: 0; }
 .markdown-body :last-child { margin-bottom: 0; }
 .markdown-body h1,
@@ -244,7 +244,7 @@
 }
 .markdown-body h1 { font-size: 1.05rem; }
 .markdown-body h2 { font-size: 0.95rem; }
-.markdown-body h3 { font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.markdown-body h3 { font-size: theme('fontSize.sm'); text-transform: uppercase; letter-spacing: 0.03em; }
 .markdown-body h4 { font-size: 0.825rem; font-style: italic; }
 .markdown-body h5 { font-size: 0.8rem; }
 .markdown-body p { margin: 0.5em 0; line-height: 1.6; }
@@ -349,7 +349,7 @@
 }
 .markdown-body.markdown-body-page table {
   width: 100%;
-  font-size: 0.875rem;
+  font-size: theme('fontSize.sm');
 }
 .markdown-body.markdown-body-page th,
 .markdown-body.markdown-body-page td {
@@ -439,7 +439,7 @@
 .leaflet-control-attribution {
   background: rgba(13, 27, 41, 0.75) !important;
   color: #6b7b8a !important;
-  font-size: 9px !important;
+  font-size: theme('fontSize.nano') !important;
 }
 .leaflet-control-attribution a {
   color: #6b7b8a !important;
@@ -474,7 +474,7 @@
   border: 1px solid #2a3d52 !important;
   color: #d4cebf !important;
   font-family: theme('fontFamily.sans') !important;
-  font-size: 11px !important;
+  font-size: theme('fontSize.label') !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
   border-radius: 4px !important;
   padding: 3px 8px !important;

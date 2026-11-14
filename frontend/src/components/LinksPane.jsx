@@ -37,9 +37,9 @@ function Section({ title, badge, open, onToggle, children }) {
         {open
           ? <ChevronDown size={11} className="shrink-0 text-pageMuted" />
           : <ChevronRight size={11} className="shrink-0 text-pageMuted" />}
-        <span className="font-sans text-[10px] font-medium uppercase tracking-widest text-pageMuted">{title}</span>
+        <span className="font-sans text-micro font-medium uppercase tracking-widest text-pageMuted">{title}</span>
         {badge != null && (
-          <span className="ml-auto rounded-full bg-ink px-1.5 py-0.5 font-mono text-[9px] text-muted">{badge}</span>
+          <span className="ml-auto rounded-full bg-ink px-1.5 py-0.5 font-mono text-nano text-muted">{badge}</span>
         )}
       </button>
       {open && <div>{children}</div>}
@@ -188,13 +188,13 @@ export default function LinksPane({
                 className="flex w-full items-baseline gap-2 px-3 py-1.5 text-left hover:bg-panel/40"
                 onClick={(e) => onStrongsClick?.(key, e, null, word, defaultBibleModule)}
               >
-                <span className="w-10 shrink-0 font-mono text-[10px] text-verdigris">{key}</span>
+                <span className="w-10 shrink-0 font-mono text-micro text-verdigris">{key}</span>
                 <span className="font-display text-sm text-pageText">{word}</span>
                 {entry?.transcription && (
                   <span className="shrink-0 font-display text-xs italic text-pageMuted">{entry.transcription}</span>
                 )}
                 {gloss && (
-                  <span className="ml-auto max-w-[45%] truncate text-right text-[10px] text-pageMuted">{gloss}</span>
+                  <span className="ml-auto max-w-[45%] truncate text-right text-micro text-pageMuted">{gloss}</span>
                 )}
               </button>
             );
@@ -227,7 +227,7 @@ export default function LinksPane({
                     ? <ChevronDown size={11} className="shrink-0 text-pageMuted" />
                     : <ChevronRight size={11} className="shrink-0 text-pageMuted" />}
                   <span className="flex-1 text-xs text-pageText">{mod.description || code}</span>
-                  <span className="font-mono text-[9px] text-pageMuted/60">{code}</span>
+                  <span className="font-mono text-nano text-pageMuted/60">{code}</span>
                 </button>
                 {isExpanded && (
                   <div className="bg-page/40 px-4 pb-3 pt-1" onClick={handleCommentaryClick}>
@@ -265,7 +265,7 @@ export default function LinksPane({
           <div className="divide-y divide-rule/20">
             {notes.map((note) => (
               <div key={note.id} className="px-3 py-2">
-                <p className="font-mono text-[10px] text-verdigris">{note.reference}</p>
+                <p className="font-mono text-micro text-verdigris">{note.reference}</p>
                 {note.body && (
                   <p className="mt-0.5 line-clamp-3 text-xs text-pageText/70">
                     {note.body.replace(/[#*_`[\]]/g, '').slice(0, 200)}
