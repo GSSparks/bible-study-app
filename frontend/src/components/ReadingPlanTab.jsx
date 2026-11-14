@@ -147,7 +147,7 @@ export default function ReadingPlanTab({ isLoggedIn, isAdmin, onOpenInBible }) {
         <div className="shrink-0 border-b border-rule px-4 py-3">
           <div className="flex items-center gap-2">
             <BookMarked size={16} className="shrink-0 text-brass" />
-            <h2 className="font-display flex-1 text-sm font-semibold text-parchment">Reading Plans</h2>
+            <h2 className="font-display flex-1 text-base font-semibold text-parchment">Reading Plans</h2>
             {isAdmin && (
               <button onClick={startNew} className="flex items-center gap-1 rounded border border-rule px-2 py-1 text-xs text-muted hover:border-brass hover:text-parchment">
                 <Plus size={11} /> New
@@ -157,9 +157,9 @@ export default function ReadingPlanTab({ isLoggedIn, isAdmin, onOpenInBible }) {
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto py-1">
           {loading ? (
-            <p className="px-4 py-2 text-xs text-muted">Loading…</p>
+            <p className="px-3 py-2 text-xs text-muted">Loading…</p>
           ) : plans.length === 0 ? (
-            <p className="px-4 py-4 text-xs leading-relaxed text-muted">No reading plans yet.</p>
+            <p className="px-3 py-4 text-xs leading-relaxed text-muted">No reading plans yet.</p>
           ) : (
             plans.map((plan) => {
               const active = plan.id === selectedId;
@@ -167,7 +167,7 @@ export default function ReadingPlanTab({ isLoggedIn, isAdmin, onOpenInBible }) {
               const pct = set && plan.dayCount > 0 ? (set.size / plan.dayCount) * 100 : null;
               return (
                 <button key={plan.id} onClick={() => { setSelectedId(plan.id); setEditing(null); setMobileShowDetail(true); }}
-                  className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${active ? 'border-brass bg-ink/40 text-brass' : 'border-transparent text-muted hover:bg-ink/30 hover:text-parchment'}`}>
+                  className={`w-full px-3 py-1.5 text-left transition-colors ${active ? 'bg-verdigris/20 text-brass' : 'text-parchment/80 hover:bg-ink/40 hover:text-parchment'}`}>
                   <div className="flex items-start gap-1.5">
                     <p className="flex-1 truncate text-sm leading-snug">{plan.name}</p>
                     {plan.isBuiltIn && <span className="mt-0.5 shrink-0 text-micro text-muted/50">Built-in</span>}

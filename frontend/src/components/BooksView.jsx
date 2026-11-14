@@ -38,11 +38,11 @@ export default function BooksView({ bookReader, onBookChange, isLoggedIn = false
           </div>
           <p className="mt-0.5 font-sans text-micro uppercase tracking-widest text-muted">Prose & Reference Books</p>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto py-1">
           {loadingList ? (
-            <p className="px-4 py-2 text-xs text-muted">Loading…</p>
+            <p className="px-3 py-2 text-xs text-muted">Loading…</p>
           ) : books.length === 0 ? (
-            <p className="px-4 py-4 text-xs text-muted leading-relaxed">
+            <p className="px-3 py-4 text-xs text-muted leading-relaxed">
               No books installed — upload one in Admin → Modules.
             </p>
           ) : (
@@ -52,10 +52,10 @@ export default function BooksView({ bookReader, onBookChange, isLoggedIn = false
                 <button
                   key={book.name}
                   onClick={() => handleSelectBook(book)}
-                  className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                  className={`w-full truncate px-3 py-1.5 text-left text-sm transition-colors ${
                     active
-                      ? 'border-l-2 border-brass bg-panel text-brass'
-                      : 'border-l-2 border-transparent text-muted hover:bg-panel hover:text-parchment'
+                      ? 'bg-verdigris/20 text-brass'
+                      : 'text-parchment/80 hover:bg-ink/40 hover:text-parchment'
                   }`}
                 >
                   {book.description || book.name}

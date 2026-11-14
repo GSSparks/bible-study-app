@@ -260,7 +260,7 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
         )}
 
         {/* Search */}
-        <div className="shrink-0 px-3 pt-2 pb-1.5">
+        <div className="shrink-0 px-3 py-2">
           <div className="relative">
             <Search size={12} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
             <input
@@ -345,9 +345,9 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
         {/* Doc list */}
         <div className="min-h-0 flex-1 overflow-y-auto py-1">
           {loading ? (
-            <p className="px-4 py-2 text-xs text-muted">Loading…</p>
+            <p className="px-3 py-2 text-xs text-muted">Loading…</p>
           ) : displayDocs.length === 0 ? (
-            <p className="px-4 py-4 text-xs leading-relaxed text-muted">
+            <p className="px-3 py-4 text-xs leading-relaxed text-muted">
               {search ? `No results for "${search}"` : 'No documents yet — upload a PDF to get started.'}
             </p>
           ) : (
@@ -357,10 +357,10 @@ export default function LibraryView({ isLoggedIn, isAdmin, onAskAI, onOpenInCell
                 <button
                   key={doc.id}
                   onClick={() => { setSelectedId(doc.id); setMobileShowReader(true); }}
-                  className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${
+                  className={`w-full px-3 py-1.5 text-left transition-colors ${
                     active
-                      ? 'border-brass bg-ink/40 text-brass'
-                      : 'border-transparent text-muted hover:bg-ink/30 hover:text-parchment'
+                      ? 'bg-verdigris/20 text-brass'
+                      : 'text-parchment/80 hover:bg-ink/40 hover:text-parchment'
                   }`}
                 >
                   <div className="flex items-start gap-1.5">

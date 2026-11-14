@@ -945,9 +945,9 @@ export default function CalendarTab({ isLoggedIn }) {
         <div className="flex h-full min-h-0">
 
         {sidebarOpen && (
-            <div className="flex w-56 shrink-0 flex-col border-r border-rule bg-panel">
-            <div className="flex shrink-0 items-center justify-between border-b border-rule px-3 py-2.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted">Layers</span>
+            <div className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel">
+            <div className="flex shrink-0 items-center justify-between border-b border-rule px-4 py-3">
+            <span className="font-display text-base font-semibold text-parchment">Layers</span>
             <div className="flex items-center gap-1">
             {isLoggedIn && (
                 <button onClick={() => setShowNewLayer(true)} className="rounded p-1 text-muted hover:text-parchment" title="New layer">
@@ -1073,10 +1073,10 @@ export default function CalendarTab({ isLoggedIn }) {
                         /* ── Normal row ── */
                         <div
                         onClick={() => isLoggedIn && selectLayer(layer.id)}
-                        className={`group flex items-center gap-2 px-3 py-2 cursor-pointer ${selectedLayerId === layer.id ? 'bg-ink/40' : 'hover:bg-ink/30'}`}
+                        className={`group flex items-center gap-2 px-3 py-1.5 cursor-pointer ${selectedLayerId === layer.id ? 'bg-verdigris/20' : 'hover:bg-ink/40'}`}
                         >
                         <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: layer.color }} />
-                        <span className={`flex-1 truncate text-xs ${selectedLayerId === layer.id ? 'text-parchment font-semibold' : 'text-parchment'}`}>
+                        <span className={`flex-1 truncate text-sm ${selectedLayerId === layer.id ? 'text-brass' : 'text-parchment/80'}`}>
                         {layer.name}
                         </span>
                         {layer.shared && <Share2 size={10} className="shrink-0 text-muted/40" />}

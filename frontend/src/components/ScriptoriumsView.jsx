@@ -168,12 +168,12 @@ function ScriptoriumSidebar({ selectedId, onSelect, refreshKey }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search…"
-            className="w-full rounded border border-rule bg-ink py-1.5 pl-7 pr-2 text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
+            className="w-full rounded border border-rule bg-ink/60 py-1.5 pl-7 pr-6 text-xs text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
           />
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto py-1">
-        {loading && <p className="px-4 py-3 text-xs text-muted">Loading…</p>}
+        {loading && <p className="px-3 py-2 text-xs text-muted">Loading…</p>}
 
         {!loading && invites.length > 0 && (
           <div className="mx-3 mb-2 mt-1 rounded-lg border border-brass/30 bg-brass/5 px-3 py-2.5">
@@ -192,7 +192,7 @@ function ScriptoriumSidebar({ selectedId, onSelect, refreshKey }) {
 
         {!loading && filteredMine.length > 0 && (
           <>
-            <p className="px-4 py-1 text-micro font-medium uppercase tracking-wider text-muted/60">Mine</p>
+            <p className="px-3 pb-0.5 pt-2 font-sans text-nano uppercase tracking-widest text-muted/60">Mine</p>
             {filteredMine.map((s) => (
               <SidebarScriptoriumItem key={s.id} s={s} selectedId={selectedId} onSelect={onSelect} />
             ))}
@@ -201,7 +201,7 @@ function ScriptoriumSidebar({ selectedId, onSelect, refreshKey }) {
 
         {!loading && filteredBrowse.length > 0 && (
           <>
-            <p className="mt-2 px-4 py-1 text-micro font-medium uppercase tracking-wider text-muted/60">Browse</p>
+            <p className="px-3 pb-0.5 pt-2 font-sans text-nano uppercase tracking-widest text-muted/60">Browse</p>
             {filteredBrowse.map((s) => (
               <SidebarScriptoriumItem key={s.id} s={s} selectedId={selectedId} onSelect={onSelect}
                 joinButton={
@@ -216,7 +216,7 @@ function ScriptoriumSidebar({ selectedId, onSelect, refreshKey }) {
         )}
 
         {!loading && filteredMine.length === 0 && filteredBrowse.length === 0 && (
-          <p className="px-4 py-3 text-xs text-muted">
+          <p className="px-3 py-4 text-xs text-muted">
             {search ? 'No matches.' : 'No Scriptoriums yet.'}
           </p>
         )}
@@ -230,12 +230,12 @@ function SidebarScriptoriumItem({ s, selectedId, onSelect, joinButton }) {
   return (
     <button
       onClick={() => onSelect(s.id)}
-      className={`flex w-full items-center gap-2 border-l-2 px-4 py-2.5 text-left transition-colors ${
-        isActive ? 'border-brass bg-ink/50' : 'border-transparent hover:bg-ink/30'
+      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors ${
+        isActive ? 'bg-verdigris/20' : 'hover:bg-ink/40'
       }`}
     >
       <div className="min-w-0 flex-1">
-        <div className={`truncate text-sm ${isActive ? 'text-brass' : 'text-parchment'}`}>{s.name}</div>
+        <div className={`truncate text-sm ${isActive ? 'text-brass' : 'text-parchment/80'}`}>{s.name}</div>
         {s.memberCount != null && (
           <div className="mt-0.5 text-micro text-muted">{s.memberCount} {s.memberCount === 1 ? 'member' : 'members'}</div>
         )}

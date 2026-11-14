@@ -241,9 +241,9 @@ export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bib
         {/* Note list */}
         <div className="min-h-0 flex-1 overflow-y-auto py-1">
           {loading ? (
-            <p className="px-4 py-2 text-xs text-muted">Loading…</p>
+            <p className="px-3 py-2 text-xs text-muted">Loading…</p>
           ) : displayNotes.length === 0 ? (
-            <p className="px-4 py-4 text-xs leading-relaxed text-muted">
+            <p className="px-3 py-4 text-xs leading-relaxed text-muted">
               {filter !== 'all'
                 ? 'No notes in this category.'
                 : search
@@ -258,10 +258,10 @@ export default function NotesView({ isLoggedIn, onOpenInCell, onOpenInBible, bib
                 <button
                   key={n.id}
                   onClick={() => { setSelectedId(n.id); setEditingId(null); setMobileShowDetail(true); }}
-                  className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${
+                  className={`w-full px-3 py-1.5 text-left transition-colors ${
                     active
-                      ? 'border-brass bg-ink/50 text-brass'
-                      : 'border-transparent text-parchment/80 hover:bg-ink/30 hover:text-parchment'
+                      ? 'bg-verdigris/20 text-brass'
+                      : 'text-parchment/80 hover:bg-ink/40 hover:text-parchment'
                   }`}
                 >
                   <p className="truncate text-sm">{title}</p>
