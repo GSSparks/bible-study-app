@@ -136,7 +136,7 @@ function DayImagePicker({ year, month, day, calSystem, hebYear, currentImage, on
         <select
         value={selectedLayerId}
         onChange={(e) => setSelectedLayerId(e.target.value)}
-        className="w-full rounded border border-rule bg-ink/30 px-1 py-0.5 text-micro text-parchment"
+        className="w-full appearance-none cursor-pointer rounded border border-rule bg-ink px-2 py-1 text-xs text-parchment focus:border-brass focus:outline-none"
         >
         {layers.map((l) => (
             <option key={l.id} value={l.id}>{l.name}</option>
@@ -279,7 +279,7 @@ function LayerConfigPopover({ layer, open, onClose, onGenerated, currentYear }) 
             <select
             value={country}
             onChange={e => setCountry(e.target.value)}
-            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
+            className="w-full appearance-none cursor-pointer rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass focus:outline-none"
             >
             <option value="">Select country…</option>
             {countries.map(c => (
@@ -1008,7 +1008,7 @@ export default function CalendarTab({ isLoggedIn }) {
                 <select
                 value={newLayerSystem}
                 onChange={e => setNewLayerSystem(e.target.value)}
-                className="mb-1.5 w-full rounded border border-rule bg-ink/30 px-1 py-0.5 text-xs text-parchment"
+                className="mb-1.5 w-full appearance-none cursor-pointer rounded border border-rule bg-ink px-2 py-1 text-xs text-parchment focus:border-brass focus:outline-none"
                 >
                 <option value="gregorian">Gregorian</option>
                 <option value="hebrew">Hebrew</option>
@@ -1054,7 +1054,7 @@ export default function CalendarTab({ isLoggedIn }) {
                         <select
                         value={editLayerSystem}
                         onChange={e => setEditLayerSystem(e.target.value)}
-                        className="w-full rounded border border-rule bg-ink/30 px-1 py-0.5 text-xs text-parchment"
+                        className="w-full appearance-none cursor-pointer rounded border border-rule bg-ink px-2 py-1 text-xs text-parchment focus:border-brass focus:outline-none"
                         >
                         <option value="gregorian">Gregorian</option>
                         <option value="hebrew">Hebrew</option>
@@ -1178,7 +1178,7 @@ export default function CalendarTab({ isLoggedIn }) {
                             <select
                             value={entryMonth}
                             onChange={e => setEntryMonth(parseInt(e.target.value))}
-                            className="w-full rounded border border-rule bg-ink/40 px-1 py-0.5 text-xs text-parchment"
+                            className="w-full appearance-none cursor-pointer rounded border border-rule bg-ink px-2 py-1 text-xs text-parchment focus:border-brass focus:outline-none"
                             >
                             {monthOptions.map(m => (
                                 <option key={m.value} value={m.value}>{m.label}</option>
@@ -1209,7 +1209,7 @@ export default function CalendarTab({ isLoggedIn }) {
                             <select
                             value={entryRecurrence}
                             onChange={e => setEntryRecurrence(e.target.value)}
-                            className="w-full rounded border border-rule bg-ink/40 px-1 py-0.5 text-xs text-parchment"
+                            className="w-full appearance-none cursor-pointer rounded border border-rule bg-ink px-2 py-1 text-xs text-parchment focus:border-brass focus:outline-none"
                             >
                             {RECURRENCE_OPTIONS.map(r => (
                                 <option key={r.value} value={r.value}>{r.label}</option>
