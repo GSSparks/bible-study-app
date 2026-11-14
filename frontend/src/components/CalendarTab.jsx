@@ -1369,18 +1369,18 @@ export default function CalendarTab({ isLoggedIn }) {
         </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <div className="mx-auto max-w-3xl">
-        <div className="grid grid-cols-7 gap-px">
+        <div className="min-h-0 flex-1 overflow-hidden flex flex-col p-4">
+        <div className="flex flex-1 min-h-0 flex-col">
+        <div className="grid grid-cols-7 gap-px shrink-0">
         {DAY_LABELS.map((d, i) => (
             <div key={i} className="py-1.5 text-center font-mono text-micro uppercase tracking-wider text-muted">{d}</div>
         ))}
         </div>
-        <div ref={gridRef} className="relative grid grid-cols-7 gap-px rounded border border-rule bg-rule">
+        <div ref={gridRef} className="relative flex-1 min-h-0 grid grid-cols-7 gap-px rounded border border-rule bg-rule" style={{ gridAutoRows: '1fr' }}>
         {cells.map((cell, i) => (
             <div
             key={i}
-            className={`relative flex aspect-square flex-col bg-panel ${cell.day === null ? 'bg-ink/20' : ''}`}
+            className={`relative flex flex-col bg-panel ${cell.day === null ? 'bg-ink/20' : ''}`}
             >
             {cell.day === null ? null : cell.overflowDay ? (
                 <>
