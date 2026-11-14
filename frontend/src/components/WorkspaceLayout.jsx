@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useHorizontalScroll } from '../hooks/useHorizontalScroll.js';
-import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, Link, MapPin, StickyNote, Sparkles, X } from 'lucide-react';
+import { BookOpen, ScrollText, BookA, GitBranch, Compass, FileText, Search, Link, MapPin, StickyNote, Sparkles, X, ChevronDown, ChevronUp } from 'lucide-react';
 import PassageMapsModal from './PassageMapsModal.jsx';
 
 const PANE_ICONS = {
@@ -120,7 +120,8 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
   } = shared;
 
   const { removePane, splitPane, setPaneType, addTab, removeTab, setActiveTab, swapTabModule,
-          setBibleTabReference, addTabParallel, removeTabParallel, swapTabParallel } = layoutOps;
+          setBibleTabReference, addTabParallel, removeTabParallel, swapTabParallel,
+          minimizePane, restorePane } = layoutOps;
 
   const activeTab = row.tabs.find((t) => t.id === row.activeTabId) || null;
 
@@ -552,11 +553,11 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
         <div className="flex-1" />
         <div className="flex items-center gap-0.5">
           <button
-            onClick={() => splitPane(col.id, row.id, 'crossrefs')}
-            className="rounded px-1.5 py-1 text-xs text-muted hover:bg-ink hover:text-parchment"
-            title="Split pane (add Cross-References below)"
+            onClick={() => row.minimized ? restorePane(col.id, row.id) : minimizePane(col.id, row.id)}
+            className="rounded px-1.5 py-1 text-muted hover:bg-ink hover:text-parchment"
+            title={row.minimized ? 'Restore pane' : 'Minimize pane'}
           >
-            ⊟
+            {row.minimized ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </button>
           <button
             onClick={() => removePane(col.id, row.id)}
@@ -568,8 +569,8 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
         </div>
       </div>}
 
-      {/* Tab strip (only for pane types with tabs) */}
-      {row.type === 'document' && (
+      {/* Tab strip (only for pane types with tabs; hidden when minimized) */}
+      {!row.minimized && row.type === 'document' && (
         <DocumentTabStrip
           tabs={row.tabs}
           activeTabId={row.activeTabId}
@@ -579,7 +580,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
           onAddTab={(docId, title) => addTab(col.id, row.id, docId, title)}
         />
       )}
-      {tabStripKind && (
+      {!row.minimized && tabStripKind && (
         <TabStrip
           kind={tabStripKind}
           tabs={row.tabs}
@@ -591,7 +592,7 @@ function PaneShell({ col, row, shared, layoutOps, primaryBiblePaneId, isDragging
         />
       )}
 
-      {renderContent()}
+      {!row.minimized && renderContent()}
 
       {mapModalOpen && (
         <PassageMapsModal
@@ -652,7 +653,7 @@ function Column({ col, shared, layoutOps, containerRef, primaryBiblePaneId, drag
               onDragOver={onDragOver} onDrop={onDrop}
             />
           )}
-          {ri > 0 && !isAnyDragging && (
+          {ri > 0 && !isAnyDragging && !col.rows[ri - 1].minimized && !row.minimized && (
             <RowResizeHandle onMouseDown={startRowResize(col.rows[ri - 1].id, row.id)} />
           )}
           {ri > 0 && isAnyDragging && (
@@ -663,7 +664,7 @@ function Column({ col, shared, layoutOps, containerRef, primaryBiblePaneId, drag
             />
           )}
 
-          <div className="flex min-h-0 flex-col overflow-hidden" style={{ flex: row.flex }}>
+          <div className="flex min-h-0 flex-col overflow-hidden" style={row.minimized ? { flex: 'none' } : { flex: row.flex }}>
             <PaneShell
               col={col}
               row={row}
@@ -709,6 +710,8 @@ export default function WorkspaceLayout({
   removeTabParallel,
   swapTabParallel,
   movePane,
+  minimizePane,
+  restorePane,
   shared,
 }) {
   const containerRef = useRef(null);
@@ -763,6 +766,8 @@ export default function WorkspaceLayout({
     addTabParallel,
     removeTabParallel,
     swapTabParallel,
+    minimizePane,
+    restorePane,
   };
 
   function handlePaneDragStart(colId, rowId) {

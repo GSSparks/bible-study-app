@@ -23,7 +23,7 @@ function makeTab(module = '', title = '') {
 function makePane(type = 'bible') {
   const needsTabs = ['bible', 'commentary', 'dictionary', 'document'].includes(type);
   const tabs = needsTabs ? [makeTab()] : [];
-  return { id: uid(), type, tabs, activeTabId: tabs[0]?.id ?? null, flex: 1, reference: null };
+  return { id: uid(), type, tabs, activeTabId: tabs[0]?.id ?? null, flex: 1, minimized: false, savedFlex: null, reference: null };
 }
 
 function makeColumn(type = 'bible', flex = 1) {
@@ -55,7 +55,7 @@ function loadFromStorage() {
         const idx = typeof row.activeTabIndex === 'number' ? row.activeTabIndex : 0;
         const activeTabId = tabs[idx]?.id ?? tabs[0]?.id ?? null;
         const type = row.type === 'aichat' ? 'passageguide' : row.type;
-        return { ...row, id: uid(), type, tabs, activeTabId, reference: row.reference ?? null };
+        return { ...row, id: uid(), type, tabs, activeTabId, minimized: row.minimized ?? false, savedFlex: row.savedFlex ?? null, reference: row.reference ?? null };
       }),
     }));
   } catch {
@@ -70,6 +70,8 @@ function saveToStorage(columns) {
       rows: col.rows.map((row) => ({
         type: row.type,
         flex: row.flex,
+        minimized: row.minimized ?? false,
+        savedFlex: row.savedFlex ?? null,
         tabs: row.tabs.map(({ module, title, reference, parallels }) => ({
           module,
           title,
@@ -292,6 +294,32 @@ export function useWorkspaceLayout() {
     });
   }
 
+  function minimizePane(colId, rowId) {
+    update((cols) =>
+      cols.map((col) =>
+        col.id !== colId ? col : {
+          ...col,
+          rows: col.rows.map((row) =>
+            row.id !== rowId ? row : { ...row, minimized: true, savedFlex: row.flex }
+          ),
+        }
+      )
+    );
+  }
+
+  function restorePane(colId, rowId) {
+    update((cols) =>
+      cols.map((col) =>
+        col.id !== colId ? col : {
+          ...col,
+          rows: col.rows.map((row) =>
+            row.id !== rowId ? row : { ...row, minimized: false, flex: row.savedFlex ?? row.flex }
+          ),
+        }
+      )
+    );
+  }
+
   function setBibleTabReference(colId, rowId, tabId, ref) {
     update((cols) =>
       cols.map((col) =>
@@ -412,5 +440,7 @@ export function useWorkspaceLayout() {
     removeTabParallel,
     swapTabParallel,
     movePane,
+    minimizePane,
+    restorePane,
   };
 }
