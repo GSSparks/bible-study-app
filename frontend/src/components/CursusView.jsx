@@ -18,8 +18,8 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
     {/* Tab bar */}
     <div className="flex shrink-0 border-b border-rule bg-panel">
     <div className="flex items-center gap-1 px-4 py-2">
-    <BookMarked size={16} className="mr-1 text-brass" />
-    <h1 className="font-display mr-3 text-base font-semibold text-parchment">Cursus</h1>
+    <BookMarked size={16} className="mr-1 shrink-0 text-brass" />
+    <h1 className="font-display mr-3 hidden text-base font-semibold text-parchment sm:block">Cursus</h1>
     {TABS.map((tab) => {
       const Icon = tab.icon;
       const active = activeTab === tab.id;
@@ -27,15 +27,15 @@ export default function CursusView({ isLoggedIn, isAdmin, onOpenInBible }) {
         <button
         key={tab.id}
         onClick={() => setActiveTab(tab.id)}
-        className={`flex items-center justify-center gap-1.5 rounded px-3 py-1.5 text-sm transition-colors ${
+        className={`flex items-center justify-center gap-1.5 rounded px-2 py-1.5 text-sm transition-colors sm:px-3 ${
           active
           ? 'bg-ink/60 text-brass'
           : 'bg-ink/30 text-muted hover:bg-ink/50 hover:text-parchment'
         } ${tab.soon ? 'opacity-50' : ''}`}
         >
         <Icon size={14} />
-        {tab.label}
-        {tab.soon && <span className="text-micro text-muted">soon</span>}
+        <span className="hidden sm:inline">{tab.label}</span>
+        {tab.soon && <span className="hidden text-micro text-muted sm:inline">soon</span>}
         </button>
       );
     })}

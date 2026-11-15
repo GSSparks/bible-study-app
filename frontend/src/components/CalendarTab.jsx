@@ -357,7 +357,7 @@ export default function CalendarTab({ isLoggedIn }) {
     const [layers, setLayers] = useState([]);
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
     const [showPrintEditor, setShowPrintEditor] = useState(false);
     const [showNewLayer, setShowNewLayer] = useState(false);
     const [selectedDay, setSelectedDay] = useState(null);
@@ -945,10 +945,13 @@ export default function CalendarTab({ isLoggedIn }) {
         <div className="flex h-full min-h-0">
 
         {sidebarOpen && (
-            <div className="flex w-64 shrink-0 flex-col border-r border-rule bg-panel">
+            <div className="flex w-full shrink-0 flex-col border-r border-rule bg-panel md:w-64">
             <div className="flex shrink-0 items-center justify-between border-b border-rule px-4 py-3">
             <span className="font-display text-base font-semibold text-parchment">Layers</span>
             <div className="flex items-center gap-1">
+            <button onClick={() => setSidebarOpen(false)} className="rounded p-1 text-muted hover:text-parchment md:hidden" title="Close layers">
+                <X size={14} />
+            </button>
             {isLoggedIn && (
                 <button onClick={() => setShowNewLayer(true)} className="rounded p-1 text-muted hover:text-parchment" title="New layer">
                 <Plus size={13} />
@@ -1307,12 +1310,13 @@ export default function CalendarTab({ isLoggedIn }) {
         onClose={() => setShareLayer(null)}
         />
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className={`min-h-0 flex-1 flex-col overflow-hidden ${sidebarOpen ? 'hidden md:flex' : 'flex'}`}>
         <div className="grid shrink-0 grid-cols-[auto_1fr_auto] items-center border-b border-rule bg-panel px-4 py-3">
         <div className="flex items-center gap-1">
         {!sidebarOpen && (
-            <button onClick={() => setSidebarOpen(true)} className="rounded p-1 text-muted hover:text-parchment" title="Show layers">
+            <button onClick={() => setSidebarOpen(true)} className="flex items-center gap-1 rounded px-1 py-1 text-muted hover:text-parchment" title="Show layers">
             <ChevronRight size={14} />
+            <span className="text-xs md:hidden">Layers</span>
             </button>
         )}
         </div>
@@ -1337,7 +1341,7 @@ export default function CalendarTab({ isLoggedIn }) {
             </button>
         ))}
         </div>
-        <h2 className="font-display text-lg text-parchment whitespace-nowrap">
+        <h2 className="font-display min-w-0 truncate text-base text-parchment lg:text-lg">
         {calSystem === 'gregorian' && `${MONTH_NAMES[month - 1]} ${year}`}
         {calSystem === 'julian' && `${MONTH_NAMES[month - 1]} ${year}`}
         {calSystem === 'hebrew' && `${new HDate(1, month, hebYear).getMonthName()} ${hebYear}`}
