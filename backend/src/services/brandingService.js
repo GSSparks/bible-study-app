@@ -60,3 +60,45 @@ export async function setSiteUrl(url) {
   });
   return trimmed;
 }
+
+export async function getLogoUrl() {
+  const row = await prisma.appSetting.findUnique({ where: { key: 'brand_logo_url' } });
+  return row?.value || null;
+}
+
+export async function setLogoUrl(url) {
+  await prisma.appSetting.upsert({
+    where: { key: 'brand_logo_url' },
+    create: { key: 'brand_logo_url', value: url },
+    update: { value: url },
+  });
+  return url;
+}
+
+export async function removeLogoUrl() {
+  await prisma.appSetting.deleteMany({ where: { key: 'brand_logo_url' } });
+}
+
+export async function getTheme() {
+  const row = await prisma.appSetting.findUnique({ where: { key: 'brand_theme' } });
+  return row?.value || null;
+}
+
+export async function setTheme(theme) {
+  const VALID = new Set(['scriptorium', 'vesper', 'aegean', 'codex', 'gruvbox']);
+  if (theme && !VALID.has(theme)) {
+    const err = new Error('Invalid theme.');
+    err.status = 400;
+    throw err;
+  }
+  if (!theme) {
+    await prisma.appSetting.deleteMany({ where: { key: 'brand_theme' } });
+    return null;
+  }
+  await prisma.appSetting.upsert({
+    where: { key: 'brand_theme' },
+    create: { key: 'brand_theme', value: theme },
+    update: { value: theme },
+  });
+  return theme;
+}

@@ -42,6 +42,13 @@ Drag-and-drop tiling window manager used inside `CellView`. Renders an arbitrary
 - Vertical dividers between columns: `onMouseDown` starts a resize session tracking `mousemove` to update column widths via `SET_COLUMN_WIDTH`.
 - Horizontal dividers between rows within a column: similar mouse tracking for row height via `SET_ROW_HEIGHT`.
 
+**Pane minimize:**
+- Each row object has `minimized` and `savedFlex` fields in the layout state.
+- The pane chrome has a minimize/restore toggle button (ChevronDown/ChevronUp icons).
+- When minimized, the row wrapper uses `flex: none` so it auto-sizes to just the header bar; tab strips and content are hidden via `{!row.minimized && ...}` gating.
+- Resize handles between rows are hidden when either adjacent row is minimized.
+- `minimizePane(colId, rowId)` and `restorePane(colId, rowId)` are added to the `layoutOps` bundle passed from `CellView`.
+
 **Mobile layout:**
 - Single visible pane with a horizontal scrollable `MOBILE_TAB_TYPES` tab strip at the top.
 - Tapping a tab type that is not currently visible creates or focuses the appropriate pane.

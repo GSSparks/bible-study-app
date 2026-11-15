@@ -80,6 +80,7 @@ export default function AppShell({ auth }) {
   // default, so there's no flash of a different placeholder before the
   // real fetch resolves.
   const [brandName, setBrandName] = useState('My Scriptorium');
+  const [logoUrl, setLogoUrl] = useState(null);
 
   // Lifted up from StudyMode (where it used to live entirely local) now
   // that "set default Bible" moves to Settings — with StudyMode staying
@@ -191,7 +192,17 @@ export default function AppShell({ auth }) {
   }
 
   useEffect(() => {
-    api.getBranding().then((b) => setBrandName(b.name)).catch(() => {});
+    api.getBranding().then((b) => {
+      setBrandName(b.name);
+      setLogoUrl(b.logoUrl || null);
+      const theme = b.theme || '';
+      if (theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      try { localStorage.setItem('scriptorium-theme', theme); } catch {}
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -249,7 +260,7 @@ export default function AppShell({ auth }) {
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-full shrink-0 flex-col border-r border-rule bg-ink transition-transform duration-200 ease-in-out lg:relative lg:w-56 lg:translate-x-0 lg:z-auto ${drawerOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         {/* Header */}
         <div className="flex items-center gap-2 px-5 py-4">
-          <img src="/logo.png" alt="" className="h-8 w-8 rounded-md" />
+          <img src={logoUrl || '/logo.png'} alt="" className="h-8 w-8 rounded-md object-contain" />
           <span className="font-display text-lg tracking-wide">{brandName}</span>
           <button
             onClick={() => setDrawerOpen(false)}

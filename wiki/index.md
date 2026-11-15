@@ -167,6 +167,8 @@ This wiki contains one summary file per source file in the repository. Each summ
 | `frontend/src/components/DailyDevotional.jsx` | [frontend-components/DailyDevotional.jsx.md](frontend-components/DailyDevotional.jsx.md) |
 | `frontend/src/components/BibleMapView.jsx` | [frontend-components/BibleMapView.jsx.md](frontend-components/BibleMapView.jsx.md) |
 | `frontend/src/components/CursusView.jsx` | [frontend-components/CursusView.jsx.md](frontend-components/CursusView.jsx.md) |
+| `frontend/src/components/CalendarTab.jsx` | [frontend-components/CalendarTab.jsx.md](frontend-components/CalendarTab.jsx.md) |
+| `frontend/src/components/ReadingPlanTab.jsx` | [frontend-components/ReadingPlanTab.jsx.md](frontend-components/ReadingPlanTab.jsx.md) |
 
 ### Components — Study & AI
 
@@ -238,6 +240,17 @@ This wiki contains one summary file per source file in the repository. Each summ
 | `frontend/src/components/PostFeed.jsx` | [frontend-components/PostFeed.jsx.md](frontend-components/PostFeed.jsx.md) |
 | `frontend/src/components/ShareFindingModal.jsx` | [frontend-components/ShareFindingModal.jsx.md](frontend-components/ShareFindingModal.jsx.md) |
 
+### Components — Print & Media
+
+| File | Wiki |
+|---|---|
+| `frontend/src/components/PrintEditor.jsx` | [frontend-components/PrintEditor.jsx.md](frontend-components/PrintEditor.jsx.md) |
+| `frontend/src/components/PrintPDF.jsx` | [frontend-components/PrintPDF.jsx.md](frontend-components/PrintPDF.jsx.md) |
+| `frontend/src/components/PrintPreview.jsx` | [frontend-components/PrintPreview.jsx.md](frontend-components/PrintPreview.jsx.md) |
+| `frontend/src/components/ShareDialog.jsx` | [frontend-components/ShareDialog.jsx.md](frontend-components/ShareDialog.jsx.md) |
+| `frontend/src/components/TimelineTab.jsx` | [frontend-components/TimelineTab.jsx.md](frontend-components/TimelineTab.jsx.md) |
+| `frontend/src/components/MarkdownContent.jsx` | [frontend-components/MarkdownContent.jsx.md](frontend-components/MarkdownContent.jsx.md) |
+
 ### Components — Utility
 
 | File | Wiki |
@@ -281,6 +294,8 @@ This wiki contains one summary file per source file in the repository. Each summ
 | `frontend/src/utils/abbreviateTitle.js` | [frontend-utils/abbreviateTitle.js.md](frontend-utils/abbreviateTitle.js.md) |
 | `frontend/src/utils/avatar.js` | [frontend-utils/avatar.js.md](frontend-utils/avatar.js.md) |
 | `frontend/src/data/biblicalMapData.js` | [frontend-utils/biblicalMapData.js.md](frontend-utils/biblicalMapData.js.md) |
+| `frontend/src/utils/imageUtils.js` | [frontend-utils/imageUtils.js.md](frontend-utils/imageUtils.js.md) |
+| `frontend/src/utils/printUtils.js` | [frontend-utils/printUtils.js.md](frontend-utils/printUtils.js.md) |
 
 ### Tests
 

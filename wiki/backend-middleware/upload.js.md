@@ -11,6 +11,8 @@ Configures and exports pre-built `multer` upload middleware instances for every 
 - `uploadBanner` — multer middleware, `banners/` subdir, 10 MB limit, images only, `.single('banner')`.
 - `uploadPostMedia` — multer middleware, `posts/` subdir, 50 MB limit per file, images and video (mp4/webm/quicktime), up to 4 files, `.array('media', 4)`.
 - `uploadLessonVideo` — multer middleware, `lesson-videos/` subdir, 500 MB limit, video only, `.single('video')`.
+- `uploadCalendarImage` — multer middleware with dynamic destination: `calendar/day-bg/` or `calendar/cover/` based on `req.params.subdir`, 10 MB limit, images only, field name `'image'`.
+- `uploadLogo` — multer middleware, `branding/` subdir via `makeStorage('branding')`, 2 MB limit, images only, field name `'logo'`. Used by `routes/branding.js` for the site logo upload endpoint.
 - `mimeToType(mimetype)` — returns `'video'` for video MIME types, `'image'` otherwise. Used to populate the `type` field in post `mediaUrls` JSON.
 - Internal constants: `IMAGE_TYPES`, `VIDEO_TYPES`, `MEDIA_TYPES` (Sets), `EXT` map (MIME → file extension).
 - All files are stored with a `randomUUID()`-based filename plus the correct extension derived from MIME type, preventing filename collisions and path traversal.

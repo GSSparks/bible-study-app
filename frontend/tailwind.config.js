@@ -4,29 +4,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Sampled directly from the app-UI mockup (not eyeballed) —
-        // navy/gold rebrand per the mockup images. verdigris and the
-        // light "page" reading-surface colors below are deliberately
-        // untouched: the mockup didn't show an equivalent for either,
-        // and both are functional accents rather than part of the core
-        // brand identity the mockup was actually showing.
-        ink: '#0D1B29',
-        panel: '#1A2634',
-        rule: '#2D3745',
-        parchment: '#F5F4F1',
-        muted: '#8B8F98',
-        brass: '#E8A441',
-        verdigris: '#3F7168',
-        // Reading surfaces (ReaderPane, DictionaryPane) use this lighter
-        // "open page" palette instead of the dark app-chrome colors above
-        // — makes red-letter text and other accent colors read the way
-        // they would on an actual printed page, rather than looking odd
-        // against a near-black background.
-        page: '#EDE6D3',
-        pageText: '#2B2620',
-        pageMuted: '#6B6152',
-        pageAccent: '#96721C',
-        pageBorder: '#CFC3A3',
+        ink:        'rgb(var(--color-ink) / <alpha-value>)',
+        panel:      'rgb(var(--color-panel) / <alpha-value>)',
+        rule:       'rgb(var(--color-rule) / <alpha-value>)',
+        parchment:  'rgb(var(--color-parchment) / <alpha-value>)',
+        muted:      'rgb(var(--color-muted) / <alpha-value>)',
+        brass:      'rgb(var(--color-brass) / <alpha-value>)',
+        verdigris:  'rgb(var(--color-verdigris) / <alpha-value>)',
+        page:       'rgb(var(--color-page) / <alpha-value>)',
+        pageText:   'rgb(var(--color-page-text) / <alpha-value>)',
+        pageMuted:  'rgb(var(--color-page-muted) / <alpha-value>)',
+        pageAccent: 'rgb(var(--color-page-accent) / <alpha-value>)',
+        pageBorder: 'rgb(var(--color-page-border) / <alpha-value>)',
       },
       fontFamily: {
         display: ['"Source Serif 4"', 'Georgia', 'serif'],

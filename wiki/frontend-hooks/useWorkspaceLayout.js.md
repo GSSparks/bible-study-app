@@ -25,6 +25,9 @@ Manages the full state of the Cell workspace window manager: a two-dimensional g
   - `removeTabParallel(colId, rowId, tabId, parallelId)` — removes a parallel-Bible entry.
   - `swapTabParallel(colId, rowId, tabId, parallelId, module, title)` — replaces a parallel-Bible entry's module/title.
   - `movePane(fromColId, fromRowId, toColId, toRowId, position)` — drag-and-drop pane reordering. `position` is one of `'before'`, `'after'`, `'new-col-before'`, `'new-col-after'`.
+  - `minimizePane(colId, rowId)` — collapses a pane to just its header bar. Sets `minimized: true` and saves the current `flex` to `savedFlex`.
+  - `restorePane(colId, rowId)` — expands a minimized pane. Sets `minimized: false` and restores `flex` from `savedFlex`.
+- Pane objects have two new fields: `minimized: boolean` (default `false`) and `savedFlex: number | null` (the pre-minimize flex value). Both are persisted to localStorage.
 
 **Dependencies / relationships**
 

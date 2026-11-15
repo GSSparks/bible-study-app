@@ -193,6 +193,12 @@ export const api = {
   setBranding: (name) => request('/branding', { method: 'POST', body: JSON.stringify({ name }) }),
   getBrandingSettings: () => request('/branding/settings'),
   saveBrandingSettings: (payload) => request('/branding/settings', { method: 'POST', body: JSON.stringify(payload) }),
+  uploadBrandLogo: (file) => {
+    const fd = new FormData();
+    fd.append('logo', file);
+    return request('/branding/logo', { method: 'POST', body: fd });
+  },
+  deleteBrandLogo: () => request('/branding/logo', { method: 'DELETE' }),
 
   // Connections (Fellows)
   searchConnections: (q) => request(`/connections/search?q=${encodeURIComponent(q)}`),

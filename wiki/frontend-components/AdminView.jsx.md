@@ -42,7 +42,12 @@ None — AdminView is rendered unconditionally; access control is handled at the
 - Shows database health, user counts (total/admins/active windows), and content counts (notes, highlights, bookmarks, personal modules).
 
 **BrandingTab:**
-- App name and site URL fields. Saved via `api.saveBrandingSettings({ name, siteUrl })`.
+- Loads current branding settings from `api.getBrandingSettings()` on mount: app name, site URL, logo URL, and theme.
+- **Name + URL section:** text inputs for app name (max 60 chars) and site URL (max 255 chars, `type="url"`).
+- **Logo section:** shows a 64×64 preview of the current logo (or "None"). A hidden `<input type="file">` triggered by `useRef` / button click uploads via `api.uploadBrandLogo(file)`; a "Remove" button calls `api.deleteBrandLogo()`.
+- **Theme picker:** `THEMES` constant defines 5 presets (`scriptorium`, `vesper`, `aegean`, `codex`, `gruvbox`), each with `bg` and `accent` color swatches plus a short description. Clicking a swatch calls `handleThemeSelect(id)`, which applies the theme immediately via `document.documentElement.setAttribute('data-theme', id)` for a live preview (removes attribute for the default `scriptorium` theme).
+- **Save button:** calls `api.saveBrandingSettings({ name, siteUrl, theme })`; a "Saved." confirmation message appears briefly after success.
+- Logo upload and settings save are independent actions with separate loading/error states.
 
 **ReadingPlansTab:**
 - Lists all plans via `api.listReadingPlans()`. Each row shows name, description, day count, and a "built-in" badge for seeded plans.
@@ -64,7 +69,7 @@ None — AdminView is rendered unconditionally; access control is handled at the
 
 ## Dependencies
 
-- `api` (`../api/client.js`) — `listUsers`, `updateUser`, `deleteUser`, `me`, `createUser`, `listModuleVisibility`, `setModuleVisibility`, `listAvailableModules`, `installModule`, `removeModule`, `listAdminPosts`, `deleteAdminPost`, `listAdminMedia`, `deleteAdminMedia`, `getAdminMetrics`, `getBrandingSettings`, `saveBrandingSettings`, `listDevotionalModules`, `getDevotionalSettings`, `setDevotionalModule`, `listReadingPlans`, `getReadingPlan`, `createReadingPlan`, `updateReadingPlan`, `deleteReadingPlan`, `listCodexCache`, `deleteCodexEntry`, `exportCodexModule`, `listRepositories`
+- `api` (`../api/client.js`) — `listUsers`, `updateUser`, `deleteUser`, `me`, `createUser`, `listModuleVisibility`, `setModuleVisibility`, `listAvailableModules`, `installModule`, `removeModule`, `listAdminPosts`, `deleteAdminPost`, `listAdminMedia`, `deleteAdminMedia`, `getAdminMetrics`, `getBrandingSettings`, `saveBrandingSettings`, `uploadBrandLogo`, `deleteBrandLogo`, `listDevotionalModules`, `getDevotionalSettings`, `setDevotionalModule`, `listReadingPlans`, `getReadingPlan`, `createReadingPlan`, `updateReadingPlan`, `deleteReadingPlan`, `listCodexCache`, `deleteCodexEntry`, `exportCodexModule`, `listRepositories`
 
 ## Notes
 

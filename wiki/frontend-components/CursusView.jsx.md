@@ -2,46 +2,33 @@
 
 ## Purpose
 
-Reading plans view ("Cursus"). Left sidebar lists available plans with progress bars. The right pane shows plan details: a day checklist, a progress ring, an "Up Next" badge for the next incomplete day, and an admin editor for creating and editing plans.
+Tab container for the Cursus ("scheduled course") feature. Hosts three tabs: Reading Plan, Calendar, and Timeline. Renders the tab bar with icons (labels hidden on mobile, shown at `sm:` breakpoint) and mounts the active tab's content component below.
 
 ## Props
 
 | Prop | Type | Description |
 |---|---|---|
-| `isActive` | boolean | CSS visibility toggle (always-mounted pattern) |
-| `auth` | object | `{ user, isLoggedIn }` |
-| `onOpenReference` | function | Called when user clicks a passage link to navigate CellView |
+| `isLoggedIn` | boolean | Passed through to `ReadingPlanTab` and `CalendarTab` |
+| `isAdmin` | boolean | Passed through to `ReadingPlanTab` |
+| `onOpenInBible` | function | Passed through to `ReadingPlanTab`; called when a passage link is clicked |
 
 ## State / key logic
 
-**Plan list:**
-- Fetched via `api.listReadingPlans()` on mount.
-- Each plan card shows title, total days, completed day count, and a progress bar.
-- Selecting a plan sets `selectedPlanId` and loads plan detail.
-
-**Plan detail (right pane):**
-- Checklist of days (`plan.days` array). Each day shows a label and a list of passage references (clickable → `onOpenReference`).
-- `completedDays` map keyed by `planId`. Toggle day completion via `api.markDayComplete` / `api.unmarkDayComplete`.
-- **Progress ring** — SVG circle with `strokeDashoffset` proportional to `completedCount / totalDays`.
-- **"Up Next" badge** — first day where completion is false; highlighted in the list and shown in the plan header.
-
-**Admin editor:**
-- Visible only to admin users (`auth.user?.role === 'admin'`).
-- `textarea`-based schedule format: each line is `Label | passage1, passage2, ...`.
-- `parseScheduleText(text)` — converts textarea content to `days` array.
-- `scheduleToText(days)` — converts `days` array back to textarea format for editing.
-- Create / Edit / Delete operations via `api.createReadingPlan` / `api.updateReadingPlan` / `api.deleteReadingPlan`.
-
-**Progress persistence:**
-- `progressMap` state keyed by `planId`; updated optimistically on toggle.
-- Server-side progress stored in the `ReadingPlan` participation model.
+- `activeTab` — string, one of `'reading-plan'` / `'calendar'` / `'timeline'`. Defaults to `'calendar'`.
+- `TABS` constant — `[{ id, label, icon, soon? }]` array defining tab order and icons (BookMarked, Calendar, Clock).
+- The Timeline tab has `soon: true`, rendering it at 50% opacity.
+- The "Cursus" title (`<h1>`) is hidden on mobile (`hidden sm:block`) to save horizontal space. Only icons show at mobile widths; text labels appear at `sm:` and above.
+- Tab content is conditionally rendered (not always-mounted) based on `activeTab`.
 
 ## Dependencies
 
-- `api` (`../api/client.js`) — `listReadingPlans`, `getReadingPlan`, `markDayComplete`, `unmarkDayComplete`, `createReadingPlan`, `updateReadingPlan`, `deleteReadingPlan`.
+- `ReadingPlanTab` — reading plans list and detail view
+- `CalendarTab` — full calendar with layers, day images, and print support
+- `TimelineTab` — placeholder
+- Lucide icons: `BookMarked`, `Calendar`, `Clock`
 
 ## Notes
 
-- "Cursus" is the Latin word for a scheduled course of reading, historically used for daily office / lectionary reading.
-- Admin textarea format (`Label | passage1, passage2`) is intentionally plain-text for easy editing without a complex form.
-- The component is always-mounted but progress is only fetched/shown to logged-in users; guests see the plan structure without progress tracking.
+- "Cursus" is Latin for a scheduled course of reading; the term is historically used for daily office / lectionary reading.
+- `CursusView` itself is conditionally rendered by `AppShell` (not always-mounted), so tab state resets on navigation away and back.
+- The tab content area uses `min-h-0 flex-1 overflow-hidden` to allow each tab component to fill available height with its own internal scroll.

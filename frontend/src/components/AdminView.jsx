@@ -865,29 +865,47 @@ function MetricsTab() {
   );
 }
 
+const THEMES = [
+  { id: 'scriptorium', label: 'Scriptorium', bg: '#0D1B29', accent: '#E8A441', desc: 'Dark navy & gold' },
+  { id: 'vesper',      label: 'Vesper',      bg: '#140D07', accent: '#D49D3C', desc: 'Warm sepia & amber' },
+  { id: 'aegean',      label: 'Aegean',      bg: '#081424', accent: '#38B2AC', desc: 'Deep ocean & teal' },
+  { id: 'codex',       label: 'Codex',       bg: '#0D0D12', accent: '#C0392B', desc: 'Charcoal & crimson' },
+  { id: 'gruvbox',     label: 'Gruvbox',     bg: '#1d2021', accent: '#fabd2f', desc: 'Earthy dark & yellow' },
+];
+
 function BrandingTab() {
   const [name, setName] = useState('');
   const [siteUrl, setSiteUrl] = useState('');
+  const [logoUrl, setLogoUrl] = useState(null);
+  const [theme, setThemeState] = useState('scriptorium');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [error, setError] = useState(null);
+  const [logoError, setLogoError] = useState(null);
   const [saved, setSaved] = useState(false);
+  const logoInputRef = useRef(null);
 
   useEffect(() => {
     api
       .getBrandingSettings()
-      .then((b) => { setName(b.name); setSiteUrl(b.siteUrl || ''); })
+      .then((b) => {
+        setName(b.name);
+        setSiteUrl(b.siteUrl || '');
+        setLogoUrl(b.logoUrl || null);
+        setThemeState(b.theme || 'scriptorium');
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
   async function handleSave(e) {
-    e.preventDefault();
+    e?.preventDefault();
     setSaving(true);
     setError(null);
     setSaved(false);
     try {
-      const updated = await api.saveBrandingSettings({ name, siteUrl });
+      const updated = await api.saveBrandingSettings({ name, siteUrl, theme });
       if (updated.name !== undefined) setName(updated.name);
       if (updated.siteUrl !== undefined) setSiteUrl(updated.siteUrl || '');
       setSaved(true);
@@ -899,11 +917,48 @@ function BrandingTab() {
     }
   }
 
+  async function handleLogoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    setLogoError(null);
+    try {
+      const { logoUrl: url } = await api.uploadBrandLogo(file);
+      setLogoUrl(url);
+    } catch (e) {
+      setLogoError(e.message);
+    } finally {
+      setLogoUploading(false);
+      e.target.value = '';
+    }
+  }
+
+  async function handleLogoRemove() {
+    setLogoError(null);
+    try {
+      await api.deleteBrandLogo();
+      setLogoUrl(null);
+    } catch (e) {
+      setLogoError(e.message);
+    }
+  }
+
+  function handleThemeSelect(id) {
+    setThemeState(id);
+    // Live preview — apply immediately
+    if (id === 'scriptorium') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', id);
+    }
+  }
+
   if (loading) return <p className="text-sm text-muted">Loading…</p>;
 
   return (
-    <div className="max-w-md">
-      <form onSubmit={handleSave} className="space-y-3 rounded-md border border-rule p-4">
+    <div className="max-w-lg space-y-4">
+      {/* Name + URL */}
+      <div className="space-y-3 rounded-md border border-rule p-4">
         <div>
           <label htmlFor="brand-name" className="mb-1 block text-xs uppercase tracking-wide text-muted">
             App name
@@ -913,7 +968,7 @@ function BrandingTab() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={60}
-            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
+            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
           />
           <p className="mt-1 text-xs text-muted">Shown in the sidebar for every visitor, including anonymous ones.</p>
         </div>
@@ -929,30 +984,88 @@ function BrandingTab() {
             onChange={(e) => setSiteUrl(e.target.value)}
             placeholder="https://myscriptorium.net"
             maxLength={255}
-            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass"
+            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
           />
           <p className="mt-1 text-xs text-muted">
-            The public URL of this instance. Used to restrict cross-origin requests — leave blank to allow all origins (not
-            recommended for production).
+            The public URL of this instance. Used to restrict cross-origin requests — leave blank to allow all origins.
           </p>
         </div>
+      </div>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        {saved && <p className="text-sm text-verdigris">Saved.</p>}
+      {/* Logo */}
+      <div className="rounded-md border border-rule p-4">
+        <p className="mb-3 text-xs uppercase tracking-wide text-muted">Logo</p>
+        <div className="flex items-center gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-md border border-rule bg-ink/60">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="h-full w-full rounded-md object-contain" />
+            ) : (
+              <span className="text-xs text-muted">None</span>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+            <button
+              type="button"
+              onClick={() => logoInputRef.current?.click()}
+              disabled={logoUploading}
+              className="rounded border border-rule px-3 py-1.5 text-xs text-muted hover:border-brass hover:text-parchment disabled:opacity-50"
+            >
+              {logoUploading ? 'Uploading…' : 'Upload logo'}
+            </button>
+            {logoUrl && (
+              <button
+                type="button"
+                onClick={handleLogoRemove}
+                className="rounded border border-rule px-3 py-1.5 text-xs text-muted hover:border-red-500/60 hover:text-red-400"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+        {logoError && <p className="mt-2 text-xs text-red-400">{logoError}</p>}
+        <p className="mt-2 text-xs text-muted">PNG, JPG, or WebP — max 2 MB. Displayed at 32×32 in the sidebar.</p>
+      </div>
 
+      {/* Theme */}
+      <div className="rounded-md border border-rule p-4">
+        <p className="mb-3 text-xs uppercase tracking-wide text-muted">Theme</p>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+          {THEMES.map((t) => (
+            <button
+              type="button"
+              key={t.id}
+              onClick={() => handleThemeSelect(t.id)}
+              className={`flex flex-col items-center gap-2 rounded-md border p-3 text-center transition-colors ${
+                theme === t.id ? 'border-brass bg-brass/10' : 'border-rule hover:border-rule/80 hover:bg-ink/30'
+              }`}
+            >
+              <div className="flex gap-1">
+                <span className="h-5 w-5 rounded-full border border-white/10" style={{ backgroundColor: t.bg }} />
+                <span className="h-5 w-5 rounded-full border border-white/10" style={{ backgroundColor: t.accent }} />
+              </div>
+              <span className="text-xs font-medium text-parchment">{t.label}</span>
+              <span className="text-nano text-muted">{t.desc}</span>
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-muted">Theme changes preview immediately — save to persist.</p>
+      </div>
+
+      {/* Save */}
+      {error && <p className="text-sm text-red-400">{error}</p>}
+      {saved && <p className="text-sm text-verdigris">Saved.</p>}
+      <div className="flex justify-end rounded-md border border-rule p-4">
         <button
-          type="submit"
+          type="button"
+          onClick={handleSave}
           disabled={saving}
-          className="rounded bg-brass/90 px-3 py-1.5 text-xs font-medium text-ink hover:bg-brass disabled:opacity-50"
+          className="rounded bg-brass/90 px-4 py-2 text-sm font-medium text-ink hover:bg-brass disabled:opacity-50"
         >
-          {saving ? 'saving…' : 'save'}
+          {saving ? 'Saving…' : 'Save branding'}
         </button>
-      </form>
-
-      <p className="mt-4 text-xs text-muted">
-        Logo upload isn't built yet — that needs its own file-storage setup, so it's a separate follow-up rather than part
-        of this round.
-      </p>
+      </div>
     </div>
   );
 }

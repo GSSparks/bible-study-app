@@ -83,3 +83,9 @@ export const uploadCalendarImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: imageOnly,
 }).single('image');
+
+export const uploadLogo = multer({
+  storage: makeStorage('branding'),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: imageOnly,
+}).single('logo');

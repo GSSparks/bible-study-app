@@ -34,7 +34,8 @@ None — this is the top-level component rendered by `main.jsx` / `App.jsx`. It 
 | `notePanelOpen` | Shows/hides NotePanel slide-in |
 | `bookReader` | `{ module, scrollY }` — shared between BooksView and BookPanel |
 | `defaultBibleModule` | Persisted to `localStorage`; default module for Bible panes |
-| `brandName` | Loaded from `api.getAppSettings()` |
+| `brandName` | Loaded from `api.getBranding()`; shown in sidebar |
+| `logoUrl` | Logo URL from `api.getBranding()`; shown as `<img>` in sidebar header; falls back to `/logo.png` |
 | `pendingBibleOpen` | Nonce object `{ nonce, module, reference }` — tells BiblePanel to navigate to a reference from any other view |
 | `pendingAiOverview` | Nonce object — triggers passage overview in AI pane |
 | `pendingAiPhraseStudy` | Nonce object — triggers phrase study in AI pane |
@@ -50,7 +51,7 @@ None — this is the top-level component rendered by `main.jsx` / `App.jsx`. It 
 ## Dependencies
 
 - `useAuth` (`../hooks/useAuth.js`) — provides `user`, `loading`, `setupRequired`, `login`, `logout`, `bootstrap`.
-- `api` (`../api/client.js`) — `getAppSettings` for brand name.
+- `api` (`../api/client.js`) — `getBranding` for brand name, logo URL, and theme.
 - `CellView`, `ScriptoriumsView`, `LibraryView`, `NotesView`, `BooksView`, `BibleMapView` — always-mounted.
 - `SettingsView`, `AdminView`, `CursusView`, `FellowsView`, `AICompanionView` — conditionally rendered.
 - `BiblePanel`, `BookPanel`, `NotePanel` — always-mounted slide-in overlays.
@@ -62,3 +63,5 @@ None — this is the top-level component rendered by `main.jsx` / `App.jsx`. It 
 - The URL is the source of truth for which view is active, but React Router's `<Route>` system is not used — `location.pathname` is parsed manually.
 - `defaultBibleModule` is read from `localStorage` on mount and written back on change via `setDefaultBibleModule`.
 - All always-mounted views receive their visibility state as a prop (typically `isActive` or checked via inline `className` toggle) — they must never be conditionally rendered or their tab/scroll state is lost.
+- **Branding fetch:** `api.getBranding()` now returns `{ name, logoUrl, theme }`. On success, `setBrandName`, `setLogoUrl`, and `document.documentElement.setAttribute('data-theme', theme)` are all called; the theme is also written to `localStorage` key `scriptorium-theme` so `main.jsx` can restore it synchronously on the next page load. Removing the attribute (when `theme` is empty) restores the default Scriptorium theme.
+- Sidebar logo: `<img src={logoUrl || '/logo.png'} className="h-8 w-8 rounded-md object-contain" />` — `object-contain` ensures custom logos with any aspect ratio fit without distortion.

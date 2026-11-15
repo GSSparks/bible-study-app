@@ -2,6 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design-token CSS custom properties ───────────────────────────────────────
+   Values are space-separated RGB channels (e.g. "13 27 41") so Tailwind's
+   opacity modifier syntax (bg-ink/50) works via rgb(var(--color-ink) / 0.5). */
+:root {
+  /* Default theme: Scriptorium — dark navy & gold */
+  --color-ink:         13 27 41;
+  --color-panel:       26 38 52;
+  --color-rule:        45 55 69;
+  --color-parchment:   245 244 241;
+  --color-muted:       139 143 152;
+  --color-brass:       232 164 65;
+  --color-verdigris:   63 113 104;
+  --color-page:        237 230 211;
+  --color-page-text:   43 38 32;
+  --color-page-muted:  107 97 82;
+  --color-page-accent: 150 114 28;
+  --color-page-border: 207 195 163;
+}
+
+/* Vesper — warm sepia & amber */
+[data-theme="vesper"] {
+  --color-ink:       20 13 7;
+  --color-panel:     30 20 12;
+  --color-rule:      50 37 24;
+  --color-parchment: 247 243 236;
+  --color-muted:     155 144 125;
+  --color-brass:     212 157 60;
+  --color-verdigris: 110 85 55;
+}
+
+/* Aegean — deep ocean & teal */
+[data-theme="aegean"] {
+  --color-ink:         8 20 36;
+  --color-panel:       14 28 50;
+  --color-rule:        25 44 72;
+  --color-parchment:   240 244 248;
+  --color-muted:       120 140 165;
+  --color-brass:       56 178 172;
+  --color-verdigris:   44 122 123;
+  --color-page-accent: 56 130 125;
+}
+
+/* Codex — charcoal & crimson */
+[data-theme="codex"] {
+  --color-ink:       13 13 18;
+  --color-panel:     22 22 32;
+  --color-rule:      37 37 50;
+  --color-muted:     155 155 165;
+  --color-brass:     192 57 43;
+  --color-verdigris: 139 75 98;
+}
+
+/* Gruvbox — earthy dark & yellow */
+[data-theme="gruvbox"] {
+  --color-ink:       29 32 33;
+  --color-panel:     40 40 40;
+  --color-rule:      60 56 54;
+  --color-parchment: 235 219 178;
+  --color-muted:     146 131 116;
+  --color-brass:     250 189 47;
+  --color-verdigris: 104 157 106;
+}
+
 /* ── MDEditor cream theme ────────────────────────────────────────────────────
    Override the editor's GitHub-palette CSS variables at the .w-md-editor
    level so all instances — editor/toolbar/preview — use the warm cream page

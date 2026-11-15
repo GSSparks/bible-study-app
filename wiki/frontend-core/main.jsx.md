@@ -7,6 +7,7 @@ This is the React application entry point. It mounts the root `<App>` component 
 **Key exports / contents**
 
 - No named exports — this module exists solely for its side effects (DOM mounting).
+- **Synchronous theme restore:** Before calling `ReactDOM.createRoot`, reads `scriptorium-theme` from `localStorage` and sets `data-theme` on `document.documentElement` if a value is found. This runs synchronously during script parse so there is no flash of the wrong theme on page load. The theme is written to `localStorage` by `AppShell` after fetching branding from the server.
 - Calls `ReactDOM.createRoot(...).render(...)` once.
 - Imports the global stylesheet `./styles/index.css`.
 
