@@ -1,6 +1,6 @@
 import { prisma } from '../db/prisma.js';
 
-const DEFAULT_NAME = 'My Scriptorium';
+const DEFAULT_NAME = 'ScriptKata';
 const MAX_NAME_LENGTH = 60;
 const MAX_URL_LENGTH = 255;
 
@@ -85,7 +85,7 @@ export async function getTheme() {
 }
 
 export async function setTheme(theme) {
-  const VALID = new Set(['scriptorium', 'vesper', 'aegean', 'codex', 'gruvbox']);
+  const VALID = new Set(['classic', 'vesper', 'aegean', 'codex', 'gruvbox']);
   if (theme && !VALID.has(theme)) {
     const err = new Error('Invalid theme.');
     err.status = 400;

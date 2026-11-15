@@ -25,13 +25,13 @@ Scriptorium is a self-hosted Bible study environment: real text from the SWORD e
 - **Notes** — anchored to a passage or freestanding, full Markdown editor, searchable, with a "save as note" button on any assistant reply. Select any text in the reader to create a quoted note.
 - **Personal modules** — your own commentary entries or dictionary definitions, saved and looked up exactly like a real SWORD module.
 - **Markdown modules** — drop a folder of `.md` files into `MD_MODULES_PATH` and it appears in the pane module pickers alongside SWORD modules (no compilation required). Supports commentary, dictionary, Bible text, and book types.
-- **Cursus** — structured daily reading schedules with per-day completion tracking and one-click passage navigation.
+- **Cursus** — structured daily reading schedules with per-day completion tracking and one-click passage navigation; plus a full calendar with Gregorian/Julian/Hebrew support, colour-coded event layers, holiday integration, day background images, and PDF print/export.
 - **PDF library** — upload reference PDFs and search their extracted text alongside Bible text and notes.
 - **Scriptoriums** — invite-only or public study groups with a group feed, Studies, Resources, Members management, and a Daily Devotional sidebar.
 - **Studies** — structured multi-week studies inside a Scriptorium or solo: lessons with leader notes, per-lesson completion, threaded discussion, attached resources, and AI-drafted lesson outlines.
 - **Fellows** — follow other users and send connection requests; search users by name.
-- **Admin** — module installation from CrossWire repositories, per-module visibility controls, user management, instance branding, and a metrics dashboard.
-- **Mobile layout** — responsive single-pane view on small screens with a scrollable tab strip; all sidebar-detail views (Books, Library, Notes, Cursus, Scriptoriums, Codex) switch to a list → detail navigation pattern on mobile.
+- **Admin** — module installation from CrossWire repositories, per-module visibility controls, user management, full instance branding (name, logo upload, 5-theme theming system), and a metrics dashboard.
+- **Mobile layout** — responsive at every breakpoint; all sidebar-detail views (Books, Library, Notes, Cursus, Scriptoriums, Codex, Calendar) switch to a list → detail navigation pattern on small screens; Cursus tab labels collapse to icons on mobile.
 
 ## Stack
 
@@ -170,7 +170,11 @@ The **Books** view and **Book Reader panel** (`Ctrl+K`) provide a dedicated envi
 
 ## Cursus (Reading Plans)
 
-The **Cursus** view shows reading schedules. Each plan is a day-by-day schedule of passages; clicking a day's passage link opens it in the Cell. Completion is tracked per day and shown with a progress ring.
+The **Cursus** view combines a **Calendar** and a **Reading Plan** tab.
+
+**Calendar tab** — a full-screen monthly calendar. Each day can carry multiple event layers (liturgical season, feast days, civil holidays, custom reading plans). Layers are toggled in a collapsible sidebar. Month/year navigation, country/subdivision pickers for civil holidays. On mobile the sidebar collapses behind a toggle button so the calendar fills the screen.
+
+**Reading Plan tab** — day-by-day schedules of Bible passages. Clicking a day's passage link opens it in the Cell. Completion is tracked per day and shown with a progress ring. Admins create and manage plans in **Admin → Reading Plans**.
 
 ## Scriptoriums
 
@@ -244,7 +248,7 @@ Admins upload reference PDFs; all users can browse and search. Extracted text (c
 - **Daily Devotional** — select which installed Daily module shows in the Scriptorium sidebar
 - **Reading Plans** — create and manage reading schedules
 - **Users** — create and list user accounts
-- **Branding** — set the instance display name
+- **Branding** — set the instance display name and site URL; upload a custom logo; choose from five built-in colour themes (Scriptorium, Vesper, Aegean, Codex, Gruvbox)
 - **Metrics** — DB health and usage counts
 
 ## Auth model
@@ -319,3 +323,5 @@ biblicaopenbiblemaps/  git submodule — Biblica Open Bible Maps PNG assets
 ## Design
 
 Dark ink/parchment palette with a brass accent for primary actions and a verdigris accent for cross-references and annotations. Source Serif 4 for display text, IBM Plex Sans for UI, IBM Plex Mono for module codes and references. Responsive at the `lg` Tailwind breakpoint (1024px).
+
+**Theming** is implemented via CSS custom properties on the `<html>` element (`[data-theme="..."]`). Tailwind colors are defined as `rgb(var(--color-NAME) / <alpha-value>)` to preserve opacity-modifier support. The active theme is stored in `localStorage` and applied synchronously in `main.jsx` before React hydrates, eliminating flash-of-wrong-theme. Five themes ship out of the box; adding a new one requires only a CSS variable block and a name in `brandingService.js`.

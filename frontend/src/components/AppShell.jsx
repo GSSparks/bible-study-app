@@ -76,10 +76,10 @@ export default function AppShell({ auth }) {
   const [biblePanelOpen, setBiblePanelOpen] = useState(false);
   const [pendingBiblePanel, setPendingBiblePanel] = useState(null);
   const [currentBibleRef, setCurrentBibleRef] = useState(null);
-  // 'My Scriptorium' as the initial value matches the backend's own
+  // 'ScriptKata' as the initial value matches the backend's own
   // default, so there's no flash of a different placeholder before the
   // real fetch resolves.
-  const [brandName, setBrandName] = useState('My Scriptorium');
+  const [brandName, setBrandName] = useState('ScriptKata');
   const [logoUrl, setLogoUrl] = useState(null);
 
   // Lifted up from StudyMode (where it used to live entirely local) now
@@ -260,8 +260,8 @@ export default function AppShell({ auth }) {
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-full shrink-0 flex-col border-r border-rule bg-ink transition-transform duration-200 ease-in-out lg:relative lg:w-56 lg:translate-x-0 lg:z-auto ${drawerOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         {/* Header */}
         <div className="flex items-center gap-2 px-5 py-4">
-          <img src={logoUrl || '/logo.png'} alt="" className="h-8 w-8 rounded-md object-contain" />
-          <span className="font-display text-lg tracking-wide">{brandName}</span>
+          <img src={logoUrl || '/logo.svg'} alt="" className="h-8 w-8 rounded-md object-contain" />
+          <span className="font-heading text-lg tracking-wide">{brandName}</span>
           <button
             onClick={() => setDrawerOpen(false)}
             className="ml-auto rounded p-1 text-muted hover:text-parchment lg:hidden"

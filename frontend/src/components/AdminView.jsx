@@ -866,18 +866,19 @@ function MetricsTab() {
 }
 
 const THEMES = [
-  { id: 'scriptorium', label: 'Scriptorium', bg: '#0D1B29', accent: '#E8A441', desc: 'Dark navy & gold' },
-  { id: 'vesper',      label: 'Vesper',      bg: '#140D07', accent: '#D49D3C', desc: 'Warm sepia & amber' },
-  { id: 'aegean',      label: 'Aegean',      bg: '#081424', accent: '#38B2AC', desc: 'Deep ocean & teal' },
-  { id: 'codex',       label: 'Codex',       bg: '#0D0D12', accent: '#C0392B', desc: 'Charcoal & crimson' },
-  { id: 'gruvbox',     label: 'Gruvbox',     bg: '#1d2021', accent: '#fabd2f', desc: 'Earthy dark & yellow' },
+  { id: 'scriptkata', label: 'ScriptKata', bg: '#15171C', accent: '#C23B22', desc: 'Dark ink & seal red' },
+  { id: 'classic',    label: 'Classic',    bg: '#0D1B29', accent: '#E8A441', desc: 'Dark navy & gold' },
+  { id: 'vesper',     label: 'Vesper',     bg: '#140D07', accent: '#D49D3C', desc: 'Warm sepia & amber' },
+  { id: 'aegean',     label: 'Aegean',     bg: '#081424', accent: '#38B2AC', desc: 'Deep ocean & teal' },
+  { id: 'codex',      label: 'Codex',      bg: '#0D0D12', accent: '#C0392B', desc: 'Charcoal & crimson' },
+  { id: 'gruvbox',    label: 'Gruvbox',    bg: '#1d2021', accent: '#fabd2f', desc: 'Earthy dark & yellow' },
 ];
 
 function BrandingTab() {
   const [name, setName] = useState('');
   const [siteUrl, setSiteUrl] = useState('');
   const [logoUrl, setLogoUrl] = useState(null);
-  const [theme, setThemeState] = useState('scriptorium');
+  const [theme, setThemeState] = useState('scriptkata');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -893,7 +894,7 @@ function BrandingTab() {
         setName(b.name);
         setSiteUrl(b.siteUrl || '');
         setLogoUrl(b.logoUrl || null);
-        setThemeState(b.theme || 'scriptorium');
+        setThemeState(b.theme || 'scriptkata');
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -905,7 +906,7 @@ function BrandingTab() {
     setError(null);
     setSaved(false);
     try {
-      const updated = await api.saveBrandingSettings({ name, siteUrl, theme });
+      const updated = await api.saveBrandingSettings({ name, siteUrl, theme: theme === 'scriptkata' ? null : theme });
       if (updated.name !== undefined) setName(updated.name);
       if (updated.siteUrl !== undefined) setSiteUrl(updated.siteUrl || '');
       setSaved(true);
@@ -946,7 +947,7 @@ function BrandingTab() {
   function handleThemeSelect(id) {
     setThemeState(id);
     // Live preview — apply immediately
-    if (id === 'scriptorium') {
+    if (id === 'scriptkata') {
       document.documentElement.removeAttribute('data-theme');
     } else {
       document.documentElement.setAttribute('data-theme', id);
@@ -982,7 +983,7 @@ function BrandingTab() {
             type="url"
             value={siteUrl}
             onChange={(e) => setSiteUrl(e.target.value)}
-            placeholder="https://myscriptorium.net"
+            placeholder="https://scriptkata.com"
             maxLength={255}
             className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
           />

@@ -6,7 +6,23 @@
    Values are space-separated RGB channels (e.g. "13 27 41") so Tailwind's
    opacity modifier syntax (bg-ink/50) works via rgb(var(--color-ink) / 0.5). */
 :root {
-  /* Default theme: Scriptorium — dark navy & gold */
+  /* Default theme: ScriptKata — dark ink & seal red */
+  --color-ink:         21 23 28;
+  --color-panel:       30 32 39;
+  --color-rule:        46 48 56;
+  --color-parchment:   246 245 241;
+  --color-muted:       90 95 105;
+  --color-brass:       194 59 34;
+  --color-verdigris:   46 107 79;
+  --color-page:        240 237 229;
+  --color-page-text:   21 23 28;
+  --color-page-muted:  90 95 105;
+  --color-page-accent: 163 46 22;
+  --color-page-border: 212 207 198;
+}
+
+/* Classic — dark navy & gold (original Scriptorium palette) */
+[data-theme="classic"] {
   --color-ink:         13 27 41;
   --color-panel:       26 38 52;
   --color-rule:        45 55 69;
@@ -81,7 +97,7 @@
   --color-fg-muted:       #6B5E4E;
   --color-fg-subtle:      #7A6D5F;
   --color-neutral-muted:  rgba(100, 82, 60, 0.1);
-  --color-accent-fg:      #97721C;   /* brass */
+  --color-accent-fg:      #A32E16;   /* seal red */
   border-color: #C8BFA8 !important;
 }
 
@@ -483,7 +499,7 @@
    palette without fighting the base leaflet.css import. */
 .leaflet-container {
   font-family: theme('fontFamily.sans');
-  background: #0D1B29;
+  background: #15171C;
 }
 /* Warm cream/parchment tint on the map tiles — sepia gives the land a warm
    ivory tone; slight desaturation and brightness pull keeps it readable. */
@@ -491,29 +507,29 @@
   filter: sepia(40%) brightness(0.84) saturate(0.85);
 }
 .leaflet-control-zoom a {
-  background: #1a2d40 !important;
-  color: #d4cebf !important;
-  border-color: #2a3d52 !important;
+  background: #1E2027 !important;
+  color: #F6F5F1 !important;
+  border-color: #2E3038 !important;
 }
 .leaflet-control-zoom a:hover {
-  background: #253c52 !important;
-  color: #E8A441 !important;
+  background: #2E3038 !important;
+  color: #C23B22 !important;
 }
 .leaflet-control-attribution {
-  background: rgba(13, 27, 41, 0.75) !important;
-  color: #6b7b8a !important;
+  background: rgba(21, 23, 28, 0.75) !important;
+  color: #5A5F69 !important;
   font-size: theme('fontSize.nano') !important;
 }
 .leaflet-control-attribution a {
-  color: #6b7b8a !important;
+  color: #5A5F69 !important;
 }
 /* Popup base */
 .leaflet-popup-content-wrapper {
-  background: #1a2d40;
-  border: 1px solid #2a3d52;
+  background: #1E2027;
+  border: 1px solid #2E3038;
   border-radius: 8px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.5);
-  color: #d4cebf;
+  color: #F6F5F1;
   padding: 0;
 }
 .leaflet-popup-content {
@@ -521,21 +537,21 @@
   padding: 12px 14px;
 }
 .leaflet-popup-tip {
-  background: #1a2d40;
+  background: #1E2027;
 }
 .leaflet-popup-close-button {
-  color: #6b7b8a !important;
+  color: #5A5F69 !important;
   padding: 6px 8px !important;
 }
 .leaflet-popup-close-button:hover {
-  color: #d4cebf !important;
+  color: #F6F5F1 !important;
   background: transparent !important;
 }
 /* Tooltip */
 .leaflet-tooltip {
-  background: rgba(13, 27, 41, 0.9) !important;
-  border: 1px solid #2a3d52 !important;
-  color: #d4cebf !important;
+  background: rgba(21, 23, 28, 0.9) !important;
+  border: 1px solid #2E3038 !important;
+  color: #F6F5F1 !important;
   font-family: theme('fontFamily.sans') !important;
   font-size: theme('fontSize.label') !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
@@ -543,6 +559,6 @@
   padding: 3px 8px !important;
 }
 .leaflet-tooltip::before {
-  border-top-color: #2a3d52 !important;
-  border-bottom-color: #2a3d52 !important;
+  border-top-color: #2E3038 !important;
+  border-bottom-color: #2E3038 !important;
 }

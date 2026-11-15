@@ -18,9 +18,10 @@ export default {
         pageBorder: 'rgb(var(--color-page-border) / <alpha-value>)',
       },
       fontFamily: {
-        display: ['"Source Serif 4"', 'Georgia', 'serif'],
-        ui:      ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
-        sans:    ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'system-ui', 'sans-serif'],
+        heading: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
+        ui:      ['Inter', 'system-ui', 'sans-serif'],
+        sans:    ['Inter', 'system-ui', 'sans-serif'],
         mono:    ['"IBM Plex Mono"', 'monospace'],
       },
       // Sub-xs sizes for UI chrome and labels — keep all sizing decisions here,
