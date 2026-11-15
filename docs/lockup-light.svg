@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 200" role="img" aria-label="ScriptKata">
+  <!-- Card: #F6F5F1 background, rx=20 matches the brand sheet -->
+  <rect width="540" height="200" rx="20" fill="#F6F5F1"/>
+
+  <!-- Mark — dark on light (96×96, native 64×64 viewBox) -->
+  <svg x="32" y="32" width="96" height="96" viewBox="0 0 64 64">
+    <rect width="64" height="64" rx="14" fill="#15171C"/>
+    <path d="M10 22 L29.5 26 L29.5 50 L10 46 Z" fill="#F6F5F1"/>
+    <path d="M34.5 26 L54 22 L54 46 L34.5 50 Z" fill="#F6F5F1"/>
+    <rect x="30.5" y="9" width="3" height="43" rx="1.5" fill="#C23B22"/>
+    <rect x="24" y="15" width="16" height="3" rx="1.5" fill="#C23B22"/>
+  </svg>
+
+  <!-- Wordmark: 64px Space Grotesk 600, letter-spacing -0.03em = -1.92px -->
+  <text
+    x="150"
+    y="104"
+    font-family="'Space Grotesk', system-ui, sans-serif"
+    font-size="64"
+    font-weight="600"
+    letter-spacing="-1.92"
+  ><tspan fill="#15171C">Script</tspan><tspan fill="#C23B22">Kata</tspan></text>
+
+  <!-- Tagline: 15px, #5A5F69, centred -->
+  <text
+    x="270"
+    y="168"
+    text-anchor="middle"
+    font-family="system-ui, sans-serif"
+    font-size="15"
+    fill="#5A5F69"
+  >Scripture, practiced.</text>
+</svg>

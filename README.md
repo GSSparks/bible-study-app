@@ -1,17 +1,18 @@
 <p align="center">
-  <img src="frontend/public/logo.png" alt="Scriptorium" width="140">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/lockup-dark.svg">
+    <img src="docs/lockup-light.svg" alt="ScriptKata" height="200">
+  </picture>
 </p>
-
-<h1 align="center">Scriptorium</h1>
-<p align="center">A self-hosted, multi-user Bible study platform built on the CrossWire SWORD engine.</p>
+<p align="center"><em>Scripture, practiced.</em> — A self-hosted, multi-user Bible study platform built on the CrossWire SWORD engine.</p>
 
 <p align="center">
-  <img src="docs/screenshot_1.png" alt="Scriptorium cell view" width="800">
-  <img src="docs/screenshot_3.png" alt="Scriptorium study view" width="800">
-  <img src="docs/screenshot_2.png" alt="Scriptorium study lesson view" width="800">  
+  <img src="docs/screenshot_1.png" alt="ScriptKata cell view" width="800">
+  <img src="docs/screenshot_3.png" alt="ScriptKata study view" width="800">
+  <img src="docs/screenshot_2.png" alt="ScriptKata study lesson view" width="800">  
 </p>
 
-Scriptorium is a self-hosted Bible study environment: real text from the SWORD engine (same library behind Ezra Bible App and Xiphos), an LLM study assistant grounded in the passages you actually have open, structured multi-week Studies with AI-drafted lesson outlines, and small-group coordination through Scriptoriums — all from one Docker container.
+ScriptKata is a self-hosted Bible study environment: real text from the SWORD engine (same library behind Ezra Bible App and Xiphos), an LLM study assistant grounded in the passages you actually have open, structured multi-week Studies with AI-drafted lesson outlines, and small-group coordination through Scriptoriums — all from one Docker container.
 
 ## What's in here
 
@@ -248,7 +249,7 @@ Admins upload reference PDFs; all users can browse and search. Extracted text (c
 - **Daily Devotional** — select which installed Daily module shows in the Scriptorium sidebar
 - **Reading Plans** — create and manage reading schedules
 - **Users** — create and list user accounts
-- **Branding** — set the instance display name and site URL; upload a custom logo; choose from five built-in colour themes (Scriptorium, Vesper, Aegean, Codex, Gruvbox)
+- **Branding** — set the instance display name and site URL; upload a custom logo; choose from five built-in colour themes (Classic, Vesper, Aegean, Codex, Gruvbox)
 - **Metrics** — DB health and usage counts
 
 ## Auth model

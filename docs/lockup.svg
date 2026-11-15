@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 358 64" role="img" aria-label="ScriptKata">
+  <style>
+    .sk-script { fill: #111827; }
+    @media (prefers-color-scheme: dark) {
+      .sk-script { fill: #F6F5F1; }
+    }
+  </style>
+
+  <!-- Mark (native 64×64, scaled to 56×56, centered vertically in 64px height) -->
+  <g transform="translate(0,4) scale(0.875)">
+    <rect width="64" height="64" rx="14" fill="#15171C"/>
+    <path d="M10 22 L29.5 26 L29.5 50 L10 46 Z" fill="#F6F5F1"/>
+    <path d="M34.5 26 L54 22 L54 46 L34.5 50 Z" fill="#F6F5F1"/>
+    <rect x="30.5" y="9" width="3" height="43" rx="1.5" fill="#C23B22"/>
+    <rect x="24" y="15" width="16" height="3" rx="1.5" fill="#C23B22"/>
+  </g>
+
+  <!-- Wordmark, baseline at y=50 so cap-height centres against the 56px mark -->
+  <text
+    x="72"
+    y="50"
+    font-family="'Space Grotesk', system-ui, sans-serif"
+    font-size="48"
+    font-weight="600"
+    letter-spacing="-1.5"
+  >
+    <tspan class="sk-script">Script</tspan><tspan fill="#C23B22">Kata</tspan>
+  </text>
+</svg>

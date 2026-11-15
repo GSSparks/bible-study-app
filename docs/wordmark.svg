@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 60" role="img" aria-label="ScriptKata">
+  <style>
+    .sk-script { fill: #111827; }
+    @media (prefers-color-scheme: dark) {
+      .sk-script { fill: #F6F5F1; }
+    }
+  </style>
+  <text
+    y="47"
+    font-family="'Space Grotesk', system-ui, sans-serif"
+    font-size="52"
+    font-weight="600"
+    letter-spacing="-1.5"
+  >
+    <tspan class="sk-script">Script</tspan><tspan fill="#C23B22">Kata</tspan>
+  </text>
+</svg>
