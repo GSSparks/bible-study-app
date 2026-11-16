@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAdmin } from '../middleware/auth.js';
-import { getBrandName, setBrandName, getSiteUrl, setSiteUrl, getLogoUrl, setLogoUrl, removeLogoUrl, getTheme, setTheme } from '../services/brandingService.js';
+import { getBrandName, setBrandName, getSiteUrl, setSiteUrl, getLogoUrl, setLogoUrl, removeLogoUrl, getTheme, setTheme, getDisplayFont, setDisplayFont, getUiFont, setUiFont, getCustomThemes, saveCustomTheme, deleteCustomTheme } from '../services/brandingService.js';
 import { uploadLogo } from '../middleware/upload.js';
 
 export const brandingRouter = Router();
@@ -9,8 +9,10 @@ export const brandingRouter = Router();
 // render the sidebar with the right name.
 brandingRouter.get('/', async (req, res, next) => {
   try {
-    const [name, logoUrl, theme] = await Promise.all([getBrandName(), getLogoUrl(), getTheme()]);
-    res.json({ name, logoUrl, theme });
+    const [name, logoUrl, theme, displayFont, uiFont, customThemes] = await Promise.all([
+      getBrandName(), getLogoUrl(), getTheme(), getDisplayFont(), getUiFont(), getCustomThemes(),
+    ]);
+    res.json({ name, logoUrl, theme, displayFont, uiFont, customThemes });
   } catch (err) {
     next(err);
   }
@@ -29,8 +31,10 @@ brandingRouter.post('/', requireAdmin, async (req, res, next) => {
 // GET /api/branding/settings — admin-only. Returns all configurable settings.
 brandingRouter.get('/settings', requireAdmin, async (req, res, next) => {
   try {
-    const [name, siteUrl, logoUrl, theme] = await Promise.all([getBrandName(), getSiteUrl(), getLogoUrl(), getTheme()]);
-    res.json({ name, siteUrl, logoUrl, theme });
+    const [name, siteUrl, logoUrl, theme, displayFont, uiFont, customThemes] = await Promise.all([
+      getBrandName(), getSiteUrl(), getLogoUrl(), getTheme(), getDisplayFont(), getUiFont(), getCustomThemes(),
+    ]);
+    res.json({ name, siteUrl, logoUrl, theme, displayFont, uiFont, customThemes });
   } catch (err) {
     next(err);
   }
@@ -39,11 +43,13 @@ brandingRouter.get('/settings', requireAdmin, async (req, res, next) => {
 // POST /api/branding/settings  { name?, siteUrl?, theme? } — admin-only.
 brandingRouter.post('/settings', requireAdmin, async (req, res, next) => {
   try {
-    const { name, siteUrl, theme } = req.body;
+    const { name, siteUrl, theme, displayFont, uiFont } = req.body;
     const results = {};
     if (name !== undefined) results.name = await setBrandName(name);
     if (siteUrl !== undefined) results.siteUrl = await setSiteUrl(siteUrl);
     if (theme !== undefined) results.theme = await setTheme(theme);
+    if (displayFont !== undefined) results.displayFont = await setDisplayFont(displayFont);
+    if (uiFont !== undefined) results.uiFont = await setUiFont(uiFont);
     res.json(results);
   } catch (err) {
     next(err);
@@ -65,6 +71,36 @@ brandingRouter.post('/logo', requireAdmin, (req, res) => {
 brandingRouter.delete('/logo', requireAdmin, async (req, res, next) => {
   try {
     await removeLogoUrl();
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/branding/themes — public, lists installed custom themes
+brandingRouter.get('/themes', async (req, res, next) => {
+  try {
+    const themes = await getCustomThemes();
+    res.json(themes);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/branding/themes — admin-only, install/update a custom theme
+brandingRouter.post('/themes', requireAdmin, async (req, res, next) => {
+  try {
+    const theme = await saveCustomTheme(req.body);
+    res.json(theme);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /api/branding/themes/:id — admin-only
+brandingRouter.delete('/themes/:id', requireAdmin, async (req, res, next) => {
+  try {
+    await deleteCustomTheme(req.params.id);
     res.status(204).end();
   } catch (err) {
     next(err);

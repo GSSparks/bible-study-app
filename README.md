@@ -249,7 +249,7 @@ Admins upload reference PDFs; all users can browse and search. Extracted text (c
 - **Daily Devotional** — select which installed Daily module shows in the Scriptorium sidebar
 - **Reading Plans** — create and manage reading schedules
 - **Users** — create and list user accounts
-- **Branding** — set the instance display name and site URL; upload a custom logo; choose from five built-in colour themes (Classic, Vesper, Aegean, Codex, Gruvbox)
+- **Branding** — set the instance display name and site URL; upload a custom logo; choose from six built-in colour themes (Classic, Ember, Vesper, Aegean, Codex, Gruvbox); install custom themes from JSON; select display and UI fonts
 - **Metrics** — DB health and usage counts
 
 ## Auth model
@@ -325,4 +325,31 @@ biblicaopenbiblemaps/  git submodule — Biblica Open Bible Maps PNG assets
 
 Dark ink/parchment palette with a brass accent for primary actions and a verdigris accent for cross-references and annotations. Source Serif 4 for display text, IBM Plex Sans for UI, IBM Plex Mono for module codes and references. Responsive at the `lg` Tailwind breakpoint (1024px).
 
-**Theming** is implemented via CSS custom properties on the `<html>` element (`[data-theme="..."]`). Tailwind colors are defined as `rgb(var(--color-NAME) / <alpha-value>)` to preserve opacity-modifier support. The active theme is stored in `localStorage` and applied synchronously in `main.jsx` before React hydrates, eliminating flash-of-wrong-theme. Five themes ship out of the box; adding a new one requires only a CSS variable block and a name in `brandingService.js`.
+**Theming** is implemented via CSS custom properties on the `<html>` element (`[data-theme="..."]`). Tailwind colors are defined as `rgb(var(--color-NAME) / <alpha-value>)` to preserve opacity-modifier support. The active theme is stored in `localStorage` and applied synchronously in `main.jsx` before React hydrates, eliminating flash-of-wrong-theme. Six themes ship out of the box. Custom themes can be installed from Admin → Branding by pasting a JSON object — see `example-theme.json` in the repo root for the full format:
+
+```json
+{
+  "id": "forest",
+  "name": "Forest",
+  "colors": {
+    "ink":          "10 20 15",
+    "panel":        "16 30 22",
+    "rule":         "30 50 38",
+    "parchment":    "240 245 238",
+    "muted":        "120 148 130",
+    "brass":        "90 180 100",
+    "verdigris":    "50 140 110",
+    "page":         "232 238 220",
+    "page-text":    "25 40 28",
+    "page-muted":   "90 115 85",
+    "page-accent":  "60 130 70",
+    "page-border":  "190 210 180"
+  },
+  "fonts": {
+    "display": "lora",
+    "ui":      "dm-sans"
+  }
+}
+```
+
+Color values are **space-separated RGB channels** (not hex) so Tailwind's opacity modifiers (`bg-ink/50`) work at runtime. `fonts` is optional; valid font IDs are `inter`, `space-grotesk`, `source-serif`, `lora`, `merriweather`, `dm-sans`, `ibm-plex-sans`, `nunito-sans`.

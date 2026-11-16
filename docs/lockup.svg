@@ -8,11 +8,11 @@
 
   <!-- Mark (native 64×64, scaled to 56×56, centered vertically in 64px height) -->
   <g transform="translate(0,4) scale(0.875)">
-    <rect width="64" height="64" rx="14" fill="#15171C"/>
+    <rect width="64" height="64" rx="14" fill="#0D1B29"/>
     <path d="M10 22 L29.5 26 L29.5 50 L10 46 Z" fill="#F6F5F1"/>
     <path d="M34.5 26 L54 22 L54 46 L34.5 50 Z" fill="#F6F5F1"/>
-    <rect x="30.5" y="9" width="3" height="43" rx="1.5" fill="#C23B22"/>
-    <rect x="24" y="15" width="16" height="3" rx="1.5" fill="#C23B22"/>
+    <rect x="30.5" y="9" width="3" height="43" rx="1.5" fill="#E8A441"/>
+    <rect x="24" y="15" width="16" height="3" rx="1.5" fill="#E8A441"/>
   </g>
 
   <!-- Wordmark, baseline at y=50 so cap-height centres against the 56px mark -->
@@ -24,6 +24,6 @@
     font-weight="600"
     letter-spacing="-1.5"
   >
-    <tspan class="sk-script">Script</tspan><tspan fill="#C23B22">Kata</tspan>
+    <tspan class="sk-script">Script</tspan><tspan fill="#E8A441">Kata</tspan>
   </text>
 </svg>

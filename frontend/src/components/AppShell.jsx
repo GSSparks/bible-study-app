@@ -20,6 +20,7 @@ import LoginModal from './LoginModal.jsx';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
 import UserMenu from './UserMenu.jsx';
 import { api } from '../api/client.js';
+import { applyFont, applyCustomThemeColors, clearCustomThemeColors } from '../utils/themes.js';
 
 const NAV_GROUPS = [
   {
@@ -196,12 +197,31 @@ export default function AppShell({ auth }) {
       setBrandName(b.name);
       setLogoUrl(b.logoUrl || null);
       const theme = b.theme || '';
-      if (theme) {
+      clearCustomThemeColors();
+      // Check if active theme is a custom one
+      const customTheme = b.customThemes?.find((c) => c.id === theme);
+      if (customTheme?.colors) {
+        document.documentElement.removeAttribute('data-theme');
+        applyCustomThemeColors(customTheme.colors);
+      } else if (theme) {
         document.documentElement.setAttribute('data-theme', theme);
       } else {
         document.documentElement.removeAttribute('data-theme');
       }
-      try { localStorage.setItem('scriptorium-theme', theme); } catch {}
+      try {
+        localStorage.setItem('scriptorium-theme', theme);
+        localStorage.setItem('scriptorium-custom-themes', JSON.stringify(b.customThemes || []));
+      } catch {}
+      // Apply fonts
+      if (b.displayFont) {
+        applyFont('display', b.displayFont);
+        try { localStorage.setItem('scriptorium-display-font', b.displayFont); } catch {}
+      }
+      if (b.uiFont) {
+        applyFont('ui', b.uiFont);
+        applyFont('heading', b.uiFont);
+        try { localStorage.setItem('scriptorium-ui-font', b.uiFont); } catch {}
+      }
     }).catch(() => {});
   }, []);
 

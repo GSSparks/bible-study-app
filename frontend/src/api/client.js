@@ -199,6 +199,8 @@ export const api = {
     return request('/branding/logo', { method: 'POST', body: fd });
   },
   deleteBrandLogo: () => request('/branding/logo', { method: 'DELETE' }),
+  saveCustomTheme: (theme) => request('/branding/themes', { method: 'POST', body: JSON.stringify(theme) }),
+  deleteCustomTheme: (id) => request(`/branding/themes/${id}`, { method: 'DELETE' }),
 
   // Connections (Fellows)
   searchConnections: (q) => request(`/connections/search?q=${encodeURIComponent(q)}`),

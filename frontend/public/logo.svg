@@ -1,7 +1,7 @@
 <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ScriptKata">
-  <rect width="64" height="64" rx="14" fill="#15171C"/>
+  <rect width="64" height="64" rx="14" fill="#0D1B29"/>
   <path d="M10 22 L29.5 26 L29.5 50 L10 46 Z" fill="#F6F5F1"/>
   <path d="M34.5 26 L54 22 L54 46 L34.5 50 Z" fill="#F6F5F1"/>
-  <rect x="30.5" y="9" width="3" height="43" rx="1.5" fill="#C23B22"/>
-  <rect x="24" y="15" width="16" height="3" rx="1.5" fill="#C23B22"/>
+  <rect x="30.5" y="9" width="3" height="43" rx="1.5" fill="#E8A441"/>
+  <rect x="24" y="15" width="16" height="3" rx="1.5" fill="#E8A441"/>
 </svg>
