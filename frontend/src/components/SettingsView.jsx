@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import Avatar from './Avatar.jsx';
 
-export default function SettingsView({ user, onUserUpdate, onOpenChangePassword, defaultBibleModule, onSetDefaultBibleModule }) {
+export default function SettingsView({ user, onUserUpdate, onOpenChangePassword, defaultBibleModule, onSetDefaultBibleModule, defaultCommentaryModule, onSetDefaultCommentaryModule, defaultDictionaryModule, onSetDefaultDictionaryModule }) {
   const username = user?.username ?? '';
 
   // --- Profile (display name, bio, avatar) ---
@@ -108,14 +108,20 @@ export default function SettingsView({ user, onUserUpdate, onOpenChangePassword,
 
   // --- Bible module default ---
   const [bibleModules, setBibleModules] = useState([]);
+  const [commentaryModules, setCommentaryModules] = useState([]);
+  const [dictModules, setDictModules] = useState([]);
   const [loadingModules, setLoadingModules] = useState(true);
 
   useEffect(() => {
-    api
-      .listInstalledModules('BIBLE')
-      .then(setBibleModules)
-      .catch(() => {})
-      .finally(() => setLoadingModules(false));
+    Promise.all([
+      api.listInstalledModules('BIBLE'),
+      api.listInstalledModules('COMMENTARY'),
+      api.listInstalledModules('DICT'),
+    ]).then(([bible, commentary, dict]) => {
+      setBibleModules(bible);
+      setCommentaryModules(commentary);
+      setDictModules(dict);
+    }).catch(() => {}).finally(() => setLoadingModules(false));
   }, []);
 
   return (
@@ -274,25 +280,64 @@ export default function SettingsView({ user, onUserUpdate, onOpenChangePassword,
       <div className="rounded-md border border-rule bg-panel p-4">
         <div className="mb-1 text-sm text-parchment">Reading</div>
         <div className="mb-3 text-xs text-muted">
-          The translation cross-references open in by default, and the starting Bible in Passages.
+          Default modules pre-load into new panes so you go straight to your preferred sources.
         </div>
         {loadingModules ? (
           <p className="text-xs text-muted">Loading…</p>
-        ) : bibleModules.length === 0 ? (
-          <p className="text-xs text-muted">No Bible modules installed yet.</p>
         ) : (
-          <select
-            value={defaultBibleModule}
-            onChange={(e) => onSetDefaultBibleModule(e.target.value)}
-            className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
-          >
-            <option value="">No default set</option>
-            {bibleModules.map((m) => (
-              <option key={m.name} value={m.name}>
-                {m.description || m.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-col gap-3">
+            <label className="block">
+              <span className="mb-1 block text-xs text-muted">Default Bible</span>
+              {bibleModules.length === 0 ? (
+                <p className="text-xs text-muted">No Bible modules installed.</p>
+              ) : (
+                <select
+                  value={defaultBibleModule}
+                  onChange={(e) => onSetDefaultBibleModule(e.target.value)}
+                  className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
+                >
+                  <option value="">No default set</option>
+                  {bibleModules.map((m) => (
+                    <option key={m.name} value={m.name}>{m.description || m.name}</option>
+                  ))}
+                </select>
+              )}
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-muted">Default Commentary</span>
+              {commentaryModules.length === 0 ? (
+                <p className="text-xs text-muted">No commentary modules installed.</p>
+              ) : (
+                <select
+                  value={defaultCommentaryModule}
+                  onChange={(e) => onSetDefaultCommentaryModule(e.target.value)}
+                  className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
+                >
+                  <option value="">No default set</option>
+                  {commentaryModules.map((m) => (
+                    <option key={m.name} value={m.name}>{m.description || m.name}</option>
+                  ))}
+                </select>
+              )}
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-muted">Default Dictionary</span>
+              {dictModules.length === 0 ? (
+                <p className="text-xs text-muted">No dictionary modules installed.</p>
+              ) : (
+                <select
+                  value={defaultDictionaryModule}
+                  onChange={(e) => onSetDefaultDictionaryModule(e.target.value)}
+                  className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment focus:border-brass"
+                >
+                  <option value="">No default set</option>
+                  {dictModules.map((m) => (
+                    <option key={m.name} value={m.name}>{m.description || m.name}</option>
+                  ))}
+                </select>
+              )}
+            </label>
+          </div>
         )}
       </div>
     </div>

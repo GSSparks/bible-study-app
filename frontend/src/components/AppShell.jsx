@@ -90,20 +90,26 @@ export default function AppShell({ auth }) {
   // mount, and never notice a change made later from Settings. Lifting
   // it here means both places share the exact same live value.
   const [defaultBibleModule, setDefaultBibleModuleState] = useState(() => {
-    try {
-      return localStorage.getItem('scriptorium-default-bible') || '';
-    } catch {
-      return '';
-    }
+    try { return localStorage.getItem('scriptorium-default-bible') || ''; } catch { return ''; }
+  });
+  const [defaultCommentaryModule, setDefaultCommentaryModuleState] = useState(() => {
+    try { return localStorage.getItem('scriptorium-default-commentary') || ''; } catch { return ''; }
+  });
+  const [defaultDictionaryModule, setDefaultDictionaryModuleState] = useState(() => {
+    try { return localStorage.getItem('scriptorium-default-dictionary') || ''; } catch { return ''; }
   });
 
   function setDefaultBibleModule(moduleCode) {
     setDefaultBibleModuleState(moduleCode);
-    try {
-      localStorage.setItem('scriptorium-default-bible', moduleCode);
-    } catch {
-      // storage unavailable — not worth failing over
-    }
+    try { localStorage.setItem('scriptorium-default-bible', moduleCode); } catch {}
+  }
+  function setDefaultCommentaryModule(moduleCode) {
+    setDefaultCommentaryModuleState(moduleCode);
+    try { localStorage.setItem('scriptorium-default-commentary', moduleCode); } catch {}
+  }
+  function setDefaultDictionaryModule(moduleCode) {
+    setDefaultDictionaryModuleState(moduleCode);
+    try { localStorage.setItem('scriptorium-default-dictionary', moduleCode); } catch {}
   }
 
   // If no default Bible has been chosen (fresh install or first mobile session),
@@ -392,6 +398,8 @@ export default function AppShell({ auth }) {
             pendingBibleOpen={pendingBibleOpen}
             onBibleOpenConsumed={() => setPendingBibleOpen(null)}
             defaultBibleModule={defaultBibleModule}
+            defaultCommentaryModule={defaultCommentaryModule}
+            defaultDictionaryModule={defaultDictionaryModule}
             pendingAiOverview={pendingAiOverview}
             onAiOverviewConsumed={() => setPendingAiOverview(null)}
             pendingAiPhraseStudy={pendingAiPhraseStudy}
@@ -418,6 +426,10 @@ export default function AppShell({ auth }) {
             onOpenChangePassword={() => setShowChangePasswordModal(true)}
             defaultBibleModule={defaultBibleModule}
             onSetDefaultBibleModule={setDefaultBibleModule}
+            defaultCommentaryModule={defaultCommentaryModule}
+            onSetDefaultCommentaryModule={setDefaultCommentaryModule}
+            defaultDictionaryModule={defaultDictionaryModule}
+            onSetDefaultDictionaryModule={setDefaultDictionaryModule}
           />
         )}
         {activeView === 'admin' && <AdminView />}
