@@ -280,6 +280,7 @@ export const api = {
     fd.append('banner', file);
     return request('/uploads/banner/user', { method: 'POST', body: fd });
   },
+  removeUserBanner: () => request('/uploads/banner/user', { method: 'DELETE' }),
   uploadScriptoriumBanner: (id, file) => {
     const fd = new FormData();
     fd.append('banner', file);

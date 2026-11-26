@@ -15,6 +15,11 @@ export default function SettingsView({ user, onUserUpdate, onOpenChangePassword,
   const [avatarError, setAvatarError] = useState(null);
   const avatarInputRef = useRef(null);
 
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [bannerRemoving, setBannerRemoving] = useState(false);
+  const [bannerError, setBannerError] = useState(null);
+  const bannerInputRef = useRef(null);
+
   useEffect(() => {
     setDisplayName(user?.displayName ?? '');
     setBio(user?.bio ?? '');
@@ -34,6 +39,35 @@ export default function SettingsView({ user, onUserUpdate, onOpenChangePassword,
       setProfileError(err.message);
     } finally {
       setProfileSaving(false);
+    }
+  }
+
+  async function handleBannerChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBannerUploading(true);
+    setBannerError(null);
+    try {
+      await api.uploadUserBanner(file);
+      await onUserUpdate();
+    } catch (err) {
+      setBannerError(err.message);
+    } finally {
+      setBannerUploading(false);
+      e.target.value = '';
+    }
+  }
+
+  async function handleBannerRemove() {
+    setBannerRemoving(true);
+    setBannerError(null);
+    try {
+      await api.removeUserBanner();
+      await onUserUpdate();
+    } catch (err) {
+      setBannerError(err.message);
+    } finally {
+      setBannerRemoving(false);
     }
   }
 
@@ -73,6 +107,50 @@ export default function SettingsView({ user, onUserUpdate, onOpenChangePassword,
       <div className="mb-4 rounded-md border border-rule bg-panel p-4">
         <div className="mb-3 text-sm text-parchment">Profile</div>
         <form onSubmit={handleProfileSave}>
+          {/* Banner */}
+          <div className="mb-4">
+            <div
+              className="relative mb-2 h-24 w-full overflow-hidden rounded border border-rule bg-ink"
+              style={user?.bannerUrl ? { backgroundImage: `url(${user.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+            >
+              {!user?.bannerUrl && (
+                <span className="absolute inset-0 flex items-center justify-center text-xs text-muted">No banner</span>
+              )}
+              {bannerUploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-ink/60 text-xs text-parchment">Uploading…</div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => bannerInputRef.current?.click()}
+                disabled={bannerUploading || bannerRemoving}
+                className="rounded border border-rule px-3 py-1.5 text-xs hover:border-brass hover:text-parchment disabled:opacity-50"
+              >
+                {bannerUploading ? 'Uploading…' : 'Upload banner'}
+              </button>
+              {user?.bannerUrl && (
+                <button
+                  type="button"
+                  onClick={handleBannerRemove}
+                  disabled={bannerUploading || bannerRemoving}
+                  className="rounded border border-rule px-3 py-1.5 text-xs hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                >
+                  {bannerRemoving ? 'Removing…' : 'Remove'}
+                </button>
+              )}
+              <span className="text-xs text-muted">JPEG, PNG, WebP or GIF, max 10 MB</span>
+            </div>
+            {bannerError && <p className="mt-1 text-xs text-red-400">{bannerError}</p>}
+            <input
+              ref={bannerInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              onChange={handleBannerChange}
+            />
+          </div>
+
           {/* Avatar row */}
           <div className="mb-4 flex items-center gap-4">
             <div className="relative shrink-0">
