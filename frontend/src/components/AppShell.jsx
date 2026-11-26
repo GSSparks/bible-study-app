@@ -413,7 +413,8 @@ export default function AppShell({ auth }) {
         </div>
         {activeView === 'settings' && (
           <SettingsView
-            username={auth.user?.username}
+            user={auth.user}
+            onUserUpdate={auth.refresh}
             onOpenChangePassword={() => setShowChangePasswordModal(true)}
             defaultBibleModule={defaultBibleModule}
             onSetDefaultBibleModule={setDefaultBibleModule}
