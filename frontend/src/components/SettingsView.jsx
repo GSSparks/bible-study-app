@@ -11,6 +11,25 @@ export default function SettingsView({ user, onUserUpdate, onOpenChangePassword,
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileError, setProfileError] = useState(null);
+  const [aiOptOut, setAiOptOut] = useState(user?.aiOptOut ?? false);
+  const [aiToggleSaving, setAiToggleSaving] = useState(false);
+
+  useEffect(() => {
+    setAiOptOut(user?.aiOptOut ?? false);
+  }, [user?.aiOptOut]);
+
+  async function handleAiToggle() {
+    const next = !aiOptOut;
+    setAiToggleSaving(true);
+    try {
+      await api.updateMyProfile({ aiOptOut: next });
+      setAiOptOut(next);
+      await onUserUpdate();
+    } finally {
+      setAiToggleSaving(false);
+    }
+  }
+
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState(null);
   const avatarInputRef = useRef(null);
@@ -225,12 +244,30 @@ export default function SettingsView({ user, onUserUpdate, onOpenChangePassword,
         <div className="mb-4 text-xs text-muted">
           Signed in as <span className="text-parchment">{username}</span>
         </div>
-        <button
-          onClick={onOpenChangePassword}
-          className="rounded border border-rule px-3 py-1.5 text-xs hover:border-brass hover:text-parchment"
-        >
-          Change password
-        </button>
+        <div className="mb-4 flex flex-col gap-3">
+          <button
+            onClick={onOpenChangePassword}
+            className="w-fit rounded border border-rule px-3 py-1.5 text-xs hover:border-brass hover:text-parchment"
+          >
+            Change password
+          </button>
+        </div>
+        {user?.aiEnabled && (
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs text-parchment">AI features</div>
+              <div className="text-xs text-muted">{aiOptOut ? 'Opted out — AI assistant and tools are disabled' : 'Enabled — opt out to disable AI features for your account'}</div>
+            </div>
+            <button
+              type="button"
+              onClick={handleAiToggle}
+              disabled={aiToggleSaving}
+              className={`ml-4 shrink-0 rounded border px-3 py-1.5 text-xs disabled:opacity-50 ${aiOptOut ? 'border-brass text-brass hover:border-rule hover:text-parchment' : 'border-rule hover:border-brass hover:text-parchment'}`}
+            >
+              {aiToggleSaving ? '…' : aiOptOut ? 'Re-enable' : 'Opt out'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Reading */}

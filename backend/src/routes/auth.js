@@ -80,8 +80,8 @@ authRouter.get('/me', (req, res) => {
 
 authRouter.patch('/me', requireLogin, async (req, res, next) => {
   try {
-    const { displayName, bio } = req.body;
-    const user = await updateProfile({ userId: req.user.id, displayName, bio });
+    const { displayName, bio, aiOptOut } = req.body;
+    const user = await updateProfile({ userId: req.user.id, displayName, bio, aiOptOut });
     res.json({ user });
   } catch (err) {
     next(err);

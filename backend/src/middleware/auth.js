@@ -12,7 +12,7 @@ export async function attachUser(req, res, next) {
     try {
       const user = await prisma.user.findUnique({
         where: { id: req.session.userId },
-        select: { id: true, username: true, role: true, suspended: true, aiEnabled: true, displayName: true, bio: true, avatarUrl: true, bannerUrl: true },
+        select: { id: true, username: true, role: true, suspended: true, aiEnabled: true, aiOptOut: true, displayName: true, bio: true, avatarUrl: true, bannerUrl: true },
       });
       req.user = user || null;
       if (!user) {
@@ -39,7 +39,7 @@ export function requireLogin(req, res, next) {
 }
 
 export function requireAiEnabled(req, res, next) {
-  if (req.user && !req.user.aiEnabled) {
+  if (req.user && (!req.user.aiEnabled || req.user.aiOptOut)) {
     return res.status(403).json({ error: 'AI features are not enabled for your account.' });
   }
   next();
