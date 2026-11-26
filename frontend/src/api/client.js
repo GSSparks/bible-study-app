@@ -162,6 +162,7 @@ export const api = {
   // User profiles
   getUserProfile: (username) => request(`/users/${encodeURIComponent(username)}`),
   updateMyProfile: (payload) => request('/auth/me', { method: 'PATCH', body: JSON.stringify(payload) }),
+  exportMyData: () => request('/auth/me/export'),
 
   // Auth
   bootstrapStatus: () => request('/auth/bootstrap-status'),

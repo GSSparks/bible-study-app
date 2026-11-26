@@ -2,6 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { isBootstrapNeeded, bootstrapAdmin, verifyLogin, createUser, changePassword, listUsers, updateProfile } from '../services/authService.js';
 import { requireAdmin, requireLogin } from '../middleware/auth.js';
+import { prisma } from '../db/prisma.js';
 
 export const authRouter = Router();
 
@@ -76,6 +77,56 @@ authRouter.post('/logout', (req, res, next) => {
 
 authRouter.get('/me', (req, res) => {
   res.json({ user: req.user || null });
+});
+
+authRouter.get('/me/export', requireLogin, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const [notes, highlights, bookmarks, studySessions, personalModules] = await Promise.all([
+      prisma.note.findMany({
+        where: { userId },
+        select: { id: true, title: true, reference: true, module: true, quote: true, body: true, tags: true, fromAssistant: true, createdAt: true, updatedAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.highlight.findMany({
+        where: { userId },
+        select: { id: true, reference: true, module: true, color: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.bookmark.findMany({
+        where: { userId },
+        select: { id: true, reference: true, module: true, label: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.studySession.findMany({
+        where: { userId },
+        select: { id: true, title: true, kind: true, reference: true, module: true, messages: true, createdAt: true, updatedAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.personalModule.findMany({
+        where: { userId },
+        include: {
+          entries: {
+            select: { id: true, key: true, reference: true, title: true, body: true, bodyMd: true, createdAt: true },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    res.json({
+      exportedAt: new Date().toISOString(),
+      username: req.user.username,
+      notes,
+      highlights,
+      bookmarks,
+      studySessions,
+      personalModules: personalModules.map(({ userId: _uid, ...m }) => m),
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 authRouter.patch('/me', requireLogin, async (req, res, next) => {

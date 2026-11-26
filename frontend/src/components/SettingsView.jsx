@@ -11,6 +11,28 @@ export default function SettingsView({ user, onUserUpdate, onOpenChangePassword,
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileError, setProfileError] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
+
+  async function handleExport() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const data = await api.exportMyData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `scriptkata-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(err.message);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const [aiOptOut, setAiOptOut] = useState(user?.aiOptOut ?? false);
   const [aiToggleSaving, setAiToggleSaving] = useState(false);
 
@@ -250,14 +272,22 @@ export default function SettingsView({ user, onUserUpdate, onOpenChangePassword,
         <div className="mb-4 text-xs text-muted">
           Signed in as <span className="text-parchment">{username}</span>
         </div>
-        <div className="mb-4 flex flex-col gap-3">
+        <div className="mb-4 flex flex-wrap gap-2">
           <button
             onClick={onOpenChangePassword}
-            className="w-fit rounded border border-rule px-3 py-1.5 text-xs hover:border-brass hover:text-parchment"
+            className="rounded border border-rule px-3 py-1.5 text-xs hover:border-brass hover:text-parchment"
           >
             Change password
           </button>
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="rounded border border-rule px-3 py-1.5 text-xs hover:border-brass hover:text-parchment disabled:opacity-50"
+          >
+            {exporting ? 'Exporting…' : 'Export my data'}
+          </button>
         </div>
+        {exportError && <p className="mb-3 text-xs text-red-400">{exportError}</p>}
         {user?.aiEnabled && (
           <div className="flex items-center justify-between">
             <div>
