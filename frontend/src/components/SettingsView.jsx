@@ -14,6 +14,24 @@ export default function SettingsView({ user, onUserUpdate, onOpenChangePassword,
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
 
+  const [showDeleteForm, setShowDeleteForm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  async function handleDeleteAccount(e) {
+    e.preventDefault();
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.deleteMyAccount(deletePassword);
+      await onUserUpdate();
+    } catch (err) {
+      setDeleteError(err.message);
+      setDeleting(false);
+    }
+  }
+
   async function handleExport() {
     setExporting(true);
     setExportError(null);
@@ -368,6 +386,54 @@ export default function SettingsView({ user, onUserUpdate, onOpenChangePassword,
               )}
             </label>
           </div>
+        )}
+      </div>
+
+      {/* Danger Zone */}
+      <div className="mt-4 rounded-md border border-red-900/50 bg-panel p-4">
+        <div className="mb-1 text-sm text-red-400">Danger Zone</div>
+        {!showDeleteForm ? (
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted">Permanently delete your account and all your data.</p>
+            <button
+              onClick={() => setShowDeleteForm(true)}
+              className="ml-4 shrink-0 rounded border border-red-900/50 px-3 py-1.5 text-xs text-red-400 hover:border-red-400"
+            >
+              Delete account
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleDeleteAccount}>
+            <p className="mb-3 text-xs text-muted">
+              This will permanently delete your account, notes, highlights, bookmarks, and all other data. This cannot be undone. Enter your password to confirm.
+            </p>
+            <input
+              type="password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              placeholder="Your password"
+              autoFocus
+              autoComplete="current-password"
+              className="mb-3 w-full rounded border border-red-900/50 bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-red-400 focus:outline-none"
+            />
+            {deleteError && <p className="mb-2 text-xs text-red-400">{deleteError}</p>}
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={deleting || !deletePassword}
+                className="rounded border border-red-900/50 px-3 py-1.5 text-xs text-red-400 hover:border-red-400 disabled:opacity-50"
+              >
+                {deleting ? 'Deleting…' : 'Permanently delete my account'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowDeleteForm(false); setDeletePassword(''); setDeleteError(null); }}
+                className="rounded border border-rule px-3 py-1.5 text-xs hover:text-parchment"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         )}
       </div>
     </div>

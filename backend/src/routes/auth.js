@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { isBootstrapNeeded, bootstrapAdmin, verifyLogin, createUser, changePassword, listUsers, updateProfile } from '../services/authService.js';
+import { isBootstrapNeeded, bootstrapAdmin, verifyLogin, verifyPassword, createUser, changePassword, listUsers, updateProfile } from '../services/authService.js';
 import { requireAdmin, requireLogin } from '../middleware/auth.js';
 import { prisma } from '../db/prisma.js';
 
@@ -77,6 +77,33 @@ authRouter.post('/logout', (req, res, next) => {
 
 authRouter.get('/me', (req, res) => {
   res.json({ user: req.user || null });
+});
+
+authRouter.delete('/me', requireLogin, async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required to delete your account.' });
+    }
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const valid = await verifyPassword(user.passwordHash, password);
+    if (!valid) {
+      return res.status(403).json({ error: 'Incorrect password.' });
+    }
+    if (req.user.role === 'admin') {
+      const adminCount = await prisma.user.count({ where: { role: 'admin' } });
+      if (adminCount <= 1) {
+        return res.status(400).json({ error: 'Cannot delete the only admin account. Promote another user to admin first.' });
+      }
+    }
+    await prisma.user.delete({ where: { id: req.user.id } });
+    req.session.destroy(() => {
+      res.clearCookie('connect.sid');
+      res.status(204).end();
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 authRouter.get('/me/export', requireLogin, async (req, res, next) => {

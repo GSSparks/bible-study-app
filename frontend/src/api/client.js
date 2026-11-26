@@ -163,6 +163,7 @@ export const api = {
   getUserProfile: (username) => request(`/users/${encodeURIComponent(username)}`),
   updateMyProfile: (payload) => request('/auth/me', { method: 'PATCH', body: JSON.stringify(payload) }),
   exportMyData: () => request('/auth/me/export'),
+  deleteMyAccount: (password) => request('/auth/me', { method: 'DELETE', body: JSON.stringify({ password }) }),
 
   // Auth
   bootstrapStatus: () => request('/auth/bootstrap-status'),
