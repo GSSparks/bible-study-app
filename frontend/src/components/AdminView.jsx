@@ -22,15 +22,15 @@ export default function AdminView() {
   const [tab, setTab] = useState('Users');
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6">
+    <div className="h-full overflow-y-auto px-6 py-6 [scrollbar-gutter:stable]">
       <div className="mx-auto max-w-5xl">
         <h2 className="mb-4 font-display text-2xl text-parchment">Admin</h2>
-        <div className="mb-6 flex border-b border-rule">
+        <div className="mb-6 flex flex-wrap gap-x-1 border-b border-rule">
           {TABS.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm ${tab === t ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors ${tab === t ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
             >
               {t}
             </button>
@@ -1025,7 +1025,7 @@ function BrandingTab() {
   if (loading) return <p className="text-sm text-muted">Loading…</p>;
 
   return (
-    <div className="max-w-lg space-y-4">
+    <div className="space-y-4">
       {/* Name + URL */}
       <div className="space-y-3 rounded-md border border-rule p-4">
         <div>
@@ -1591,7 +1591,7 @@ function DevotionalsTab() {
   if (loading) return <p className="text-sm text-muted">Loading…</p>;
 
   return (
-    <div className="max-w-md">
+    <div>
       <form onSubmit={handleSave} className="space-y-3 rounded-md border border-rule p-4">
         <div>
           <label htmlFor="dev-module" className="mb-1 block text-xs uppercase tracking-wide text-muted">
