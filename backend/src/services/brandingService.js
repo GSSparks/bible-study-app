@@ -85,11 +85,14 @@ export async function getTheme() {
 }
 
 export async function setTheme(theme) {
-  const VALID = new Set(['ember', 'vesper', 'aegean', 'codex', 'gruvbox']);
-  if (theme && !VALID.has(theme)) {
-    const err = new Error('Invalid theme.');
-    err.status = 400;
-    throw err;
+  const BUILT_IN = new Set(['ember', 'vesper', 'aegean', 'codex', 'gruvbox']);
+  if (theme && !BUILT_IN.has(theme)) {
+    const custom = await getCustomThemes();
+    if (!custom.some((t) => t.id === theme)) {
+      const err = new Error('Invalid theme.');
+      err.status = 400;
+      throw err;
+    }
   }
   if (!theme) {
     await prisma.appSetting.deleteMany({ where: { key: 'brand_theme' } });
