@@ -928,7 +928,7 @@ function BrandingTab() {
       if (updated.name !== undefined) setName(updated.name);
       if (updated.siteUrl !== undefined) setSiteUrl(updated.siteUrl || '');
       setSaved(true);
-      setTimeout(() => setSaved(false), 1500);
+      setTimeout(() => window.location.reload(), 800);
     } catch (e) {
       setError(e.message);
     } finally {
