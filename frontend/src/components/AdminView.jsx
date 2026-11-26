@@ -918,12 +918,13 @@ function BrandingTab() {
     setError(null);
     setSaved(false);
     try {
+      const knownFontIds = new Set(FONTS.map(f => f.id));
       const updated = await api.saveBrandingSettings({
         name,
         siteUrl,
         theme: theme === 'classic' ? null : theme,
-        displayFont: displayFont === 'inter' ? null : displayFont,
-        uiFont: uiFont === 'inter' ? null : uiFont,
+        displayFont: (!displayFont || displayFont === 'inter' || !knownFontIds.has(displayFont)) ? null : displayFont,
+        uiFont: (!uiFont || uiFont === 'inter' || !knownFontIds.has(uiFont)) ? null : uiFont,
       });
       if (updated.name !== undefined) setName(updated.name);
       if (updated.siteUrl !== undefined) setSiteUrl(updated.siteUrl || '');
@@ -970,8 +971,8 @@ function BrandingTab() {
     } else if (customThemeData?.colors) {
       document.documentElement.removeAttribute('data-theme');
       applyCustomThemeColors(customThemeData.colors);
-      if (customThemeData.fonts?.display) { setDisplayFont(customThemeData.fonts.display); applyFont('display', customThemeData.fonts.display); }
-      if (customThemeData.fonts?.ui) { setUiFont(customThemeData.fonts.ui); applyFont('ui', customThemeData.fonts.ui); }
+      if (customThemeData.fonts?.display && FONTS.some(f => f.id === customThemeData.fonts.display)) { setDisplayFont(customThemeData.fonts.display); applyFont('display', customThemeData.fonts.display); }
+      if (customThemeData.fonts?.ui && FONTS.some(f => f.id === customThemeData.fonts.ui)) { setUiFont(customThemeData.fonts.ui); applyFont('ui', customThemeData.fonts.ui); }
     } else {
       document.documentElement.setAttribute('data-theme', id);
     }
