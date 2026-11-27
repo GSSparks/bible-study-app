@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 512 512"
+   role="img"
+   aria-label="Open book and cross emblem"
+   version="1.1"
+   id="svg17"
+   sodipodi:docname="cleaned_logo.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview17"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="2.3417969"
+     inkscape:cx="256"
+     inkscape:cy="256"
+     inkscape:window-width="2560"
+     inkscape:window-height="1408"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g7" />
+  <defs
+     id="defs6">
+    <linearGradient
+       id="disc"
+       x1="0"
+       y1="0"
+       x2="1"
+       y2="1">
+      <stop
+         offset="0"
+         stop-color="#173d72"
+         id="stop1" />
+      <stop
+         offset="1"
+         stop-color="#315f91"
+         id="stop2" />
+    </linearGradient>
+    <linearGradient
+       id="gold"
+       x1="0"
+       y1="0"
+       x2="1"
+       y2="1">
+      <stop
+         offset="0"
+         stop-color="#f6e6a4"
+         id="stop3" />
+      <stop
+         offset="1"
+         stop-color="#c99a4d"
+         id="stop4" />
+    </linearGradient>
+    <linearGradient
+       id="page"
+       x1="0"
+       y1="0"
+       x2="0"
+       y2="1">
+      <stop
+         offset="0"
+         stop-color="#fffefa"
+         id="stop5" />
+      <stop
+         offset="1"
+         stop-color="#e9e6dc"
+         id="stop6" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#gold"
+       id="linearGradient17"
+       x1="182.04348"
+       y1="34.024839"
+       x2="389.77407"
+       y2="241.75543"
+       gradientTransform="matrix(1.0948068,0,0,1.3655655,-58.302436,9.536855)"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <!-- Blue field and fine gold rim -->
+  <circle
+     cx="256"
+     cy="222"
+     r="188"
+     fill="url(#disc)"
+     stroke="url(#gold)"
+     stroke-width="8"
+     id="circle6" />
+  <!-- Cross -->
+  <g
+     stroke="#142c4b"
+     stroke-width="4"
+     stroke-linejoin="round"
+     id="g7">
+    <path
+       d="m 233.92629,58.445429 h 41.57229 V 150.149 h 90.48086 v 37.90415 H 275.49858 V 337.2243 H 233.92629 V 188.05315 H 143.44543 V 150.149 h 90.48086 z"
+       fill="url(#gold)"
+       id="path6"
+       style="fill:url(#linearGradient17);stroke-width:4.89086" />
+  </g>
+  <!-- Open book: two balanced pages with a quiet central fold -->
+  <path
+     d="M48 310 Q143 276 238 314 Q247 319 256 337 Q265 319 274 314 Q369 276 464 310 L500 404 Q394 378 285 409 Q267 414 256 432 Q245 414 227 409 Q118 378 12 404Z"
+     fill="url(#gold)"
+     stroke="#9c743b"
+     stroke-width="3"
+     stroke-linejoin="round"
+     id="path8" />
+  <path
+     d="M48 310 Q143 276 238 314 Q247 319 252 336 L239 397 Q145 366 31 390Z"
+     fill="url(#page)"
+     stroke="#d5c9a9"
+     stroke-width="2"
+     stroke-linejoin="round"
+     id="path9" />
+  <path
+     d="M464 310 Q369 276 274 314 Q265 319 260 336 L273 397 Q367 366 481 390Z"
+     fill="url(#page)"
+     stroke="#d5c9a9"
+     stroke-width="2"
+     stroke-linejoin="round"
+     id="path10" />
+  <path
+     d="M256 337 Q250 364 256 432 Q262 364 256 337Z"
+     fill="#c69a50"
+     id="path11" />
+  <!-- Page lines -->
+  <g
+     fill="none"
+     stroke="#243b55"
+     stroke-width="3"
+     stroke-linecap="round"
+     opacity=".9"
+     id="g17">
+    <path
+       d="M78 326 Q157 302 222 329"
+       id="path12" />
+    <path
+       d="M70 348 Q151 324 220 351"
+       id="path13" />
+    <path
+       d="M62 370 Q147 347 216 373"
+       id="path14" />
+    <path
+       d="M434 326 Q355 302 290 329"
+       id="path15" />
+    <path
+       d="M442 348 Q361 324 292 351"
+       id="path16" />
+    <path
+       d="M450 370 Q365 347 296 373"
+       id="path17" />
+  </g>
+</svg>

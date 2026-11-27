@@ -20,6 +20,7 @@ import LoginModal from './LoginModal.jsx';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
 import UserMenu from './UserMenu.jsx';
 import { api } from '../api/client.js';
+import { applyFont, applyCustomThemeColors, clearCustomThemeColors } from '../utils/themes.js';
 
 const NAV_GROUPS = [
   {
@@ -76,10 +77,10 @@ export default function AppShell({ auth }) {
   const [biblePanelOpen, setBiblePanelOpen] = useState(false);
   const [pendingBiblePanel, setPendingBiblePanel] = useState(null);
   const [currentBibleRef, setCurrentBibleRef] = useState(null);
-  // 'My Scriptorium' as the initial value matches the backend's own
+  // 'ScriptKata' as the initial value matches the backend's own
   // default, so there's no flash of a different placeholder before the
   // real fetch resolves.
-  const [brandName, setBrandName] = useState('My Scriptorium');
+  const [brandName, setBrandName] = useState('ScriptKata');
   const [logoUrl, setLogoUrl] = useState(null);
 
   // Lifted up from StudyMode (where it used to live entirely local) now
@@ -89,20 +90,26 @@ export default function AppShell({ auth }) {
   // mount, and never notice a change made later from Settings. Lifting
   // it here means both places share the exact same live value.
   const [defaultBibleModule, setDefaultBibleModuleState] = useState(() => {
-    try {
-      return localStorage.getItem('scriptorium-default-bible') || '';
-    } catch {
-      return '';
-    }
+    try { return localStorage.getItem('scriptorium-default-bible') || ''; } catch { return ''; }
+  });
+  const [defaultCommentaryModule, setDefaultCommentaryModuleState] = useState(() => {
+    try { return localStorage.getItem('scriptorium-default-commentary') || ''; } catch { return ''; }
+  });
+  const [defaultDictionaryModule, setDefaultDictionaryModuleState] = useState(() => {
+    try { return localStorage.getItem('scriptorium-default-dictionary') || ''; } catch { return ''; }
   });
 
   function setDefaultBibleModule(moduleCode) {
     setDefaultBibleModuleState(moduleCode);
-    try {
-      localStorage.setItem('scriptorium-default-bible', moduleCode);
-    } catch {
-      // storage unavailable — not worth failing over
-    }
+    try { localStorage.setItem('scriptorium-default-bible', moduleCode); } catch {}
+  }
+  function setDefaultCommentaryModule(moduleCode) {
+    setDefaultCommentaryModuleState(moduleCode);
+    try { localStorage.setItem('scriptorium-default-commentary', moduleCode); } catch {}
+  }
+  function setDefaultDictionaryModule(moduleCode) {
+    setDefaultDictionaryModuleState(moduleCode);
+    try { localStorage.setItem('scriptorium-default-dictionary', moduleCode); } catch {}
   }
 
   // If no default Bible has been chosen (fresh install or first mobile session),
@@ -196,12 +203,31 @@ export default function AppShell({ auth }) {
       setBrandName(b.name);
       setLogoUrl(b.logoUrl || null);
       const theme = b.theme || '';
-      if (theme) {
+      clearCustomThemeColors();
+      // Check if active theme is a custom one
+      const customTheme = b.customThemes?.find((c) => c.id === theme);
+      if (customTheme?.colors) {
+        document.documentElement.removeAttribute('data-theme');
+        applyCustomThemeColors(customTheme.colors);
+      } else if (theme) {
         document.documentElement.setAttribute('data-theme', theme);
       } else {
         document.documentElement.removeAttribute('data-theme');
       }
-      try { localStorage.setItem('scriptorium-theme', theme); } catch {}
+      try {
+        localStorage.setItem('scriptorium-theme', theme);
+        localStorage.setItem('scriptorium-custom-themes', JSON.stringify(b.customThemes || []));
+      } catch {}
+      // Apply fonts
+      if (b.displayFont) {
+        applyFont('display', b.displayFont);
+        try { localStorage.setItem('scriptorium-display-font', b.displayFont); } catch {}
+      }
+      if (b.uiFont) {
+        applyFont('ui', b.uiFont);
+        applyFont('heading', b.uiFont);
+        try { localStorage.setItem('scriptorium-ui-font', b.uiFont); } catch {}
+      }
     }).catch(() => {});
   }, []);
 
@@ -260,8 +286,8 @@ export default function AppShell({ auth }) {
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-full shrink-0 flex-col border-r border-rule bg-ink transition-transform duration-200 ease-in-out lg:relative lg:w-56 lg:translate-x-0 lg:z-auto ${drawerOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         {/* Header */}
         <div className="flex items-center gap-2 px-5 py-4">
-          <img src={logoUrl || '/logo.png'} alt="" className="h-8 w-8 rounded-md object-contain" />
-          <span className="font-display text-lg tracking-wide">{brandName}</span>
+          <img src={logoUrl || '/logo.svg'} alt="" className="h-8 w-8 rounded-md object-contain" />
+          <span className="font-heading text-lg tracking-wide">{brandName}</span>
           <button
             onClick={() => setDrawerOpen(false)}
             className="ml-auto rounded p-1 text-muted hover:text-parchment lg:hidden"
@@ -372,6 +398,8 @@ export default function AppShell({ auth }) {
             pendingBibleOpen={pendingBibleOpen}
             onBibleOpenConsumed={() => setPendingBibleOpen(null)}
             defaultBibleModule={defaultBibleModule}
+            defaultCommentaryModule={defaultCommentaryModule}
+            defaultDictionaryModule={defaultDictionaryModule}
             pendingAiOverview={pendingAiOverview}
             onAiOverviewConsumed={() => setPendingAiOverview(null)}
             pendingAiPhraseStudy={pendingAiPhraseStudy}
@@ -393,10 +421,15 @@ export default function AppShell({ auth }) {
         </div>
         {activeView === 'settings' && (
           <SettingsView
-            username={auth.user?.username}
+            user={auth.user}
+            onUserUpdate={auth.refresh}
             onOpenChangePassword={() => setShowChangePasswordModal(true)}
             defaultBibleModule={defaultBibleModule}
             onSetDefaultBibleModule={setDefaultBibleModule}
+            defaultCommentaryModule={defaultCommentaryModule}
+            onSetDefaultCommentaryModule={setDefaultCommentaryModule}
+            defaultDictionaryModule={defaultDictionaryModule}
+            onSetDefaultDictionaryModule={setDefaultDictionaryModule}
           />
         )}
         {activeView === 'admin' && <AdminView />}

@@ -69,6 +69,15 @@ uploadsRouter.post('/banner/user', (req, res) => {
   });
 });
 
+uploadsRouter.delete('/banner/user', async (req, res, next) => {
+  try {
+    await prisma.user.update({ where: { id: req.user.id }, data: { bannerUrl: null } });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 uploadsRouter.post('/banner/ai/scriptorium/:id', async (req, res, next) => {
   try {
     const scriptorium = await prisma.scriptorium.findFirst({

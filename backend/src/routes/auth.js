@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { isBootstrapNeeded, bootstrapAdmin, verifyLogin, createUser, changePassword, listUsers, updateProfile } from '../services/authService.js';
+import { isBootstrapNeeded, bootstrapAdmin, verifyLogin, verifyPassword, createUser, changePassword, listUsers, updateProfile } from '../services/authService.js';
 import { requireAdmin, requireLogin } from '../middleware/auth.js';
+import { prisma } from '../db/prisma.js';
 
 export const authRouter = Router();
 
@@ -78,10 +79,87 @@ authRouter.get('/me', (req, res) => {
   res.json({ user: req.user || null });
 });
 
+authRouter.delete('/me', requireLogin, async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required to delete your account.' });
+    }
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const valid = await verifyPassword(user.passwordHash, password);
+    if (!valid) {
+      return res.status(403).json({ error: 'Incorrect password.' });
+    }
+    if (req.user.role === 'admin') {
+      const adminCount = await prisma.user.count({ where: { role: 'admin' } });
+      if (adminCount <= 1) {
+        return res.status(400).json({ error: 'Cannot delete the only admin account. Promote another user to admin first.' });
+      }
+    }
+    await prisma.user.delete({ where: { id: req.user.id } });
+    req.session.destroy(() => {
+      res.clearCookie('connect.sid');
+      res.status(204).end();
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+authRouter.get('/me/export', requireLogin, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const [notes, highlights, bookmarks, studySessions, personalModules] = await Promise.all([
+      prisma.note.findMany({
+        where: { userId },
+        select: { id: true, title: true, reference: true, module: true, quote: true, body: true, tags: true, fromAssistant: true, createdAt: true, updatedAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.highlight.findMany({
+        where: { userId },
+        select: { id: true, reference: true, module: true, color: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.bookmark.findMany({
+        where: { userId },
+        select: { id: true, reference: true, module: true, label: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.studySession.findMany({
+        where: { userId },
+        select: { id: true, title: true, kind: true, reference: true, module: true, messages: true, createdAt: true, updatedAt: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.personalModule.findMany({
+        where: { userId },
+        include: {
+          entries: {
+            select: { id: true, key: true, reference: true, title: true, body: true, bodyMd: true, createdAt: true },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    res.json({
+      exportedAt: new Date().toISOString(),
+      username: req.user.username,
+      notes,
+      highlights,
+      bookmarks,
+      studySessions,
+      personalModules: personalModules.map(({ userId: _uid, ...m }) => m),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 authRouter.patch('/me', requireLogin, async (req, res, next) => {
   try {
-    const { displayName, bio } = req.body;
-    const user = await updateProfile({ userId: req.user.id, displayName, bio });
+    const { displayName, bio, aiOptOut } = req.body;
+    const user = await updateProfile({ userId: req.user.id, displayName, bio, aiOptOut });
     res.json({ user });
   } catch (err) {
     next(err);

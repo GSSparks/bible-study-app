@@ -198,7 +198,7 @@ export async function verifyLogin({ username, password }) {
 const MAX_DISPLAY_NAME_LENGTH = 50;
 const MAX_BIO_LENGTH = 300;
 
-export async function updateProfile({ userId, displayName, bio }) {
+export async function updateProfile({ userId, displayName, bio, aiOptOut }) {
   const data = {};
   if (displayName !== undefined) {
     const trimmed = displayName?.trim() || null;
@@ -218,10 +218,13 @@ export async function updateProfile({ userId, displayName, bio }) {
     }
     data.bio = trimmed;
   }
+  if (aiOptOut !== undefined) {
+    data.aiOptOut = Boolean(aiOptOut);
+  }
   return prisma.user.update({
     where: { id: userId },
     data,
-    select: { id: true, username: true, role: true, displayName: true, bio: true },
+    select: { id: true, username: true, role: true, displayName: true, bio: true, aiOptOut: true },
   });
 }
 

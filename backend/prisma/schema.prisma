@@ -117,6 +117,7 @@ model User {
   role           String    @default("user")
   suspended      Boolean   @default(false)
   aiEnabled      Boolean   @default(true)
+  aiOptOut       Boolean   @default(false)
   createdAt      DateTime  @default(now())
   lastLoginAt    DateTime?
   displayName    String?

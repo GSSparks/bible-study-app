@@ -162,6 +162,8 @@ export const api = {
   // User profiles
   getUserProfile: (username) => request(`/users/${encodeURIComponent(username)}`),
   updateMyProfile: (payload) => request('/auth/me', { method: 'PATCH', body: JSON.stringify(payload) }),
+  exportMyData: () => request('/auth/me/export'),
+  deleteMyAccount: (password) => request('/auth/me', { method: 'DELETE', body: JSON.stringify({ password }) }),
 
   // Auth
   bootstrapStatus: () => request('/auth/bootstrap-status'),
@@ -199,6 +201,8 @@ export const api = {
     return request('/branding/logo', { method: 'POST', body: fd });
   },
   deleteBrandLogo: () => request('/branding/logo', { method: 'DELETE' }),
+  saveCustomTheme: (theme) => request('/branding/themes', { method: 'POST', body: JSON.stringify(theme) }),
+  deleteCustomTheme: (id) => request(`/branding/themes/${id}`, { method: 'DELETE' }),
 
   // Connections (Fellows)
   searchConnections: (q) => request(`/connections/search?q=${encodeURIComponent(q)}`),
@@ -278,6 +282,7 @@ export const api = {
     fd.append('banner', file);
     return request('/uploads/banner/user', { method: 'POST', body: fd });
   },
+  removeUserBanner: () => request('/uploads/banner/user', { method: 'DELETE' }),
   uploadScriptoriumBanner: (id, file) => {
     const fd = new FormData();
     fd.append('banner', file);

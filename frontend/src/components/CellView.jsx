@@ -24,6 +24,8 @@ export default function CellView({
   pendingBibleOpen,
   onBibleOpenConsumed,
   defaultBibleModule,
+  defaultCommentaryModule,
+  defaultDictionaryModule,
   pendingAiOverview,
   onAiOverviewConsumed,
   pendingAiPhraseStudy,
@@ -77,6 +79,43 @@ export default function CellView({
               if (!tab.module) {
                 layout.swapTabModule(col.id, row.id, tab.id, preferred.name, preferred.description || preferred.name);
               }
+            });
+          }
+        });
+      });
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.loading, auth.setupRequired]);
+
+  // Auto-set default commentary/dictionary module into empty tabs on first load
+  useEffect(() => {
+    if (auth.loading || auth.setupRequired || !defaultCommentaryModule) return;
+    api.listInstalledModules('COMMENTARY').then((mods) => {
+      const preferred = mods.find((m) => m.name === defaultCommentaryModule);
+      if (!preferred) return;
+      layout.columns.forEach((col) => {
+        col.rows.forEach((row) => {
+          if (row.type === 'commentary') {
+            row.tabs.forEach((tab) => {
+              if (!tab.module) layout.swapTabModule(col.id, row.id, tab.id, preferred.name, preferred.description || preferred.name);
+            });
+          }
+        });
+      });
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.loading, auth.setupRequired]);
+
+  useEffect(() => {
+    if (auth.loading || auth.setupRequired || !defaultDictionaryModule) return;
+    api.listInstalledModules('DICT').then((mods) => {
+      const preferred = mods.find((m) => m.name === defaultDictionaryModule);
+      if (!preferred) return;
+      layout.columns.forEach((col) => {
+        col.rows.forEach((row) => {
+          if (row.type === 'dictionary') {
+            row.tabs.forEach((tab) => {
+              if (!tab.module) layout.swapTabModule(col.id, row.id, tab.id, preferred.name, preferred.description || preferred.name);
             });
           }
         });

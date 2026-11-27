@@ -1,17 +1,18 @@
 <p align="center">
-  <img src="frontend/public/logo.png" alt="Scriptorium" width="140">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/lockup-dark.svg">
+    <img src="docs/lockup-light.svg" alt="ScriptKata" height="200">
+  </picture>
 </p>
-
-<h1 align="center">Scriptorium</h1>
-<p align="center">A self-hosted, multi-user Bible study platform built on the CrossWire SWORD engine.</p>
+<p align="center"><em>Scripture, practiced.</em> — A self-hosted, multi-user Bible study platform built on the CrossWire SWORD engine.</p>
 
 <p align="center">
-  <img src="docs/screenshot_1.png" alt="Scriptorium cell view" width="800">
-  <img src="docs/screenshot_3.png" alt="Scriptorium study view" width="800">
-  <img src="docs/screenshot_2.png" alt="Scriptorium study lesson view" width="800">  
+  <img src="docs/screenshot_1.png" alt="ScriptKata cell view" width="800">
+  <img src="docs/screenshot_3.png" alt="ScriptKata study view" width="800">
+  <img src="docs/screenshot_2.png" alt="ScriptKata study lesson view" width="800">  
 </p>
 
-Scriptorium is a self-hosted Bible study environment: real text from the SWORD engine (same library behind Ezra Bible App and Xiphos), an LLM study assistant grounded in the passages you actually have open, structured multi-week Studies with AI-drafted lesson outlines, and small-group coordination through Scriptoriums — all from one Docker container.
+ScriptKata is a self-hosted Bible study environment: real text from the SWORD engine (same library behind Ezra Bible App and Xiphos), an LLM study assistant grounded in the passages you actually have open, structured multi-week Studies with AI-drafted lesson outlines, and small-group coordination through Scriptoriums — all from one Docker container.
 
 ## What's in here
 
@@ -25,13 +26,13 @@ Scriptorium is a self-hosted Bible study environment: real text from the SWORD e
 - **Notes** — anchored to a passage or freestanding, full Markdown editor, searchable, with a "save as note" button on any assistant reply. Select any text in the reader to create a quoted note.
 - **Personal modules** — your own commentary entries or dictionary definitions, saved and looked up exactly like a real SWORD module.
 - **Markdown modules** — drop a folder of `.md` files into `MD_MODULES_PATH` and it appears in the pane module pickers alongside SWORD modules (no compilation required). Supports commentary, dictionary, Bible text, and book types.
-- **Cursus** — structured daily reading schedules with per-day completion tracking and one-click passage navigation.
+- **Cursus** — structured daily reading schedules with per-day completion tracking and one-click passage navigation; plus a full calendar with Gregorian/Julian/Hebrew support, colour-coded event layers, holiday integration, day background images, and PDF print/export.
 - **PDF library** — upload reference PDFs and search their extracted text alongside Bible text and notes.
 - **Scriptoriums** — invite-only or public study groups with a group feed, Studies, Resources, Members management, and a Daily Devotional sidebar.
 - **Studies** — structured multi-week studies inside a Scriptorium or solo: lessons with leader notes, per-lesson completion, threaded discussion, attached resources, and AI-drafted lesson outlines.
 - **Fellows** — follow other users and send connection requests; search users by name.
-- **Admin** — module installation from CrossWire repositories, per-module visibility controls, user management, instance branding, and a metrics dashboard.
-- **Mobile layout** — responsive single-pane view on small screens with a scrollable tab strip; all sidebar-detail views (Books, Library, Notes, Cursus, Scriptoriums, Codex) switch to a list → detail navigation pattern on mobile.
+- **Admin** — module installation from CrossWire repositories, per-module visibility controls, user management, full instance branding (name, logo upload, 5-theme theming system), and a metrics dashboard.
+- **Mobile layout** — responsive at every breakpoint; all sidebar-detail views (Books, Library, Notes, Cursus, Scriptoriums, Codex, Calendar) switch to a list → detail navigation pattern on small screens; Cursus tab labels collapse to icons on mobile.
 
 ## Stack
 
@@ -170,7 +171,11 @@ The **Books** view and **Book Reader panel** (`Ctrl+K`) provide a dedicated envi
 
 ## Cursus (Reading Plans)
 
-The **Cursus** view shows reading schedules. Each plan is a day-by-day schedule of passages; clicking a day's passage link opens it in the Cell. Completion is tracked per day and shown with a progress ring.
+The **Cursus** view combines a **Calendar** and a **Reading Plan** tab.
+
+**Calendar tab** — a full-screen monthly calendar. Each day can carry multiple event layers (liturgical season, feast days, civil holidays, custom reading plans). Layers are toggled in a collapsible sidebar. Month/year navigation, country/subdivision pickers for civil holidays. On mobile the sidebar collapses behind a toggle button so the calendar fills the screen.
+
+**Reading Plan tab** — day-by-day schedules of Bible passages. Clicking a day's passage link opens it in the Cell. Completion is tracked per day and shown with a progress ring. Admins create and manage plans in **Admin → Reading Plans**.
 
 ## Scriptoriums
 
@@ -244,7 +249,7 @@ Admins upload reference PDFs; all users can browse and search. Extracted text (c
 - **Daily Devotional** — select which installed Daily module shows in the Scriptorium sidebar
 - **Reading Plans** — create and manage reading schedules
 - **Users** — create and list user accounts
-- **Branding** — set the instance display name
+- **Branding** — set the instance display name and site URL; upload a custom logo; choose from six built-in colour themes (Classic, Ember, Vesper, Aegean, Codex, Gruvbox); install custom themes from JSON; select display and UI fonts
 - **Metrics** — DB health and usage counts
 
 ## Auth model
@@ -319,3 +324,32 @@ biblicaopenbiblemaps/  git submodule — Biblica Open Bible Maps PNG assets
 ## Design
 
 Dark ink/parchment palette with a brass accent for primary actions and a verdigris accent for cross-references and annotations. Source Serif 4 for display text, IBM Plex Sans for UI, IBM Plex Mono for module codes and references. Responsive at the `lg` Tailwind breakpoint (1024px).
+
+**Theming** is implemented via CSS custom properties on the `<html>` element (`[data-theme="..."]`). Tailwind colors are defined as `rgb(var(--color-NAME) / <alpha-value>)` to preserve opacity-modifier support. The active theme is stored in `localStorage` and applied synchronously in `main.jsx` before React hydrates, eliminating flash-of-wrong-theme. Six themes ship out of the box. Custom themes can be installed from Admin → Branding by pasting a JSON object — see `example-theme.json` in the repo root for the full format:
+
+```json
+{
+  "id": "forest",
+  "name": "Forest",
+  "colors": {
+    "ink":          "10 20 15",
+    "panel":        "16 30 22",
+    "rule":         "30 50 38",
+    "parchment":    "240 245 238",
+    "muted":        "120 148 130",
+    "brass":        "90 180 100",
+    "verdigris":    "50 140 110",
+    "page":         "232 238 220",
+    "page-text":    "25 40 28",
+    "page-muted":   "90 115 85",
+    "page-accent":  "60 130 70",
+    "page-border":  "190 210 180"
+  },
+  "fonts": {
+    "display": "lora",
+    "ui":      "dm-sans"
+  }
+}
+```
+
+Color values are **space-separated RGB channels** (not hex) so Tailwind's opacity modifiers (`bg-ink/50`) work at runtime. `fonts` is optional; valid font IDs are `inter`, `space-grotesk`, `source-serif`, `lora`, `merriweather`, `dm-sans`, `ibm-plex-sans`, `nunito-sans`.

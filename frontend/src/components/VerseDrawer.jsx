@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, ChevronLeft, ArrowUpRight } from 'lucide-react';
 import { api } from '../api/client.js';
 
 function osisToRef(str) {
@@ -15,8 +15,6 @@ function osisToRef(str) {
  * rendered content navigates the drawer itself (back button appears),
  * exactly the way StrongsDrawer handles dict-xref clicks. */
 export default function VerseDrawer({ osisRef, module, onClose, onOpenInTab }) {
-  // Internal history lets cross-reference clicks navigate within the drawer
-  // without closing it — same pattern as StrongsDrawer's key history.
   const [history, setHistory] = useState([osisRef]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
@@ -27,7 +25,6 @@ export default function VerseDrawer({ osisRef, module, onClose, onOpenInTab }) {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // When the external prop changes (new click), reset history
   useEffect(() => {
     setHistory([osisRef]);
     setHistoryIndex(0);
@@ -63,72 +60,71 @@ export default function VerseDrawer({ osisRef, module, onClose, onOpenInTab }) {
   }
 
   function handleContentClick(e) {
-    // Cross-reference marker (xref-marker carries data-refs as comma list)
     const xref = e.target.closest('.xref-marker[data-refs]');
     if (xref) { pushRef(xref.dataset.refs); return; }
-    // Inline verse reference (verse-ref carries data-ref)
     const vref = e.target.closest('.verse-ref[data-ref]');
     if (vref) { pushRef(vref.dataset.ref); return; }
   }
 
   return (
-    <div className="shrink-0 border-t border-pageBorder bg-page">
-      {/* Drawer header */}
-      <div className="flex items-center gap-2 border-b border-pageBorder/50 px-4 py-1.5">
+    <div className="shrink-0 border-t-2 border-verdigris/30 bg-ink">
+      {/* Header */}
+      <div className="flex items-center gap-2 border-b border-rule/40 px-4 py-2">
         {historyIndex > 0 && (
           <button
             onClick={goBack}
             title="Back"
-            className="shrink-0 rounded border border-pageBorder px-1.5 py-0.5 font-mono text-xs text-pageMuted hover:border-brass hover:text-pageText"
+            className="shrink-0 rounded p-0.5 text-muted hover:text-parchment"
           >
-            ‹
+            <ChevronLeft size={14} />
           </button>
         )}
-        <span className="font-mono text-xs uppercase tracking-wide text-verdigris">
+        <span className="font-mono text-xs font-semibold tracking-wider text-verdigris">
           {refs.join(' · ')}
         </span>
         <button
           onClick={onClose}
-          className="ml-auto rounded p-0.5 text-pageMuted/60 hover:text-pageText"
+          className="ml-auto rounded p-1 text-muted/50 transition-colors hover:text-parchment"
         >
           <X size={13} />
         </button>
       </div>
 
-      {/* Drawer body */}
+      {/* Body */}
       <div className="max-h-48 overflow-y-auto px-4 py-3">
-        {loading && <p className="text-sm text-pageMuted">Loading…</p>}
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {loading && <p className="text-xs text-muted">Loading…</p>}
+        {error && <p className="text-xs text-red-400">{error}</p>}
 
         {entries?.map(({ ref, verses }, i) => {
           const VERSE_CAP = 2;
           const truncated = verses.length > VERSE_CAP;
           const displayed = truncated ? verses.slice(0, VERSE_CAP) : verses;
           return (
-            <div key={ref} className={i > 0 ? 'mt-3 border-t border-pageBorder pt-3' : ''}>
+            <div key={ref} className={i > 0 ? 'mt-3 border-t border-rule/30 pt-3' : ''}>
               {entries.length > 1 && (
-                <p className="mb-1 font-mono text-xs text-pageMuted">{ref}</p>
+                <p className="mb-1 font-mono text-xs text-muted">{ref}</p>
               )}
               <p
-                className="verse-content mb-2 break-words font-display text-sm leading-relaxed text-pageText"
+                className="verse-content mb-2 break-words text-sm leading-relaxed text-parchment/80"
                 onClick={handleContentClick}
               >
                 {displayed.map((v) => (
                   <span key={`${v.chapter}-${v.verseNr}`}>
-                    <sup className="mr-0.5 text-micro text-pageMuted">{v.verseNr}</sup>
+                    <sup className="mr-0.5 text-micro text-muted">{v.verseNr}</sup>
                     <span dangerouslySetInnerHTML={{ __html: v.content }} />{' '}
                   </span>
                 ))}
-                {truncated && <span className="text-pageMuted">…</span>}
+                {truncated && <span className="text-muted">…</span>}
               </p>
               {onOpenInTab && (
                 <button
                   onClick={() => onOpenInTab(module, osisToRef(ref))}
-                  className="text-xs text-verdigris hover:text-brass"
+                  className="flex items-center gap-1 text-xs text-verdigris transition-colors hover:text-brass"
                 >
+                  <ArrowUpRight size={11} />
                   {truncated
-                    ? `See all ${verses.length} verses in tab →`
-                    : 'Open in tab →'}
+                    ? `See all ${verses.length} verses in tab`
+                    : 'Open in tab'}
                 </button>
               )}
             </div>

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import { api } from '../api/client.js';
+import { FONTS, applyFont, applyCustomThemeColors, clearCustomThemeColors } from '../utils/themes.js';
 
 const TABS = ['Users', 'Modules', 'Posts', 'Media', 'Metrics', 'Branding', 'Devotionals', 'Reading Plans', 'Codex'];
 const MODULE_TYPES = ['BIBLE', 'COMMENTARY', 'DICT', 'BOOK'];
@@ -20,15 +22,15 @@ export default function AdminView() {
   const [tab, setTab] = useState('Users');
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6">
+    <div className="h-full overflow-y-auto px-6 py-6 [scrollbar-gutter:stable]">
       <div className="mx-auto max-w-5xl">
         <h2 className="mb-4 font-display text-2xl text-parchment">Admin</h2>
-        <div className="mb-6 flex border-b border-rule">
+        <div className="mb-6 flex flex-wrap gap-x-1 border-b border-rule">
           {TABS.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm ${tab === t ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors ${tab === t ? 'border-b-2 border-brass text-parchment' : 'text-muted hover:text-parchment'}`}
             >
               {t}
             </button>
@@ -865,19 +867,20 @@ function MetricsTab() {
   );
 }
 
-const THEMES = [
-  { id: 'scriptorium', label: 'Scriptorium', bg: '#0D1B29', accent: '#E8A441', desc: 'Dark navy & gold' },
-  { id: 'vesper',      label: 'Vesper',      bg: '#140D07', accent: '#D49D3C', desc: 'Warm sepia & amber' },
-  { id: 'aegean',      label: 'Aegean',      bg: '#081424', accent: '#38B2AC', desc: 'Deep ocean & teal' },
-  { id: 'codex',       label: 'Codex',       bg: '#0D0D12', accent: '#C0392B', desc: 'Charcoal & crimson' },
-  { id: 'gruvbox',     label: 'Gruvbox',     bg: '#1d2021', accent: '#fabd2f', desc: 'Earthy dark & yellow' },
+const BUILT_IN_THEMES = [
+  { id: 'classic', label: 'Classic', bg: '#0D1B29', accent: '#E8A441', desc: 'Dark navy & gold' },
+  { id: 'ember',   label: 'Ember',   bg: '#15171C', accent: '#C23B22', desc: 'Dark ink & seal red' },
+  { id: 'vesper',  label: 'Vesper',  bg: '#140D07', accent: '#D49D3C', desc: 'Warm sepia & amber' },
+  { id: 'aegean',  label: 'Aegean',  bg: '#081424', accent: '#38B2AC', desc: 'Deep ocean & teal' },
+  { id: 'codex',   label: 'Codex',   bg: '#0D0D12', accent: '#C0392B', desc: 'Charcoal & crimson' },
+  { id: 'gruvbox', label: 'Gruvbox', bg: '#1d2021', accent: '#fabd2f', desc: 'Earthy dark & yellow' },
 ];
 
 function BrandingTab() {
   const [name, setName] = useState('');
   const [siteUrl, setSiteUrl] = useState('');
   const [logoUrl, setLogoUrl] = useState(null);
-  const [theme, setThemeState] = useState('scriptorium');
+  const [theme, setThemeState] = useState('classic');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -885,6 +888,13 @@ function BrandingTab() {
   const [logoError, setLogoError] = useState(null);
   const [saved, setSaved] = useState(false);
   const logoInputRef = useRef(null);
+  const [displayFont, setDisplayFont] = useState('inter');
+  const [uiFont, setUiFont] = useState('inter');
+  const [customThemes, setCustomThemes] = useState([]);
+  const [showInstaller, setShowInstaller] = useState(false);
+  const [installJson, setInstallJson] = useState('');
+  const [installError, setInstallError] = useState(null);
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     api
@@ -893,7 +903,10 @@ function BrandingTab() {
         setName(b.name);
         setSiteUrl(b.siteUrl || '');
         setLogoUrl(b.logoUrl || null);
-        setThemeState(b.theme || 'scriptorium');
+        setThemeState(b.theme || 'classic');
+        setDisplayFont(b.displayFont || 'inter');
+        setUiFont(b.uiFont || 'inter');
+        setCustomThemes(b.customThemes || []);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -905,11 +918,18 @@ function BrandingTab() {
     setError(null);
     setSaved(false);
     try {
-      const updated = await api.saveBrandingSettings({ name, siteUrl, theme });
+      const knownFontIds = new Set(FONTS.map(f => f.id));
+      const updated = await api.saveBrandingSettings({
+        name,
+        siteUrl,
+        theme: theme === 'classic' ? null : theme,
+        displayFont: (!displayFont || displayFont === 'inter' || !knownFontIds.has(displayFont)) ? null : displayFont,
+        uiFont: (!uiFont || uiFont === 'inter' || !knownFontIds.has(uiFont)) ? null : uiFont,
+      });
       if (updated.name !== undefined) setName(updated.name);
       if (updated.siteUrl !== undefined) setSiteUrl(updated.siteUrl || '');
       setSaved(true);
-      setTimeout(() => setSaved(false), 1500);
+      setTimeout(() => window.location.reload(), 800);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -943,20 +963,70 @@ function BrandingTab() {
     }
   }
 
-  function handleThemeSelect(id) {
+  function handleThemeSelect(id, customThemeData) {
     setThemeState(id);
-    // Live preview — apply immediately
-    if (id === 'scriptorium') {
+    clearCustomThemeColors();
+    if (id === 'classic') {
       document.documentElement.removeAttribute('data-theme');
+    } else if (customThemeData?.colors) {
+      document.documentElement.removeAttribute('data-theme');
+      applyCustomThemeColors(customThemeData.colors);
+      if (customThemeData.fonts?.display && FONTS.some(f => f.id === customThemeData.fonts.display)) { setDisplayFont(customThemeData.fonts.display); applyFont('display', customThemeData.fonts.display); }
+      if (customThemeData.fonts?.ui && FONTS.some(f => f.id === customThemeData.fonts.ui)) { setUiFont(customThemeData.fonts.ui); applyFont('ui', customThemeData.fonts.ui); }
     } else {
       document.documentElement.setAttribute('data-theme', id);
+    }
+  }
+
+  function handleDisplayFontChange(fontId) {
+    setDisplayFont(fontId);
+    applyFont('display', fontId);
+  }
+
+  function handleUiFontChange(fontId) {
+    setUiFont(fontId);
+    applyFont('ui', fontId);
+    applyFont('heading', fontId);
+  }
+
+  async function handleInstallTheme() {
+    setInstallError(null);
+    setInstalling(true);
+    try {
+      const parsed = JSON.parse(installJson);
+      const saved = await api.saveCustomTheme(parsed);
+      setCustomThemes((prev) => {
+        const idx = prev.findIndex((t) => t.id === saved.id);
+        if (idx >= 0) { const copy = [...prev]; copy[idx] = saved; return copy; }
+        return [...prev, saved];
+      });
+      setInstallJson('');
+      setShowInstaller(false);
+    } catch (e) {
+      setInstallError(e.message || 'Invalid JSON — check the format and try again.');
+    } finally {
+      setInstalling(false);
+    }
+  }
+
+  async function handleDeleteCustomTheme(id) {
+    try {
+      await api.deleteCustomTheme(id);
+      setCustomThemes((prev) => prev.filter((t) => t.id !== id));
+      if (theme === id) {
+        setThemeState('classic');
+        clearCustomThemeColors();
+        document.documentElement.removeAttribute('data-theme');
+      }
+    } catch (e) {
+      setError(e.message);
     }
   }
 
   if (loading) return <p className="text-sm text-muted">Loading…</p>;
 
   return (
-    <div className="max-w-lg space-y-4">
+    <div className="space-y-4">
       {/* Name + URL */}
       <div className="space-y-3 rounded-md border border-rule p-4">
         <div>
@@ -982,7 +1052,7 @@ function BrandingTab() {
             type="url"
             value={siteUrl}
             onChange={(e) => setSiteUrl(e.target.value)}
-            placeholder="https://myscriptorium.net"
+            placeholder="https://scriptkata.com"
             maxLength={255}
             className="w-full rounded border border-rule bg-ink px-3 py-2 text-sm text-parchment placeholder:text-muted focus:border-brass focus:outline-none"
           />
@@ -1031,26 +1101,135 @@ function BrandingTab() {
       {/* Theme */}
       <div className="rounded-md border border-rule p-4">
         <p className="mb-3 text-xs uppercase tracking-wide text-muted">Theme</p>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-          {THEMES.map((t) => (
+
+        {/* Built-in themes */}
+        <div className={`grid gap-2 grid-cols-3 sm:grid-cols-6`}>
+          {BUILT_IN_THEMES.map((t) => (
             <button
-              type="button"
               key={t.id}
+              type="button"
               onClick={() => handleThemeSelect(t.id)}
-              className={`flex flex-col items-center gap-2 rounded-md border p-3 text-center transition-colors ${
-                theme === t.id ? 'border-brass bg-brass/10' : 'border-rule hover:border-rule/80 hover:bg-ink/30'
+              className={`flex flex-col items-center gap-1.5 rounded-lg border p-2 transition-colors ${
+                theme === t.id ? 'border-brass/60 bg-brass/10' : 'border-rule/40 hover:border-rule'
               }`}
             >
-              <div className="flex gap-1">
-                <span className="h-5 w-5 rounded-full border border-white/10" style={{ backgroundColor: t.bg }} />
-                <span className="h-5 w-5 rounded-full border border-white/10" style={{ backgroundColor: t.accent }} />
-              </div>
-              <span className="text-xs font-medium text-parchment">{t.label}</span>
-              <span className="text-nano text-muted">{t.desc}</span>
+              <span
+                className="h-8 w-full rounded"
+                style={{ background: `linear-gradient(135deg, ${t.bg} 60%, ${t.accent} 100%)` }}
+              />
+              <span className="text-xs text-parchment/80">{t.label}</span>
             </button>
           ))}
         </div>
+
+        {/* Custom themes */}
+        {customThemes.length > 0 && (
+          <div className="mt-3">
+            <p className="mb-1.5 text-xs uppercase tracking-wide text-muted">Installed</p>
+            <div className="grid gap-2 grid-cols-3 sm:grid-cols-6">
+              {customThemes.map((t) => {
+                const bg = `rgb(${t.colors?.ink || '13 27 41'})`;
+                const accent = `rgb(${t.colors?.brass || '232 164 65'})`;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => handleThemeSelect(t.id, t)}
+                    className={`group relative flex flex-col items-center gap-1.5 rounded-lg border p-2 transition-colors ${
+                      theme === t.id ? 'border-brass/60 bg-brass/10' : 'border-rule/40 hover:border-rule'
+                    }`}
+                  >
+                    <span
+                      className="h-8 w-full rounded"
+                      style={{ background: `linear-gradient(135deg, ${bg} 60%, ${accent} 100%)` }}
+                    />
+                    <span className="text-xs text-parchment/80 truncate w-full text-center">{t.name}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteCustomTheme(t.id); }}
+                      className="absolute right-1 top-1 hidden rounded p-0.5 text-muted hover:text-red-400 group-hover:flex"
+                    >
+                      <X size={10} />
+                    </button>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <p className="mt-3 text-xs text-muted">Theme changes preview immediately — save to persist.</p>
+      </div>
+
+      {/* Fonts */}
+      <div className="space-y-3 rounded-md border border-rule p-4">
+        <p className="text-xs uppercase tracking-wide text-muted">Fonts</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs text-muted">Display / Reading</label>
+            <select
+              value={displayFont}
+              onChange={(e) => handleDisplayFontChange(e.target.value)}
+              className="w-full appearance-none rounded border border-rule bg-ink px-2 py-1.5 text-sm text-parchment focus:border-brass focus:outline-none cursor-pointer"
+            >
+              {FONTS.map((f) => (
+                <option key={f.id} value={f.id}>{f.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">UI / Navigation</label>
+            <select
+              value={uiFont}
+              onChange={(e) => handleUiFontChange(e.target.value)}
+              className="w-full appearance-none rounded border border-rule bg-ink px-2 py-1.5 text-sm text-parchment focus:border-brass focus:outline-none cursor-pointer"
+            >
+              {FONTS.map((f) => (
+                <option key={f.id} value={f.id}>{f.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Install custom theme */}
+      <div className="space-y-2 rounded-md border border-rule p-4">
+        <div className="flex items-center justify-between">
+          <p className="text-xs uppercase tracking-wide text-muted">Install theme</p>
+          <button
+            type="button"
+            onClick={() => { setShowInstaller((v) => !v); setInstallError(null); setInstallJson(''); }}
+            className="text-xs text-verdigris hover:text-brass"
+          >
+            {showInstaller ? 'cancel' : '+ Install from JSON'}
+          </button>
+        </div>
+
+        {showInstaller && (
+          <div className="space-y-2">
+            <textarea
+              value={installJson}
+              onChange={(e) => setInstallJson(e.target.value)}
+              rows={6}
+              spellCheck={false}
+              placeholder={'{\n  "id": "my-theme",\n  "name": "My Theme",\n  "colors": {\n    "ink": "13 27 41",\n    "brass": "232 164 65"\n  }\n}'}
+              className="w-full rounded border border-rule bg-ink px-3 py-2 font-mono text-xs text-parchment placeholder:text-muted/40 focus:border-brass focus:outline-none"
+            />
+            {installError && <p className="text-xs text-red-400">{installError}</p>}
+            <div className="text-xs text-muted">
+              Required keys: <code className="text-parchment/70">id</code> (slug), <code className="text-parchment/70">name</code>, <code className="text-parchment/70">colors</code> (object with any subset of the 12 color tokens).
+              Optional: <code className="text-parchment/70">fonts</code> {'{'} <code className="text-parchment/70">display</code>, <code className="text-parchment/70">ui</code> {'}'}.
+            </div>
+            <button
+              type="button"
+              onClick={handleInstallTheme}
+              disabled={installing || !installJson.trim()}
+              className="rounded bg-verdigris/80 px-3 py-1.5 text-xs font-medium text-parchment hover:bg-verdigris disabled:opacity-40"
+            >
+              {installing ? 'Installing…' : 'Install theme'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Save */}
@@ -1413,7 +1592,7 @@ function DevotionalsTab() {
   if (loading) return <p className="text-sm text-muted">Loading…</p>;
 
   return (
-    <div className="max-w-md">
+    <div>
       <form onSubmit={handleSave} className="space-y-3 rounded-md border border-rule p-4">
         <div>
           <label htmlFor="dev-module" className="mb-1 block text-xs uppercase tracking-wide text-muted">
