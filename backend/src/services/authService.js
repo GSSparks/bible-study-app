@@ -160,6 +160,16 @@ export async function createUser({ username, password, role = 'user' }) {
     throw err;
   }
 
+  const maxUsers = parseInt(process.env.MAX_USERS ?? '0', 10);
+  if (maxUsers > 0) {
+    const count = await prisma.user.count();
+    if (count >= maxUsers) {
+      const err = new Error(`This instance is limited to ${maxUsers} user${maxUsers === 1 ? '' : 's'}.`);
+      err.status = 403;
+      throw err;
+    }
+  }
+
   const passwordHash = await hashPassword(password);
   try {
     return await prisma.user.create({
